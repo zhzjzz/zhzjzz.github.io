@@ -25,31 +25,26 @@ void windowPrint() {
 
 //2.打印操作说明
 void printInfo() {
-	setColor(12);
-	setPos(33, 9);
-	printf("开始游戏");
+	setColor(0x01);
+	setPos(18, 2);
+	printf("下一个方块");
 
-
-	setColor(0x0a);
-	setPos(33, 15);
+	setColor(0x0f);
+	setPos(18, 12);
 	printf("操作说明");
-	setPos(31, 17);
+	setPos(18, 14);
 	printf("A/←:左移");
-	setPos(31, 18);
+	setPos(18, 15);
 	printf("D/→:右移");
-	setPos(31, 19);
+	setPos(18, 16);
 	printf("S/↓:下移");
-	setPos(31, 20);
+	setPos(18, 17);
 	printf("W/↑:旋转");
-	setPos(31, 21);
+	setPos(18, 18);
 	printf("回车直接下落");
-	setPos(31, 22);
+	setPos(18, 19);
 	printf("空格暂停");
 
-	// 显示分数
-	setColor(0x0f);
-	setPos(33, 5);
-	printf("得分：%d", grade);
 }
 
 //3.打印分数
@@ -68,7 +63,7 @@ void printGrade(int num) {
 	}
 	// 更新显示的分数
 	setColor(0x0f);
-	setPos(33, 5);
+	setPos(18, 10);
 	printf("得分：%d", grade);
 }
 
@@ -78,9 +73,10 @@ void printBlock(int x, int y, int shape, int status) {
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			if (block[shape][status][i][j] == 1) {
-				setColor(0x10);
+				setColor(0x30);
 				setPos(x + j, y + i);
 				printf("%2s", "");
+				
 			}
 		}
 	}
@@ -94,6 +90,7 @@ void deleteBlock(int x, int y, int shape, int status) {
 				setColor(0x00);
 				setPos(x + j, y + i);
 				printf("%2s", "");
+				
 			}
 		}
 	}
@@ -112,8 +109,8 @@ void startBlock() {
 
 //9.产生下一个方块
 void nextBlock() {
-	next_block.x = 33; //初始位置
-	next_block.y = 2; //初始位置
+	next_block.x = 19; //初始位置
+	next_block.y = 4; //初始位置
 	deleteBlock(next_block.x, next_block.y,
 		next_block.shape, next_block.status);
 	next_block.shape = rand() % 7; //随机产生方块
@@ -138,19 +135,16 @@ int downBlock() {
 	int res = crash(cur_block.x, cur_block.y + 1,
 		cur_block.shape, cur_block.status);
 	if (res == -1) {
-		// 保存方块到游戏池
 		save();
-		lineClear(); // 消行检测
-		int gameOver = updateGame(); // 更新游戏池显示
-		if (gameOver == 1) {
-			// 游戏结束条件
+		lineClear(); 
+		if (updateGame()) {
+			// 游戏结束
 			return -2;
 		}
 		copyBlock();
 		return -1;
 	}
 	else {
-		// 安全下移
 		deleteBlock(cur_block.x, cur_block.y,
 			cur_block.shape, cur_block.status);
 		cur_block.y++; // 下移
@@ -215,6 +209,7 @@ void changeBlock() {
 }
 
 //15.直接落底
+//返回值-1表示碰撞，0表示没有碰撞，-2表示游戏结束
 int bottomBlock() {
 	while (1) {
 		// 检查下一行是否会碰撞
@@ -294,6 +289,7 @@ int updateGame() {
 	}
 	return 0; // 游戏继续
 }
+
 //19.游戏暂停
 void pause() {
 	while (1) {
@@ -334,7 +330,7 @@ void lineDown(int line) {
 	}
 }
 
-//22.游戏结束
+//22.游戏结束效果
 void printOver() {
 	for (int i = 20; i > 0; i--) {
 		for (int j = 1; j < 16; j++) {
@@ -345,11 +341,21 @@ void printOver() {
 	}
 }
 
-//23.游戏结束菜单
+//23.一局游戏结束菜单
 void printFinish() {
+	Sleep(1000); // 延时1秒
+	system("cls");
+	// 首先将整个屏幕区域填充为黑色背景
+	setColor(0x00);  // 黑色背景，黑色前景
+	for (int i = 0; i < 45; i++) {
+		for (int j = 0; j < 60; j++) {
+			setPos(j, i);
+			printf("  ");  // 用两个空格填充一个位置
+		}
+	}
 	setColor(0x0f);
 	setPos(20, 8);
-	printf("游戏结束");
+	printf("游戏结束 得分：%d",grade);
 	setPos(20, 9);
 	printf("按Y重新开始 ");
 	setPos(20, 10);
@@ -364,11 +370,15 @@ void printFinish() {
 		endGame();
 		break;
 	default:
+		system("cls");
+		setPos(20, 8);
+		printf("输入错误，请重新输入");
+		Sleep(1000); // 延时1秒
 		printFinish();
 	}
 }
 
-//24.重新开始游戏
+//24.重新开始一局游戏
 void againGame() {
 	//清除游戏池
 	for (int i = 1; i < 21; i++) {
@@ -382,33 +392,20 @@ void againGame() {
 	gameInit();
 }
 
-//25.游戏结束界面
+//25.俄罗斯方块结束界面
 void endGame() {
 	system("cls");
+
 	setPos(21, 8);
 	setColor(12);
 	printf("游戏结束");
 
-	setPos(21, 10);
-	printf("分数：%d", grade);
 	setPos(21, 12);
 	printf("按任意键退出");
 	_getch();
 	exit(0);
 }
-
-//26.游戏开始界面
-void printStart() {
-	setPos(25, 15);
-	printf("回车开始游戏");
-}
-
-//27.清除开始动画
-void deleteStart(int x, int y) {
-	// 空实现
-}
-
-//30.游戏模式
+//30.进行游戏
 //time:游戏速度
 void gameProgress(float time) {
 	clock_t startTime = clock();
@@ -477,13 +474,13 @@ void gameProgress(float time) {
 	}
 }
 
-//31.游戏模式选择
+//31.开始一局游戏
 void gameStart() {
 	system("cls");
-	setColor(0x0a);
+	setColor(0x0b);
 	setPos(20, 8);
 	printf("输入任意数字开始游戏");
-
+	setPos(24, 9);
 	int n;
 	scanf("%1d", &n);
 	while (getchar() != '\n');
