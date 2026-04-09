@@ -3,20 +3,10 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getTopDestinations, searchDestinations } from '../api/travel'
 
-/**
- * 检索关键字：支持按名称/类别模糊查询。
- */
 const keyword = ref('')
-
-/**
- * 推荐结果列表（表格数据源）。
- */
 const rows = ref([])
 const loading = ref(false)
 
-/**
- * 读取 Top10 推荐结果。
- */
 const loadTop = async () => {
   loading.value = true
   try {
@@ -27,9 +17,6 @@ const loadTop = async () => {
   }
 }
 
-/**
- * 执行目的地检索，关键词为空时自动回退到 Top10。
- */
 const doSearch = async () => {
   if (!keyword.value.trim()) {
     await loadTop()
@@ -59,7 +46,7 @@ onMounted(loadTop)
       </div>
 
       <el-row :gutter="12" class="toolbar-row">
-        <el-col :md="12" :xs="24">
+        <el-col :md="14" :xs="24">
           <el-input
             v-model="keyword"
             placeholder="输入关键字（名称/类别）"
@@ -68,7 +55,7 @@ onMounted(loadTop)
             @keyup.enter="doSearch"
           />
         </el-col>
-        <el-col :md="12" :xs="24" class="btn-group">
+        <el-col :md="10" :xs="24" class="btn-group">
           <el-button type="primary" size="large" @click="doSearch">检索</el-button>
           <el-button size="large" @click="loadTop">Top10</el-button>
         </el-col>
@@ -86,13 +73,6 @@ onMounted(loadTop)
 </template>
 
 <style scoped>
-.destination-card {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(125, 211, 252, 0.24), transparent 22%),
-    radial-gradient(circle at 100% 100%, rgba(34, 197, 94, 0.2), transparent 24%),
-    rgba(255, 255, 255, 0.9);
-}
-
 .toolbar-row {
   margin-bottom: 16px;
 }

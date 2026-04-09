@@ -2,16 +2,10 @@
 import { onMounted, ref } from 'vue'
 import { getTopFoods } from '../api/travel'
 
-/**
- * 首页精选美食列表：用于展示系统“推荐能力”入口。
- */
 const foods = ref([])
 
-/**
- * 拉取前 5 个美食推荐，作为首页概览信息。
- */
 const loadFoods = async () => {
-  const { data } = await getTopFoods(5)
+  const { data } = await getTopFoods(6)
   foods.value = data
 }
 
@@ -21,96 +15,128 @@ onMounted(loadFoods)
 <template>
   <section class="home-page">
     <el-card class="module-card hero-card">
-      <div class="hero-text">
-        <h1>基于智能体的个性化旅游系统</h1>
-        <p>覆盖旅游前推荐、旅游中导航、旅游后日记与多人协作，支持景区+校园双场景。</p>
+      <div>
+        <h1>Find your next stay with 智能体旅游系统</h1>
+        <p>像浏览旅行杂志一样探索推荐目的地、路线规划、日记与多人协作行程。</p>
       </div>
-      <el-row :gutter="12">
-        <el-col :md="6" :sm="12" :xs="24">
-          <el-statistic title="推荐结果" :value="10" suffix="Top-K" />
-        </el-col>
-        <el-col :md="6" :sm="12" :xs="24">
-          <el-statistic title="路线策略" :value="4" suffix="种" />
-        </el-col>
-        <el-col :md="6" :sm="12" :xs="24">
-          <el-statistic title="日记交流" :value="3" suffix="类型" />
-        </el-col>
-        <el-col :md="6" :sm="12" :xs="24">
-          <el-statistic title="协作规划" :value="24" suffix="小时在线" />
-        </el-col>
-      </el-row>
+      <el-button type="primary" size="large">开始探索</el-button>
     </el-card>
 
-    <el-row :gutter="16" class="feature-row">
-      <el-col :md="12" :xs="24">
-        <el-card class="module-card feature-card">
-          <div class="module-header"><h2>核心能力</h2></div>
-          <el-timeline>
-            <el-timeline-item type="primary">目的地 Top-K 推荐 + 多关键字检索</el-timeline-item>
-            <el-timeline-item type="success">室内外路线规划 + 多交通工具混合</el-timeline-item>
-            <el-timeline-item type="warning">旅游日记管理 + 全文检索 + 热度评分</el-timeline-item>
-            <el-timeline-item type="danger">行程共创 + 权限协作 + 攻略复刻</el-timeline-item>
-          </el-timeline>
-        </el-card>
-      </el-col>
-      <el-col :md="12" :xs="24">
-        <el-card class="module-card feature-card food-card">
-          <div class="module-header"><h2>今日美食推荐</h2></div>
-          <el-empty v-if="!foods.length" description="暂无推荐数据" />
-          <el-space v-else direction="vertical" fill>
-            <el-tag
-              v-for="item in foods"
-              :key="item.id"
-              type="success"
-              size="large"
-              class="food-tag"
-            >
-              {{ item.name }} · {{ item.cuisine }} · 热度 {{ item.heat }}
-            </el-tag>
-          </el-space>
-        </el-card>
-      </el-col>
-    </el-row>
+    <section class="listings">
+      <article class="listing-card" v-for="item in foods" :key="item.id">
+        <div class="listing-media">
+          <button class="wishlist" type="button">♡</button>
+          <img src="../assets/hero.png" :alt="item.name" />
+        </div>
+        <div class="listing-body">
+          <h3>{{ item.name }}</h3>
+          <p>{{ item.cuisine }} · 热度 {{ item.heat }}</p>
+          <strong>精选推荐</strong>
+        </div>
+      </article>
+      <el-empty v-if="!foods.length" description="暂无推荐数据" />
+    </section>
   </section>
 </template>
 
 <style scoped>
 .home-page {
   display: grid;
-  gap: 16px;
+  gap: 24px;
 }
 
 .hero-card {
-  background:
-    radial-gradient(circle at 90% 10%, rgba(34, 197, 94, 0.22), transparent 28%),
-    radial-gradient(circle at 15% 85%, rgba(59, 130, 246, 0.22), transparent 25%),
-    rgba(255, 255, 255, 0.92);
+  border-radius: 32px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
 }
 
-.hero-text {
-  margin-bottom: 16px;
+.hero-card h1 {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.43;
+  letter-spacing: -0.18px;
+  color: #222222;
 }
 
-.hero-text h1 {
-  color: #1e40af;
-  font-size: 30px;
-  margin-bottom: 8px;
+.hero-card p {
+  margin-top: 8px;
+  max-width: 720px;
+  color: #6a6a6a;
+  font-size: 14px;
 }
 
-.hero-text p {
-  color: #334155;
+.listings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
 }
 
-.feature-card {
-  min-height: 320px;
+.listing-card {
+  border-radius: 20px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: rgba(0, 0, 0, 0.02) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.04) 0px 2px 6px,
+    rgba(0, 0, 0, 0.1) 0px 4px 8px;
 }
 
-.food-card {
-  background: linear-gradient(160deg, rgba(240, 253, 244, 0.95), rgba(236, 253, 245, 0.9));
+.listing-media {
+  position: relative;
+  aspect-ratio: 16 / 10;
 }
 
-.food-tag {
+.listing-media img {
   width: 100%;
-  justify-content: flex-start;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wishlist {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 12px;
+  color: #222222;
+  font-size: 16px;
+}
+
+.listing-body {
+  padding: 12px;
+}
+
+.listing-body h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+}
+
+.listing-body p {
+  margin-top: 4px;
+  color: #6a6a6a;
+  font-size: 13px;
+}
+
+.listing-body strong {
+  display: inline-block;
+  margin-top: 8px;
+  color: #ff385c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 744px) {
+  .hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>
