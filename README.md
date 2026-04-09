@@ -9,13 +9,13 @@
 
 ### 目录结构
 
-- `/frontend`：Vue3 前端（Vite）
-- `/backend`：Spring Boot 后端（Java17）
+- `/data-structrue-design-frontend`：Vue3 前端（Vite）
+- `/data-structrue-design-backend`：Spring Boot 后端（Java17）
 
 ### 后端启动
 
 ```bash
-cd backend
+cd data-structrue-design-backend
 mvn spring-boot:run
 ```
 
@@ -29,7 +29,7 @@ mvn spring-boot:run
 ### 前端启动
 
 ```bash
-cd frontend
+cd data-structrue-design-frontend
 npm install
 npm run dev
 ```
@@ -50,4 +50,3 @@ npm run dev
 - `GET /api/itineraries`
 - `POST /api/itineraries`
 - `GET /api/foods/top?k=10`
-
