@@ -1,10 +1,60 @@
 package com.travel.system.repository;
 
 import com.travel.system.model.Destination;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
-public interface DestinationRepository extends JpaRepository<Destination, Long> {
+@Mapper
+public interface DestinationRepository {
+    @Select("SELECT COUNT(1) FROM destination")
+    long count();
+
+    @Select("""
+            SELECT id, name, scene_type, category, heat, rating, description, latitude, longitude
+            FROM destination
+            """)
+    List<Destination> findAll();
+
+    @Select("""
+            SELECT id, name, scene_type, category, heat, rating, description, latitude, longitude
+            FROM destination
+            WHERE LOWER(name) LIKE CONCAT('%', LOWER(#{name}), '%')
+               OR LOWER(category) LIKE CONCAT('%', LOWER(#{category}), '%')
+            """)
     List<Destination> findByNameContainingIgnoreCaseOrCategoryContainingIgnoreCase(String name, String category);
+
+    @Insert("""
+            INSERT INTO destination(name, scene_type, category, heat, rating, description, latitude, longitude)
+            VALUES(#{name}, #{sceneType}, #{category}, #{heat}, #{rating}, #{description}, #{latitude}, #{longitude})
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(Destination destination);
+
+    @Update("""
+            UPDATE destination
+            SET name = #{name},
+                scene_type = #{sceneType},
+                category = #{category},
+                heat = #{heat},
+                rating = #{rating},
+                description = #{description},
+                latitude = #{latitude},
+                longitude = #{longitude}
+            WHERE id = #{id}
+            """)
+    int update(Destination destination);
+
+    default Destination save(Destination destination) {
+        if (destination.getId() == null) {
+            insert(destination);
+        } else {
+            update(destination);
+        }
+        return destination;
+    }
 }

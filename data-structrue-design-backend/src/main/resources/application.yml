@@ -12,5 +12,8 @@ spring:
     show-sql: false
   elasticsearch:
     uris: ${ES_URIS:http://localhost:9200}
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
 server:
   port: ${SERVER_PORT:8080}
