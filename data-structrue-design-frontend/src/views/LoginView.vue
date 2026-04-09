@@ -85,7 +85,7 @@ const submitRegister = async () => {
   <section class="login-page">
     <article class="hero-panel">
       <div class="hero-copy">
-        <span>TravelStay</span>
+        <span>Travel.AI</span>
         <h1>Belong anywhere</h1>
         <p>登录后即可使用推荐、路线、日记与协作行程能力。</p>
       </div>

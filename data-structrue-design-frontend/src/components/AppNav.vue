@@ -22,6 +22,13 @@ const go = (path) => {
   router.push(path)
 }
 
+const activateOnKeyboard = (event, path) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    go(path)
+  }
+}
+
 const logout = () => {
   appStore.logout()
   router.push('/login')
@@ -30,12 +37,24 @@ const logout = () => {
 
 <template>
   <header class="nav-shell">
-    <div class="brand" @click="go('/')">
-      <strong>TravelStay</strong>
+    <div
+      class="brand"
+      role="button"
+      tabindex="0"
+      @click="go('/')"
+      @keydown="activateOnKeyboard($event, '/')"
+    >
+      <strong>Travel.AI</strong>
       <span>个性化旅游系统</span>
     </div>
 
-    <div class="search-pill" @click="go('/destinations')">
+    <div
+      class="search-pill"
+      role="button"
+      tabindex="0"
+      @click="go('/destinations')"
+      @keydown="activateOnKeyboard($event, '/destinations')"
+    >
       <span>Anywhere</span>
       <span>Any week</span>
       <span>Add guests</span>
@@ -89,6 +108,12 @@ const logout = () => {
   flex-direction: column;
   gap: 2px;
   cursor: pointer;
+}
+
+.brand:focus-visible,
+.search-pill:focus-visible {
+  outline: 2px solid #ff385c;
+  outline-offset: 2px;
 }
 
 .brand strong {
