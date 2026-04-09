@@ -31,7 +31,6 @@ onMounted(loadFoods)
     <section class="listings">
       <article class="listing-card" v-for="item in foods" :key="item.id">
         <div class="listing-media">
-          <span class="wishlist" aria-hidden="true">♡</span>
           <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" />
           <div v-else class="image-placeholder">暂无图片</div>
         </div>
@@ -96,6 +95,22 @@ onMounted(loadFoods)
   aspect-ratio: 16 / 10;
 }
 
+.listing-media::after {
+  content: '♡';
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 12px;
+  color: #222222;
+  font-size: 16px;
+}
+
 .listing-media img {
   width: 100%;
   height: 100%;
@@ -110,25 +125,6 @@ onMounted(loadFoods)
   background: linear-gradient(135deg, #f7f7f7, #efefef);
   color: #6a6a6a;
   font-size: 13px;
-}
-
-.wishlist {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 12px;
-  color: #222222;
-  font-size: 16px;
-}
-
-.wishlist:focus-visible {
-  outline: 2px solid #ff385c;
-  outline-offset: 2px;
 }
 
 .listing-body {

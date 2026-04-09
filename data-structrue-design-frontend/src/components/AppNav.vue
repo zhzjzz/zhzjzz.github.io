@@ -49,13 +49,13 @@ const logout = () => {
       <span>Anywhere</span>
       <span>Any week</span>
       <span>Add guests</span>
-      <span class="search-btn" aria-hidden="true">
+      <span class="search-btn">
         <el-icon><Search /></el-icon>
       </span>
     </button>
 
     <div class="user-actions">
-      <span class="host-link">Become a Host</span>
+      <button class="host-link" type="button" @click="go('/itineraries')">Become a Host</button>
       <div class="user-chip">
         <span class="user-name">{{ appStore.user.name || '未登录' }}</span>
         <button class="logout-btn" type="button" @click="logout">退出</button>
