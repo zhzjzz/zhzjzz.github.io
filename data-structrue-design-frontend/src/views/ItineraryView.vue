@@ -3,15 +3,9 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createItinerary, listItineraries } from '../api/travel'
 
-/**
- * 行程列表数据，用于展示多人协作成果。
- */
 const list = ref([])
 const loading = ref(false)
 
-/**
- * 行程创建表单：包含创建人、协作人、策略和备注等核心字段。
- */
 const form = ref({
   name: '',
   owner: '演示用户',
@@ -21,9 +15,6 @@ const form = ref({
   notes: '',
 })
 
-/**
- * 拉取所有行程记录。
- */
 const load = async () => {
   loading.value = true
   try {
@@ -34,9 +25,6 @@ const load = async () => {
   }
 }
 
-/**
- * 创建新行程后刷新列表，形成实时协作感知。
- */
 const submit = async () => {
   if (!form.value.name.trim()) {
     ElMessage.warning('请输入行程名称')
@@ -119,13 +107,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.itinerary-card {
-  background:
-    radial-gradient(circle at 0% 10%, rgba(250, 204, 21, 0.2), transparent 24%),
-    radial-gradient(circle at 95% 90%, rgba(16, 185, 129, 0.2), transparent 30%),
-    rgba(255, 255, 255, 0.92);
-}
-
 .full-width {
   width: 100%;
 }

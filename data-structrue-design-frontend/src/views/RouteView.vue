@@ -3,19 +3,10 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { planRoute } from '../api/travel'
 
-/**
- * 路线规划请求参数：
- * - fromNodeId/toNodeId 为地图节点；
- * - strategy 为距离/时间策略；
- * - transport 为交通工具。
- */
 const form = ref({ fromNodeId: 1, toNodeId: 2, strategy: 'time', transport: 'walk' })
 const loading = ref(false)
 const result = ref(null)
 
-/**
- * 发起路线规划请求并展示返回结果。
- */
 const submit = async () => {
   loading.value = true
   result.value = null
@@ -95,13 +86,6 @@ const submit = async () => {
 </template>
 
 <style scoped>
-.route-card {
-  background:
-    radial-gradient(circle at 95% 5%, rgba(14, 165, 233, 0.2), transparent 22%),
-    radial-gradient(circle at 10% 90%, rgba(168, 85, 247, 0.2), transparent 30%),
-    rgba(255, 255, 255, 0.9);
-}
-
 .full-width {
   width: 100%;
 }

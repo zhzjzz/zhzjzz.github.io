@@ -3,22 +3,12 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createDiary, listDiaries, searchDiaryFullText } from '../api/travel'
 
-/**
- * 日记列表与检索状态。
- */
 const diaries = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
 const isSearchMode = ref(false)
-
-/**
- * 日记创建表单。
- */
 const form = ref({ title: '', content: '', mediaType: 'text', score: 4.5, views: 0 })
 
-/**
- * 加载所有日记。
- */
 const load = async () => {
   loading.value = true
   try {
@@ -30,9 +20,6 @@ const load = async () => {
   }
 }
 
-/**
- * 提交新日记，发布后自动刷新列表。
- */
 const submit = async () => {
   if (!form.value.title.trim() || !form.value.content.trim()) {
     ElMessage.warning('标题和内容不能为空')
@@ -44,9 +31,6 @@ const submit = async () => {
   await load()
 }
 
-/**
- * 执行全文检索，便于快速定位攻略关键词内容。
- */
 const fullText = async () => {
   if (!searchKeyword.value.trim()) {
     await load()
@@ -122,13 +106,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.diary-card {
-  background:
-    radial-gradient(circle at 90% 15%, rgba(236, 72, 153, 0.16), transparent 22%),
-    radial-gradient(circle at 8% 88%, rgba(99, 102, 241, 0.16), transparent 28%),
-    rgba(255, 255, 255, 0.92);
-}
-
 .search-row {
   margin-bottom: 14px;
 }
