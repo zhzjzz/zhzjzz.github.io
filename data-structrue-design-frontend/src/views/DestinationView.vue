@@ -46,7 +46,7 @@ onMounted(loadTop)
       </div>
 
       <el-row :gutter="12" class="toolbar-row">
-        <el-col :md="14" :xs="24">
+        <el-col :md="12" :xs="24">
           <el-input
             v-model="keyword"
             placeholder="输入关键字（名称/类别）"
@@ -55,7 +55,7 @@ onMounted(loadTop)
             @keyup.enter="doSearch"
           />
         </el-col>
-        <el-col :md="10" :xs="24" class="btn-group">
+        <el-col :md="12" :xs="24" class="btn-group">
           <el-button type="primary" size="large" @click="doSearch">检索</el-button>
           <el-button size="large" @click="loadTop">Top10</el-button>
         </el-col>

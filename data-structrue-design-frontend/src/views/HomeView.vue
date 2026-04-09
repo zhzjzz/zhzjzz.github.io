@@ -5,7 +5,7 @@ import { getTopFoods } from '../api/travel'
 const foods = ref([])
 
 const loadFoods = async () => {
-  const { data } = await getTopFoods(6)
+  const { data } = await getTopFoods(5)
   foods.value = data
 }
 
