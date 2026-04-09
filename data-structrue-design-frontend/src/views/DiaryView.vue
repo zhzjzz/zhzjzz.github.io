@@ -9,6 +9,7 @@ import { createDiary, listDiaries, searchDiaryFullText } from '../api/travel'
 const diaries = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
+const isSearchMode = ref(false)
 
 /**
  * 日记创建表单。
@@ -23,6 +24,7 @@ const load = async () => {
   try {
     const { data } = await listDiaries()
     diaries.value = data
+    isSearchMode.value = false
   } finally {
     loading.value = false
   }
@@ -53,7 +55,8 @@ const fullText = async () => {
   loading.value = true
   try {
     const { data } = await searchDiaryFullText(searchKeyword.value)
-    diaries.value = data.map((d) => ({ title: d.title, content: d.content, mediaType: 'search', score: '-', views: '-' }))
+    diaries.value = data
+    isSearchMode.value = true
   } finally {
     loading.value = false
   }
@@ -110,9 +113,9 @@ onMounted(load)
       <el-table :data="diaries" border stripe v-loading="loading">
         <el-table-column prop="title" label="标题" min-width="220" />
         <el-table-column prop="content" label="内容" min-width="380" show-overflow-tooltip />
-        <el-table-column prop="mediaType" label="媒体类型" width="120" />
-        <el-table-column prop="score" label="评分" width="100" />
-        <el-table-column prop="views" label="浏览量" width="110" />
+        <el-table-column v-if="!isSearchMode" prop="mediaType" label="媒体类型" width="120" />
+        <el-table-column v-if="!isSearchMode" prop="score" label="评分" width="100" />
+        <el-table-column v-if="!isSearchMode" prop="views" label="浏览量" width="110" />
       </el-table>
     </el-card>
   </section>

@@ -83,7 +83,7 @@ const submitLogin = async () => {
       <template #header>
         <div class="login-title">
           <h2>欢迎登录个性化旅游系统</h2>
-          <p>支持账号：demo / admin / guest</p>
+          <p>请输入账号与密码后进入系统</p>
         </div>
       </template>
       <el-form ref="formRef" :model="loginForm" :rules="formRules" label-position="top">
@@ -98,8 +98,8 @@ const submitLogin = async () => {
         </el-button>
       </el-form>
       <div class="tips">
-        <p>演示账号：</p>
-        <p>demo / 123456 · admin / admin123 · guest / guest123</p>
+        <p>演示账号：demo / admin / guest</p>
+        <p>密码信息请使用课程组分发的测试账号配置。</p>
       </div>
     </el-card>
   </section>
