@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { login } from '../api/travel'
+import { login, register } from '../api/travel'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import scene1 from '../assets/login-scene-1.svg'
@@ -19,6 +19,7 @@ const loginForm = ref({
 
 const registerForm = ref({
   username: '',
+  displayName: '',
   password: '',
   confirmPassword: '',
 })
@@ -30,6 +31,7 @@ const formRules = {
 
 const registerRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  displayName: [{ required: true, message: '请输入显示名称', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
@@ -56,12 +58,9 @@ const submitLogin = async () => {
   loading.value = true
   try {
     const { data } = await login(loginForm.value)
-    appStore.setLogin({ token: data.token, displayName: data.displayName })
-    ElMessage.success(data.message || '登录成功（当前为界面演示模式）')
-    const redirectAfterLogin = false
-    if (redirectAfterLogin) {
-      router.push('/')
-    }
+    appStore.setLogin({ token: data.token, displayName: data.displayName, interests: ['校园', '博物馆', '小吃'] })
+    ElMessage.success(data.message || '登录成功')
+    router.push('/')
   } catch (error) {
     ElMessage.error(error.response?.data?.message || '登录失败，请检查账号密码')
   } finally {
@@ -73,11 +72,26 @@ const submitRegister = async () => {
   if (!registerFormRef.value) return
   await registerFormRef.value.validate()
   registerLoading.value = true
-  setTimeout(() => {
+  try {
+    const { data } = await register({
+      username: registerForm.value.username,
+      password: registerForm.value.password,
+      displayName: registerForm.value.displayName,
+    })
+    appStore.setLogin({ token: data.token, displayName: data.displayName, interests: ['校园', '博物馆', '小吃'] })
+    registerForm.value = {
+      username: '',
+      displayName: '',
+      password: '',
+      confirmPassword: '',
+    }
+    ElMessage.success(data.message || '注册成功')
+    router.push('/')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '注册失败，请稍后重试')
+  } finally {
     registerLoading.value = false
-    ElMessage.success('注册界面演示完成，可继续切换到登录')
-    authMode.value = 'login'
-  }, 400)
+  }
 }
 </script>
 
@@ -137,6 +151,9 @@ const submitRegister = async () => {
         <el-form-item label="用户名" prop="username">
           <el-input v-model="registerForm.username" placeholder="请输入用户名" size="large" clearable />
         </el-form-item>
+        <el-form-item label="显示名称" prop="displayName">
+          <el-input v-model="registerForm.displayName" placeholder="例如：张三 / Alice" size="large" clearable />
+        </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input v-model="registerForm.password" type="password" show-password placeholder="请输入密码" size="large" />
         </el-form-item>
@@ -155,7 +172,7 @@ const submitRegister = async () => {
       </el-form>
 
       <div class="tips">
-        <p>演示账号：demo / admin / guest</p>
+        <p>默认账号：demo / 123456，admin / admin123，guest / guest123</p>
       </div>
     </el-card>
   </section>

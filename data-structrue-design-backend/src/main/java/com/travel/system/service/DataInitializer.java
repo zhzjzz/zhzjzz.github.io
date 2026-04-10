@@ -16,19 +16,22 @@ public class DataInitializer implements CommandLineRunner {
     private final DiaryRepository diaryRepository;
     private final RoadNodeRepository roadNodeRepository;
     private final RoadEdgeRepository roadEdgeRepository;
+    private final AuthService authService;
 
     public DataInitializer(DestinationRepository destinationRepository,
                            FoodRepository foodRepository,
                            FacilityRepository facilityRepository,
                            DiaryRepository diaryRepository,
                            RoadNodeRepository roadNodeRepository,
-                           RoadEdgeRepository roadEdgeRepository) {
+                           RoadEdgeRepository roadEdgeRepository,
+                           AuthService authService) {
         this.destinationRepository = destinationRepository;
         this.foodRepository = foodRepository;
         this.facilityRepository = facilityRepository;
         this.diaryRepository = diaryRepository;
         this.roadNodeRepository = roadNodeRepository;
         this.roadEdgeRepository = roadEdgeRepository;
+        this.authService = authService;
     }
 
     @Override
@@ -36,6 +39,7 @@ public class DataInitializer implements CommandLineRunner {
         Destination bupt = ensureBuptDestination();
         Destination museum = ensureMuseumDestination();
 
+        authService.ensureSeedUsers();
         ensureFacilities(bupt);
         ensureFood(bupt);
         ensureDiary(bupt);

@@ -2,6 +2,7 @@ import http from './http'
 
 // 用户登录接口：用于登录页提交账号密码。
 export const login = (payload) => http.post('/auth/login', payload)
+export const register = (payload) => http.post('/auth/register', payload)
 
 // 目的地推荐与检索相关接口。
 export const getTopDestinations = (k = 10) => http.get('/destinations/top', { params: { k } })

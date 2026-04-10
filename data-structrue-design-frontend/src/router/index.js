@@ -34,16 +34,14 @@ const router = createRouter({
  * - 已登录后访问登录页会被重定向到首页。
  */
 router.beforeEach((to) => {
-  //直接放行,后续再完善登录状态的判断逻辑
-  return true;
-  // const appStore = useAppStore()
-  // if (to.meta.public && appStore.isLoggedIn) {
-  //   return { path: '/' }
-  // }
-  // if (!to.meta.public && !appStore.isLoggedIn) {
-  //   return { path: '/login' }
-  // }
-  // return true
+  const appStore = useAppStore()
+  if (to.meta.public && appStore.isLoggedIn) {
+    return { path: '/' }
+  }
+  if (!to.meta.public && !appStore.isLoggedIn) {
+    return { path: '/login' }
+  }
+  return true
 });
 
 export default router;
