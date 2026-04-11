@@ -2,8 +2,9 @@ spring:
   application:
     name: personalized-travel-system
   datasource:
+    #  只有root用户才是dbc:mysql://localhost:3306,其他人填root的ip
     # 1. 改为真实 MySQL 的连接地址（替换 IP 和 数据库名称 travel_system）
-    url: ${MYSQL_URL:jdbc:mysql://10.122.197.38:3306/travel_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/travel_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
     # 2. 改为你 MySQL 的账号
     username: ${MYSQL_USERNAME:}
     # 3. 改为你 MySQL 的密码
