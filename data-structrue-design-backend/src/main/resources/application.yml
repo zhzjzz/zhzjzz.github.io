@@ -2,20 +2,26 @@ spring:
   application:
     name: personalized-travel-system
   datasource:
-    url: ${MYSQL_URL:jdbc:h2:file:./data/travel-system;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;AUTO_SERVER=TRUE}
-    username: ${MYSQL_USERNAME:sa}
+    # 1. 改为真实 MySQL 的连接地址（替换 IP 和 数据库名称 travel_system）
+    url: ${MYSQL_URL:jdbc:mysql://10.122.197.38:3306/travel_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    # 2. 改为你 MySQL 的账号
+    username: ${MYSQL_USERNAME:}
+    # 3. 改为你 MySQL 的密码
     password: ${MYSQL_PASSWORD:}
-    driver-class-name: ${MYSQL_DRIVER:org.h2.Driver}
+    # 4. 改为 MySQL 的驱动
+    driver-class-name: ${MYSQL_DRIVER:com.mysql.cj.jdbc.Driver}
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
   elasticsearch:
-    uris: ${ES_URIS:http://localhost:9200}
+    # 5. 改为你电脑的 IP
+    uris: ${ES_URIS:https://10.122.197.38:9200}
   data:
     elasticsearch:
       repositories:
         enabled: ${ES_REPOSITORIES_ENABLED:false}
+  # ...下面的配置保持不变即可
   h2:
     console:
       enabled: true
