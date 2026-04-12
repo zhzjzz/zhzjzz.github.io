@@ -37,7 +37,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         Destination bupt = ensureBuptDestination();
-        Destination museum = ensureMuseumDestination();
+        // Destination museum = ensureMuseumDestination();
 
         authService.ensureSeedUsers();
         ensureFacilities(bupt);
