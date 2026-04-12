@@ -17,7 +17,7 @@ import java.util.List;
  *   <li>基于热度/评分的 Top‑K 推荐接口。</li>
  * </ul>
  *
- * <p>搜索逻辑直接委托给 {@link FoodRepository}，推荐逻辑统一交给 {@link RecommendationService} 实现。
+ * <p>搜索逻辑直接委托给 {@link FoodMapper}，推荐逻辑统一交给 {@link RecommendationService} 实现。
  *
  * @author 自动生成
  */
