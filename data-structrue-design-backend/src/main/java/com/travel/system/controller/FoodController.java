@@ -1,7 +1,7 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Food;
-import com.travel.system.repository.FoodRepository;
+import com.travel.system.mapper.FoodMapper;
 import com.travel.system.service.RecommendationService;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +26,7 @@ import java.util.List;
 public class FoodController {
 
     /** 美食数据的 JPA 持久层仓库。 */
-    private final FoodRepository foodRepository;
+private final FoodMapper foodRepository;
 
     /** 推荐服务，用于计算热度/评分综合的 Top‑K 列表。 */
     private final RecommendationService recommendationService;
@@ -37,7 +37,7 @@ public class FoodController {
      * @param foodRepository          美食数据访问层
      * @param recommendationService   推荐业务层
      */
-    public FoodController(FoodRepository foodRepository,
+public FoodController(FoodMapper foodRepository,
                           RecommendationService recommendationService) {
         this.foodRepository = foodRepository;
         this.recommendationService = recommendationService;

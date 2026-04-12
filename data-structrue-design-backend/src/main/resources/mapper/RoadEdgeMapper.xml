@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.travel.system.repository.RoadEdgeRepository">
+<mapper namespace="com.travel.system.mapper.RoadEdgeMapper">
 
     <!-- 结果映射：将联表查询结果映射到 RoadEdge 及其关联的 fromNode/toNode -->
     <resultMap id="roadEdgeResultMap" type="com.travel.system.model.RoadEdge">

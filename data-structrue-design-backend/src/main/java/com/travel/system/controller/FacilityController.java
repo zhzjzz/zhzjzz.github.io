@@ -2,7 +2,7 @@ package com.travel.system.controller;
 
 import com.travel.system.dto.FacilityQueryResult;
 import com.travel.system.model.Facility;
-import com.travel.system.repository.FacilityRepository;
+import com.travel.system.mapper.FacilityMapper;
 import com.travel.system.service.FacilitySearchService;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,8 +27,8 @@ import java.util.List;
 @RequestMapping("/api/facilities")
 public class FacilityController {
 
-    /** 设施数据持久层仓库。 */
-    private final FacilityRepository facilityRepository;
+/** {@link FacilityMapper} 持久层接口 */
+private final FacilityMapper facilityRepository;
 
     /** 设施搜索服务，提供基于图结构的空间查询能力。 */
     private final FacilitySearchService facilitySearchService;
@@ -39,7 +39,7 @@ public class FacilityController {
      * @param facilityRepository    设施数据访问层
      * @param facilitySearchService 设施搜索服务
      */
-    public FacilityController(FacilityRepository facilityRepository,
+public FacilityController(FacilityMapper facilityRepository,
                               FacilitySearchService facilitySearchService) {
         this.facilityRepository = facilityRepository;
         this.facilitySearchService = facilitySearchService;

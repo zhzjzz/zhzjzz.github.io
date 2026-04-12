@@ -1,7 +1,7 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Diary;
-import com.travel.system.repository.DiaryRepository;
+import com.travel.system.mapper.DiaryMapper;
 import com.travel.system.search.DiaryDocument;
 import com.travel.system.service.DiaryService;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +28,7 @@ import java.util.List;
 public class DiaryController {
 
     /** 日记数据持久层仓库。 */
-    private final DiaryRepository diaryRepository;
+private final DiaryMapper diaryRepository;
 
     /** 日记业务逻辑服务，负责持久化与全文检索的协调。 */
     private final DiaryService diaryService;
@@ -39,7 +39,7 @@ public class DiaryController {
      * @param diaryRepository 日记数据访问层
      * @param diaryService    日记业务服务
      */
-    public DiaryController(DiaryRepository diaryRepository, DiaryService diaryService) {
+public DiaryController(DiaryMapper diaryRepository, DiaryService diaryService) {
         this.diaryRepository = diaryRepository;
         this.diaryService = diaryService;
     }

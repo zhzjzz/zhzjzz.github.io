@@ -3,7 +3,7 @@ package com.travel.system.service;
 import com.github.pagehelper.PageHelper;
 import com.travel.system.mapper.DestinationMapper;
 import com.travel.system.model.Destination;
-import com.travel.system.repository.DestinationRepository;
+import com.travel.system.mapper.DestinationRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

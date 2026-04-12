@@ -1,7 +1,7 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Destination;
-import com.travel.system.repository.DestinationRepository;
+import com.travel.system.mapper.DestinationRepository;
 import com.travel.system.service.RecommendationService;
 import org.springframework.web.bind.annotation.*;
 

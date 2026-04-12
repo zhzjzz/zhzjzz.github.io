@@ -2,11 +2,16 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.travel.system.repository.DiaryRepository">
+<mapper namespace="com.travel.system.mapper.DiaryMapper">
 
     <!-- 查询全部日记 -->
     <select id="findAll" resultType="com.travel.system.model.Diary">
         SELECT * FROM diary
+    </select>
+
+    <!-- 按 ID 查询单条日记 -->
+    <select id="findById" parameterType="long" resultType="com.travel.system.model.Diary">
+        SELECT * FROM diary WHERE id = #{id}
     </select>
 
     <!-- 按标题进行不区分大小写的模糊匹配 -->

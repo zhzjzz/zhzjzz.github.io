@@ -38,7 +38,7 @@ public interface FacilityMapper {
      * @param type 设施类型关键字
      * @return 匹配的 {@link Facility} 列表
      */
-    List<Facility> findByType(@Param("type") String type);
+List<Facility> findByFacilityTypeContainingIgnoreCase(@Param("type") String type);
 
     /**
      * 插入新设施记录。

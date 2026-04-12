@@ -1,7 +1,7 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Itinerary;
-import com.travel.system.repository.ItineraryRepository;
+import com.travel.system.mapper.ItineraryMapper;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -26,14 +26,14 @@ import java.util.List;
 public class ItineraryController {
 
     /** 行程数据的 JPA 持久层仓库。 */
-    private final ItineraryRepository itineraryRepository;
+private final ItineraryMapper itineraryRepository;
 
     /**
      * 构造函数注入 {@link ItineraryRepository}。
      *
      * @param itineraryRepository 行程持久化接口
      */
-    public ItineraryController(ItineraryRepository itineraryRepository) {
+public ItineraryController(ItineraryMapper itineraryRepository) {
         this.itineraryRepository = itineraryRepository;
     }
 

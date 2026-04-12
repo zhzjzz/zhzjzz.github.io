@@ -2,7 +2,7 @@ package com.travel.system.service;
 
 import com.github.pagehelper.PageHelper;
 import com.travel.system.model.Food;
-import com.travel.system.repository.FoodRepository;
+import com.travel.system.mapper.FoodMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,12 +23,12 @@ import java.util.List;
 @Service
 public class FoodService {
 
-    private final FoodRepository foodRepository;
+private final FoodMapper foodRepository;
     private final RecommendationService recommendationService;
 
-    public FoodService(FoodRepository foodRepository,
+public FoodService(FoodMapper foodRepository,
                        RecommendationService recommendationService) {
-        this.foodRepository = foodRepository;
+this.foodRepository = foodRepository;
         this.recommendationService = recommendationService;
     }
 

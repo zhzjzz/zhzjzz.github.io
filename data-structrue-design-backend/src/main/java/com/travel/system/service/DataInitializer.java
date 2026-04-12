@@ -1,7 +1,7 @@
 package com.travel.system.service;
 
 import com.travel.system.model.*;
-import com.travel.system.repository.*;
+import com.travel.system.mapper.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -10,27 +10,27 @@ import java.time.LocalDateTime;
 @Component
 public class DataInitializer implements CommandLineRunner {
 
-    private final DestinationRepository destinationRepository;
-    private final FoodRepository foodRepository;
-    private final FacilityRepository facilityRepository;
-    private final DiaryRepository diaryRepository;
-    private final RoadNodeRepository roadNodeRepository;
-    private final RoadEdgeRepository roadEdgeRepository;
+    private final DestinationMapper destinationMapper;
+    private final FoodMapper foodMapper;
+    private final FacilityMapper facilityMapper;
+    private final DiaryMapper diaryMapper;
+    private final RoadNodeMapper roadNodeMapper;
+    private final RoadEdgeMapper roadEdgeMapper;
     private final AuthService authService;
 
-    public DataInitializer(DestinationRepository destinationRepository,
-                           FoodRepository foodRepository,
-                           FacilityRepository facilityRepository,
-                           DiaryRepository diaryRepository,
-                           RoadNodeRepository roadNodeRepository,
-                           RoadEdgeRepository roadEdgeRepository,
+    public DataInitializer(DestinationMapper destinationMapper,
+                           FoodMapper foodMapper,
+                           FacilityMapper facilityMapper,
+                           DiaryMapper diaryMapper,
+                           RoadNodeMapper roadNodeMapper,
+                           RoadEdgeMapper roadEdgeMapper,
                            AuthService authService) {
-        this.destinationRepository = destinationRepository;
-        this.foodRepository = foodRepository;
-        this.facilityRepository = facilityRepository;
-        this.diaryRepository = diaryRepository;
-        this.roadNodeRepository = roadNodeRepository;
-        this.roadEdgeRepository = roadEdgeRepository;
+        this.destinationMapper = destinationMapper;
+        this.foodMapper = foodMapper;
+        this.facilityMapper = facilityMapper;
+        this.diaryMapper = diaryMapper;
+        this.roadNodeMapper = roadNodeMapper;
+        this.roadEdgeMapper = roadEdgeMapper;
         this.authService = authService;
     }
 
@@ -47,8 +47,8 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private Destination ensureBuptDestination() {
-        if (destinationRepository.count() > 0) {
-            return destinationRepository.findAll().stream()
+        if (destinationMapper.findAll().size() > 0) {
+            return destinationMapper.findAll().stream()
                     .filter(destination -> "北京邮电大学".equals(destination.getName()))
                     .findFirst()
                     .orElseGet(() -> {
@@ -61,7 +61,8 @@ public class DataInitializer implements CommandLineRunner {
                         destination.setDescription("信息通信特色高校");
                         destination.setLatitude(39.9652);
                         destination.setLongitude(116.3511);
-                        return destinationRepository.save(destination);
+                        destinationMapper.save(destination);
+                        return destination;
                     });
         }
 
@@ -74,11 +75,12 @@ public class DataInitializer implements CommandLineRunner {
         destination.setDescription("信息通信特色高校");
         destination.setLatitude(39.9652);
         destination.setLongitude(116.3511);
-        return destinationRepository.save(destination);
+        destinationMapper.save(destination);
+        return destination;
     }
 
     private Destination ensureMuseumDestination() {
-        return destinationRepository.findAll().stream()
+        return destinationMapper.findAll().stream()
                 .filter(destination -> "国家博物馆".equals(destination.getName()))
                 .findFirst()
                 .orElseGet(() -> {
@@ -91,12 +93,13 @@ public class DataInitializer implements CommandLineRunner {
                     destination.setDescription("综合性博物馆");
                     destination.setLatitude(39.9050);
                     destination.setLongitude(116.3976);
-                    return destinationRepository.save(destination);
+                    destinationMapper.save(destination);
+                    return destination;
                 });
     }
 
     private void ensureFacilities(Destination bupt) {
-        if (!facilityRepository.findAll().isEmpty()) {
+        if (!facilityMapper.findAll().isEmpty()) {
             return;
         }
 
@@ -106,7 +109,7 @@ public class DataInitializer implements CommandLineRunner {
         wc.setDestination(bupt);
         wc.setLatitude(39.9650);
         wc.setLongitude(116.3510);
-        facilityRepository.save(wc);
+        facilityMapper.insert(wc);
 
         Facility cafe = new Facility();
         cafe.setName("校园咖啡角");
@@ -114,7 +117,7 @@ public class DataInitializer implements CommandLineRunner {
         cafe.setDestination(bupt);
         cafe.setLatitude(39.9653);
         cafe.setLongitude(116.3514);
-        facilityRepository.save(cafe);
+        facilityMapper.insert(cafe);
 
         Facility canteen = new Facility();
         canteen.setName("学生食堂");
@@ -122,11 +125,11 @@ public class DataInitializer implements CommandLineRunner {
         canteen.setDestination(bupt);
         canteen.setLatitude(39.9648);
         canteen.setLongitude(116.3508);
-        facilityRepository.save(canteen);
+        facilityMapper.insert(canteen);
     }
 
     private void ensureFood(Destination bupt) {
-        if (!foodRepository.findAll().isEmpty()) {
+        if (!foodMapper.findAll().isEmpty()) {
             return;
         }
 
@@ -138,11 +141,11 @@ public class DataInitializer implements CommandLineRunner {
         food.setRating(4.6);
         food.setDistanceMeters(350.0);
         food.setDestination(bupt);
-        foodRepository.save(food);
+        foodMapper.insert(food);
     }
 
     private void ensureDiary(Destination bupt) {
-        if (!diaryRepository.findAll().isEmpty()) {
+        if (!diaryMapper.findAll().isEmpty()) {
             return;
         }
 
@@ -154,11 +157,11 @@ public class DataInitializer implements CommandLineRunner {
         diary.setViews(120L);
         diary.setPublishedAt(LocalDateTime.now());
         diary.setDestination(bupt);
-        diaryRepository.save(diary);
+        diaryMapper.insert(diary);
     }
 
     private void ensureRoadGraph() {
-        if (!roadNodeRepository.findAll().isEmpty()) {
+        if (!roadNodeMapper.findAll().isEmpty()) {
             return;
         }
 
@@ -167,21 +170,21 @@ public class DataInitializer implements CommandLineRunner {
         gate.setNodeType("入口");
         gate.setLatitude(39.9656);
         gate.setLongitude(116.3505);
-        roadNodeRepository.save(gate);
+        roadNodeMapper.insert(gate);
 
         RoadNode mainBuilding = new RoadNode();
         mainBuilding.setName("主楼");
         mainBuilding.setNodeType("建筑");
         mainBuilding.setLatitude(39.9651);
         mainBuilding.setLongitude(116.3510);
-        roadNodeRepository.save(mainBuilding);
+        roadNodeMapper.insert(mainBuilding);
 
         RoadNode library = new RoadNode();
         library.setName("图书馆");
         library.setNodeType("建筑");
         library.setLatitude(39.9649);
         library.setLongitude(116.3515);
-        roadNodeRepository.save(library);
+        roadNodeMapper.insert(library);
 
         createBidirectionalEdge(gate, mainBuilding, 280.0, 75.0, 0.9, "walk,bike,shuttle");
         createBidirectionalEdge(mainBuilding, library, 220.0, 70.0, 0.8, "walk,bike,shuttle");
@@ -201,7 +204,7 @@ public class DataInitializer implements CommandLineRunner {
         forward.setIdealSpeed(idealSpeed);
         forward.setCongestion(congestion);
         forward.setAllowedTransport(allowedTransport);
-        roadEdgeRepository.save(forward);
+        roadEdgeMapper.insert(forward);
 
         RoadEdge backward = new RoadEdge();
         backward.setFromNode(to);
@@ -210,6 +213,6 @@ public class DataInitializer implements CommandLineRunner {
         backward.setIdealSpeed(idealSpeed);
         backward.setCongestion(congestion);
         backward.setAllowedTransport(allowedTransport);
-        roadEdgeRepository.save(backward);
+        roadEdgeMapper.insert(backward);
     }
 }

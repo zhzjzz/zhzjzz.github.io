@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.travel.system.repository.FacilityRepository">
+<mapper namespace="com.travel.system.mapper.FacilityMapper">
 
     <!-- 结果映射：将联表查询的结果映射到 Facility 及其关联的 Destination -->
     <resultMap id="facilityResultMap" type="com.travel.system.model.Facility">

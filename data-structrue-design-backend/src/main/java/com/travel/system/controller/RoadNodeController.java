@@ -3,8 +3,8 @@ package com.travel.system.controller;
 import com.travel.system.dto.RoadGraphResponse;
 import com.travel.system.model.RoadEdge;
 import com.travel.system.model.RoadNode;
-import com.travel.system.repository.RoadEdgeRepository;
-import com.travel.system.repository.RoadNodeRepository;
+import com.travel.system.mapper.RoadEdgeMapper;
+import com.travel.system.mapper.RoadNodeMapper;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,10 +31,10 @@ import java.util.List;
 public class RoadNodeController {
 
     /** 道路节点持久层仓库。 */
-    private final RoadNodeRepository roadNodeRepository;
+private final RoadNodeMapper roadNodeRepository;
 
     /** 道路边持久层仓库，用于查询节点之间的连接关系。 */
-    private final RoadEdgeRepository roadEdgeRepository;
+private final RoadEdgeMapper roadEdgeRepository;
 
     /**
      * 构造函数注入依赖。
@@ -42,8 +42,8 @@ public class RoadNodeController {
      * @param roadNodeRepository 道路节点数据访问层
      * @param roadEdgeRepository 道路边数据访问层
      */
-    public RoadNodeController(RoadNodeRepository roadNodeRepository,
-                              RoadEdgeRepository roadEdgeRepository) {
+public RoadNodeController(RoadNodeMapper roadNodeRepository,
+                              RoadEdgeMapper roadEdgeRepository) {
         this.roadNodeRepository = roadNodeRepository;
         this.roadEdgeRepository = roadEdgeRepository;
     }

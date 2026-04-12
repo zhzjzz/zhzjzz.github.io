@@ -2,7 +2,7 @@ package com.travel.system.service;
 
 import com.travel.system.dto.RoutePlanResponse;
 import com.travel.system.model.RoadEdge;
-import com.travel.system.repository.RoadEdgeRepository;
+import com.travel.system.mapper.RoadEdgeMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -13,9 +13,9 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 @Service
 public class RoutePlanningService {
 
-    private final RoadEdgeRepository roadEdgeRepository;
+private final RoadEdgeMapper roadEdgeRepository;
 
-    public RoutePlanningService(RoadEdgeRepository roadEdgeRepository) {
+public RoutePlanningService(RoadEdgeMapper roadEdgeRepository) {
         this.roadEdgeRepository = roadEdgeRepository;
     }
 

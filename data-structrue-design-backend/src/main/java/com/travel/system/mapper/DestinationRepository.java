@@ -7,33 +7,31 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * MyBatis 映射接口，用于操作 {@link Destination} 实体。
+ * MyBatis Repository（Mapper）用于操作 {@link Destination} 实体。
  *
- * <p>本接口将复杂的查询语句提取到对应的 XML 映射文件（``DestinationMapper.xml``）中，
- * 以保持 Java 代码的简洁并遵循 “SQL 不写在注解里” 的约束。
- *
- * <p>常用的查询方法：
- *
- * <ul>
- *   <li>{@link #findAll()} – 查询全部目的地；</li>
- *   <li>{@link #findByKeyword(String)} – 按名称或类别进行模糊搜索；</li>
- *   <li>{@link #save(Destination)} – 插入或更新目的地记录（使用 MyBatis 的 {@code insert} / {@code update} 语句）。</li>
- * </ul>
+ * 与原始 repository 包中的实现保持一致。
  *
  * @author 自动生成
  */
 @Mapper
-public interface DestinationMapper {
+public interface DestinationRepository {
 
     /**
-     * 查询所有目的地。
+     * 查询目的地记录总数。
+     *
+     * @return 记录数量
+     */
+    long count();
+
+    /**
+     * 查询全部目的地。
      *
      * @return {@link Destination} 列表
      */
     List<Destination> findAll();
 
     /**
-     * 根据关键字在 {@code name} 或 {@code category} 字段进行模糊匹配（不区分大小写）。
+     * 按名称或类别关键字进行模糊搜索（不区分大小写）。
      *
      * @param keyword 关键字
      * @return 匹配的 {@link Destination}
@@ -44,6 +42,7 @@ public interface DestinationMapper {
      * 插入新目的地记录。
      *
      * @param destination 目的地实体
+     * @return 受影响的行数
      */
     int insert(Destination destination);
 
@@ -51,6 +50,7 @@ public interface DestinationMapper {
      * 更新已有目的地记录。
      *
      * @param destination 目的地实体
+     * @return 受影响的行数
      */
     int update(Destination destination);
 

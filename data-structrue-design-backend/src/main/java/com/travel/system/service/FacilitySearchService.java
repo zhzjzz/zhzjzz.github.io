@@ -3,8 +3,8 @@ package com.travel.system.service;
 import com.travel.system.dto.FacilityQueryResult;
 import com.travel.system.model.Facility;
 import com.travel.system.model.RoadNode;
-import com.travel.system.repository.FacilityRepository;
-import com.travel.system.repository.RoadNodeRepository;
+import com.travel.system.mapper.FacilityMapper;
+import com.travel.system.mapper.RoadNodeMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -16,12 +16,12 @@ import java.util.stream.Collectors;
 
 @Service
 public class FacilitySearchService {
-    private final FacilityRepository facilityRepository;
-    private final RoadNodeRepository roadNodeRepository;
+private final FacilityMapper facilityRepository;
+private final RoadNodeMapper roadNodeRepository;
     private final RoutePlanningService routePlanningService;
 
-    public FacilitySearchService(FacilityRepository facilityRepository,
-                                 RoadNodeRepository roadNodeRepository,
+public FacilitySearchService(FacilityMapper facilityRepository,
+                                 RoadNodeMapper roadNodeRepository,
                                  RoutePlanningService routePlanningService) {
         this.facilityRepository = facilityRepository;
         this.roadNodeRepository = roadNodeRepository;

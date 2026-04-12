@@ -4,7 +4,7 @@ import com.travel.system.dto.LoginRequest;
 import com.travel.system.dto.LoginResponse;
 import com.travel.system.dto.RegisterRequest;
 import com.travel.system.model.UserAccount;
-import com.travel.system.repository.UserAccountRepository;
+import com.travel.system.mapper.UserAccountMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -35,11 +35,11 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
-    /** 用户账户 JPA 仓库，用于查询、保存用户信息。 */
-    private final UserAccountRepository userAccountRepository;
+    /** 用户账户 MyBatis Mapper，用于查询、保存用户信息。 */
+    private final UserAccountMapper userAccountMapper;
 
-    public AuthService(UserAccountRepository userAccountRepository) {
-        this.userAccountRepository = userAccountRepository;
+    public AuthService(UserAccountMapper userAccountMapper) {
+        this.userAccountMapper = userAccountMapper;
     }
 
     /**
@@ -56,7 +56,7 @@ public class AuthService {
      * @return 登录成功后的响应对象
      */
     public LoginResponse login(LoginRequest request) {
-        UserAccount user = userAccountRepository.findByUsername(request.getUsername())
+        UserAccount user = userAccountMapper.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误，请重试"));
 
         // 对比密码哈希，确保安全性
@@ -83,7 +83,7 @@ public class AuthService {
      * @return 注册成功后的登录响应
      */
     public LoginResponse register(RegisterRequest request) {
-        if (userAccountRepository.existsByUsername(request.getUsername())) {
+        if (userAccountMapper.existsByUsername(request.getUsername())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "用户名已存在，请更换后重试");
         }
 
@@ -93,7 +93,7 @@ public class AuthService {
         user.setDisplayName(request.getDisplayName());
         // 示例兴趣标签，可根据业务需求动态填充
         user.setInterests("校园,博物馆,美食");
-        userAccountRepository.save(user);
+        userAccountMapper.save(user);
 
         String token = "demo-token-" + UUID.randomUUID();
         return new LoginResponse(true, user.getDisplayName(), token, "注册成功，已自动登录");
@@ -106,7 +106,7 @@ public class AuthService {
      * 否则遍历预设的 {@link SeedUser} 列表，逐条检查用户名是否已存在，未存在则创建。
      */
     public void ensureSeedUsers() {
-        if (userAccountRepository.count() >= 10) {
+        if (userAccountMapper.count() >= 10) {
             return;
         }
 
@@ -124,13 +124,13 @@ public class AuthService {
         );
 
         for (SeedUser seedUser : seedUsers) {
-            userAccountRepository.findByUsername(seedUser.username()).orElseGet(() -> {
+            userAccountMapper.findByUsername(seedUser.username()).orElseGet(() -> {
                 UserAccount user = new UserAccount();
                 user.setUsername(seedUser.username());
                 user.setPasswordHash(sha256(seedUser.password()));
                 user.setDisplayName(seedUser.displayName());
                 user.setInterests(seedUser.interests());
-                return userAccountRepository.save(user);
+                return userAccountMapper.save(user);
             });
         }
     }

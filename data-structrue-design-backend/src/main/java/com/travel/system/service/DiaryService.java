@@ -1,8 +1,8 @@
 package com.travel.system.service;
 
 import com.travel.system.model.Diary;
-import com.travel.system.repository.DiaryRepository;
-import com.travel.system.repository.DiarySearchRepository;
+import com.travel.system.mapper.DiarySearchRepository;
+import com.travel.system.mapper.DiaryMapper;
 import com.travel.system.search.DiaryDocument;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -11,10 +11,10 @@ import java.util.List;
 
 @Service
 public class DiaryService {
-    private final DiaryRepository diaryRepository;
+private final DiaryMapper diaryRepository;
     private final DiarySearchRepository diarySearchRepository;
 
-    public DiaryService(DiaryRepository diaryRepository,
+public DiaryService(DiaryMapper diaryRepository,
                         ObjectProvider<DiarySearchRepository> diarySearchRepositoryProvider) {
         this.diaryRepository = diaryRepository;
         this.diarySearchRepository = diarySearchRepositoryProvider.getIfAvailable();
