@@ -30,8 +30,8 @@
     <!-- 插入新日记记录 -->
     <insert id="insert" parameterType="com.travel.system.model.Diary"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO diary(title, content, user_id, create_time, update_time)
-        VALUES(#{title}, #{content}, #{userId}, #{createTime}, #{updateTime})
+        INSERT INTO diary(title, content, media_type, media_url, published_at, score, views, destination_id)
+        VALUES(#{title}, #{content}, #{mediaType}, #{mediaUrl}, #{publishedAt}, #{score}, #{views}, #{destination.id})
     </insert>
 
     <!-- 更新已有日记记录 -->
@@ -39,9 +39,12 @@
         UPDATE diary
         SET title = #{title},
             content = #{content},
-            user_id = #{userId},
-            create_time = #{createTime},
-            update_time = #{updateTime}
+            media_type = #{mediaType},
+            media_url = #{mediaUrl},
+            published_at = #{publishedAt},
+            score = #{score},
+            views = #{views},
+            destination_id = #{destination.id}
         WHERE id = #{id}
     </update>
 
