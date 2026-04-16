@@ -1,7 +1,7 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Food;
-import com.travel.system.mapper.FoodMapper;
+import com.travel.system.service.FoodService;
 import com.travel.system.service.RecommendationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,11 +17,9 @@ import java.util.List;
  * <p>提供两类功能：
  *
  * <ul>
- *   <li>基于关键字的模糊搜索（在名称、菜系、门店名上同时匹配）；</li>
+ *   <li>基于关键字的模糊搜索（优先使用 Elasticsearch 在名称、菜系、门店名上同时匹配）；</li>
  *   <li>基于热度/评分的 Top‑K 推荐接口。</li>
  * </ul>
- *
- * <p>搜索逻辑直接委托给 {@link FoodMapper}，推荐逻辑统一交给 {@link RecommendationService} 实现。
  *
  * @author 自动生成
  */
@@ -30,8 +28,8 @@ import java.util.List;
 @Tag(name = "美食管理", description = "美食查询、推荐等相关接口")
 public class FoodController {
 
-    /** 美食数据的 JPA 持久层仓库。 */
-private final FoodMapper foodRepository;
+    /** 美食业务服务，负责搜索与持久化（支持 Elasticsearch）。 */
+    private final FoodService foodService;
 
     /** 推荐服务，用于计算热度/评分综合的 Top‑K 列表。 */
     private final RecommendationService recommendationService;
@@ -39,33 +37,30 @@ private final FoodMapper foodRepository;
     /**
      * 构造函数注入依赖。
      *
-     * @param foodRepository          美食数据访问层
+     * @param foodService             美食业务服务
      * @param recommendationService   推荐业务层
      */
-public FoodController(FoodMapper foodRepository,
+    public FoodController(FoodService foodService,
                           RecommendationService recommendationService) {
-        this.foodRepository = foodRepository;
+        this.foodService = foodService;
         this.recommendationService = recommendationService;
     }
 
     /**
      * 关键字搜索美食。
      *
+     * <p>优先使用 Elasticsearch 进行模糊搜索，若 ES 不可用则回退到 MySQL 查询。
+     *
      * @param keyword 可选的搜索关键字；若为 {@code null} 或空字符串，则返回全部美食
      * @return 匹配的 {@link Food} 列表
      */
-    @Operation(summary = "搜索美食", description = "支持名称、菜系、店名关键字模糊搜索")
+    @Operation(summary = "搜索美食", description = "支持名称、菜系、店名关键字模糊搜索（优先使用 Elasticsearch）")
     @ApiResponse(responseCode = "200", description = "搜索成功")
     @GetMapping
     public List<Food> search(
             @Parameter(description = "搜索关键字") @RequestParam(required = false) String keyword) {
-        if (keyword == null || keyword.isBlank()) {
-            // 未提供关键字，返回所有记录
-            return foodRepository.findAll();
-        }
-        // 在名称、菜系、店名三个字段进行不区分大小写的模糊匹配
-        // 使用统一的关键字搜索方法
-        return foodRepository.findByKeyword(keyword);
+        // 通过 Service 层处理搜索，优先使用 ES
+        return foodService.search(keyword, 1, Integer.MAX_VALUE);
     }
 
     /**
@@ -79,7 +74,7 @@ public FoodController(FoodMapper foodRepository,
     @GetMapping("/top")
     public List<Food> top(
             @Parameter(description = "返回数量，默认为10") @RequestParam(defaultValue = "10") int k) {
-        // 先读取所有美食，再交由推荐服务完成排序截取
-        return recommendationService.topKFood(foodRepository.findAll(), k);
+        // 使用 Service 层获取 Top-K 推荐
+        return foodService.topK(k);
     }
 }

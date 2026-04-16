@@ -1,7 +1,6 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Diary;
-import com.travel.system.mapper.DiaryMapper;
 import com.travel.system.search.DiaryDocument;
 import com.travel.system.service.DiaryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,7 +18,7 @@ import java.util.List;
  * <p>提供以下功能：
  *
  * <ul>
- *   <li>日记列表查询并支持标题模糊搜索；</li>
+ *   <li>日记列表查询并支持标题/内容全文搜索（优先使用 Elasticsearch）；</li>
  *   <li>新增日记并同步写入 Elasticsearch 索引；</li>
  *   <li>基于 Elasticsearch 的全文检索接口。</li>
  * </ul>
@@ -33,40 +32,33 @@ import java.util.List;
 @Tag(name = "旅游日记", description = "日记查询、创建、全文搜索等相关接口")
 public class DiaryController {
 
-    /** 日记数据持久层仓库。 */
-private final DiaryMapper diaryRepository;
-
-    /** 日记业务逻辑服务，负责持久化与全文检索的协调。 */
+    /** 日记业务逻辑服务，负责持久化与全文检索的协调（支持 Elasticsearch）。 */
     private final DiaryService diaryService;
 
     /**
      * 构造函数注入依赖。
      *
-     * @param diaryRepository 日记数据访问层
      * @param diaryService    日记业务服务
      */
-public DiaryController(DiaryMapper diaryRepository, DiaryService diaryService) {
-        this.diaryRepository = diaryRepository;
+    public DiaryController(DiaryService diaryService) {
         this.diaryService = diaryService;
     }
 
     /**
      * 查询日记列表。
      *
-     * @param title 可选的标题关键字；若为 {@code null} 或空字符串，则返回全部日记
+     * <p>优先使用 Elasticsearch 进行全文搜索，若 ES 不可用则回退到 MySQL 查询。
+     *
+     * @param keyword 可选的关键字（标题或内容）；若为 {@code null} 或空字符串，则返回全部日记
      * @return 符合条件的 {@link Diary} 列表
      */
-    @Operation(summary = "查询日记列表", description = "支持标题关键字模糊搜索，无关键字则返回所有日记")
+    @Operation(summary = "查询日记列表", description = "支持标题/内容全文搜索（优先使用 Elasticsearch），无关键字则返回所有日记")
     @ApiResponse(responseCode = "200", description = "查询成功")
     @GetMapping
     public List<Diary> list(
-            @Parameter(description = "标题关键字，用于模糊匹配") @RequestParam(required = false) String title) {
-        if (title == null || title.isBlank()) {
-            // 未指定关键字，返回所有日记记录
-            return diaryRepository.findAll();
-        }
-        // 在标题字段进行模糊匹配（不区分大小写）
-        return diaryRepository.findByTitleContainingIgnoreCase(title);
+            @Parameter(description = "关键字，用于模糊匹配标题或内容") @RequestParam(required = false) String keyword) {
+        // 通过 Service 层处理搜索，优先使用 ES 全文搜索
+        return diaryService.list(keyword);
     }
 
     /**

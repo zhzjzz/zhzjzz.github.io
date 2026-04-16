@@ -1,12 +1,16 @@
 package com.travel.system.service;
 
+import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.travel.system.mapper.DestinationMapper;
+import com.travel.system.repository.DestinationSearchRepository;
 import com.travel.system.model.Destination;
-import com.travel.system.mapper.DestinationRepository;
+import com.travel.system.search.DestinationDocument;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * {@code DestinationService} 负责封装目的地相关的业务逻辑。
@@ -19,7 +23,7 @@ import java.util.List;
  *   <li>目的地新增/更新前的业务校验。</li>
  * </ul>
  *
- * <p>控制器层不再直接调用 {@link DestinationRepository}，而是统一通过 Service 层进行交互，
+ * <p>控制器层不再直接调用 Repository，而是统一通过 Service 层进行交互，
  * 便于后续增加日志、权限、缓存等横切关注点。
  *
  * @author 自动生成
@@ -29,13 +33,18 @@ public class DestinationService {
 
     /** 目的地持久层（MyBatis Mapper）。 */
     private final DestinationMapper destinationMapper;
+    
+    /** Elasticsearch 搜索仓库。 */
+    private final DestinationSearchRepository destinationSearchRepository;
 
     /** 推荐服务，用于计算热度/评分综合排序的 Top‑K 结果。 */
     private final RecommendationService recommendationService;
 
     public DestinationService(DestinationMapper destinationMapper,
+                              ObjectProvider<DestinationSearchRepository> destinationSearchRepositoryProvider,
                               RecommendationService recommendationService) {
         this.destinationMapper = destinationMapper;
+        this.destinationSearchRepository = destinationSearchRepositoryProvider.getIfAvailable();
         this.recommendationService = recommendationService;
     }
 
@@ -53,6 +62,19 @@ public class DestinationService {
         if (keyword == null || keyword.isBlank()) {
             return destinationMapper.findAll();
         }
+        
+        // 优先使用 Elasticsearch 进行模糊搜索
+        if (destinationSearchRepository != null) {
+            try {
+                List<DestinationDocument> docs = destinationSearchRepository
+                    .findByNameContainingOrCategoryContaining(keyword, keyword);
+                return docs.stream().map(this::toDestination).collect(Collectors.toList());
+            } catch (Exception e) {
+                // ES 搜索失败时回退到 MySQL
+            }
+        }
+        
+        // 使用 MySQL 进行模糊搜索
         return destinationMapper.findByKeyword(keyword);
     }
 
@@ -71,13 +93,37 @@ public class DestinationService {
     }
 
     /**
-     * 保存目的地实体（新增或更新）。
+     * 保存目的地实体（新增或更新）并同步到 Elasticsearch。
      *
      * @param destination 前端提交的目的地实体
      * @return 保存后的实体（含数据库生成的主键）
      */
     public Destination save(Destination destination) {
         destinationMapper.save(destination);
+        
+        // 同步到 Elasticsearch
+        if (destinationSearchRepository != null) {
+            try {
+                DestinationDocument doc = toDocument(destination);
+                destinationSearchRepository.save(doc);
+            } catch (Exception ignored) {
+            }
+        }
+        
         return destination;
+    }
+    
+    /**
+     * DestinationDocument 转换为 Destination
+     */
+    private Destination toDestination(DestinationDocument doc) {
+        return new Destination(doc);
+    }
+    
+    /**
+     * Destination 转换为 DestinationDocument
+     */
+    private DestinationDocument toDocument(Destination destination) {
+        return new DestinationDocument(destination);
     }
 }

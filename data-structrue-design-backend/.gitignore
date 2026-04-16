@@ -1,2 +1,12 @@
-/target/
+
 *.log
+# IDE 配置文件
+.idea/
+.vscode/
+*.iml
+
+# 编译输出目录
+bin/
+out/
+target/
+dist/

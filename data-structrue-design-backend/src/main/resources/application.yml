@@ -17,11 +17,17 @@ spring:
     show-sql: false
   elasticsearch:
     # 5. 改为你电脑的 IP
-    uris: ${ES_URIS:https://10.122.197.38:9200}
+    uris: ${ES_URIS:http://192.168.64.128:9200}
+    # 禁用 SSL 验证（本地开发环境）
+    ssl:
+      enabled: false
+    # 如果需要用户名密码认证，取消下面的注释并配置
+    # username: elastic
+    # password: your-password
   data:
     elasticsearch:
       repositories:
-        enabled: ${ES_REPOSITORIES_ENABLED:false}
+        enabled: ${ES_REPOSITORIES_ENABLED:true}
   # ...下面的配置保持不变即可
   h2:
     console:

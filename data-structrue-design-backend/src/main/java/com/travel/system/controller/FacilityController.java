@@ -22,7 +22,7 @@ import java.util.List;
  *   <li>基于位置和交通方式的附近设施搜索，返回按距离排序的结果。</li>
  * </ul>
  *
- * <p>该控制器结合 {@link FacilityRepository} 进行基础查询，
+ * <p>该控制器结合 {@link FacilityMapper} 进行基础查询，
  * 并通过 {@link FacilitySearchService} 实现基于图结构的复杂空间检索。
  *
  * @author 自动生成
@@ -32,10 +32,14 @@ import java.util.List;
 @Tag(name = "设施管理", description = "设施查询、附近搜索等相关接口")
 public class FacilityController {
 
-/** {@link FacilityMapper} 持久层接口 */
-private final FacilityMapper facilityRepository;
+    /**
+     * {@link FacilityMapper} 持久层接口
+     */
+    private final FacilityMapper facilityMapper;
 
-    /** 设施搜索服务，提供基于图结构的空间查询能力。 */
+    /**
+     * 设施搜索服务，提供基于图结构的空间查询能力。
+     */
     private final FacilitySearchService facilitySearchService;
 
     /**
@@ -44,9 +48,9 @@ private final FacilityMapper facilityRepository;
      * @param facilityRepository    设施数据访问层
      * @param facilitySearchService 设施搜索服务
      */
-public FacilityController(FacilityMapper facilityRepository,
+    public FacilityController(FacilityMapper facilityRepository,
                               FacilitySearchService facilitySearchService) {
-        this.facilityRepository = facilityRepository;
+        this.facilityMapper = facilityRepository;
         this.facilitySearchService = facilitySearchService;
     }
 
@@ -63,10 +67,10 @@ public FacilityController(FacilityMapper facilityRepository,
             @Parameter(description = "设施类型关键字，用于模糊匹配") @RequestParam(required = false) String type) {
         if (type == null || type.isBlank()) {
             // 未指定类型，返回所有设施记录
-            return facilityRepository.findAll();
+            return facilityMapper.findAll();
         }
         // 在设施类型字段进行模糊匹配（不区分大小写）
-        return facilityRepository.findByFacilityTypeContainingIgnoreCase(type);
+        return facilityMapper.findByFacilityTypeContainingIgnoreCase(type);
     }
 
     /**
@@ -75,11 +79,11 @@ public FacilityController(FacilityMapper facilityRepository,
      * <p>从指定的道路节点出发，根据交通方式（步行/骑行/驾车）计算可达设施，
      * 并按距离由近到远排序返回。支持按类型和关键字过滤，以及最大距离限制。
      *
-     * @param fromNodeId         起始道路节点 ID（必填）
-     * @param type               设施类型过滤条件（可选）
-     * @param keyword            名称或描述关键字过滤（可选）
-     * @param maxDistanceMeters  最大搜索距离（米），为空则不限（可选）
-     * @param transport          交通方式，支持 {@code walk}、{@code bike}、{@code drive}，默认 {@code walk}
+     * @param fromNodeId        起始道路节点 ID（必填）
+     * @param type              设施类型过滤条件（可选）
+     * @param keyword           名称或描述关键字过滤（可选）
+     * @param maxDistanceMeters 最大搜索距离（米），为空则不限（可选）
+     * @param transport         交通方式，支持 {@code walk}、{@code bike}、{@code drive}，默认 {@code walk}
      * @return 按距离排序的 {@link FacilityQueryResult} 列表
      */
     @Operation(summary = "附近设施搜索", description = "从指定道路节点出发，按交通方式搜索附近设施并排序")
