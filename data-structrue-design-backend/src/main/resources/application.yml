@@ -40,3 +40,11 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
 server:
   port: ${SERVER_PORT:8080}
+
+routing:
+  graphhopper:
+    enabled: ${GRAPHHOPPER_ENABLED:false}
+    osm-file: ${GRAPHHOPPER_OSM_FILE:data/osm/china-latest.osm.pbf}
+    graph-location: ${GRAPHHOPPER_GRAPH_LOCATION:data/graph-cache}
+    profile: ${GRAPHHOPPER_PROFILE:car}
+    vehicle: ${GRAPHHOPPER_VEHICLE:car}
