@@ -85,6 +85,12 @@
             <version>2.6.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-core</artifactId>
+            <version>8.0</version>
+        </dependency>
+
         <!-- Test (optional) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
