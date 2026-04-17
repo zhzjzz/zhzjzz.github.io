@@ -115,7 +115,7 @@ def upsert_destination(cursor, feature: OsmFeature) -> int:
             latitude=VALUES(latitude),
             longitude=VALUES(longitude),
             scene_type=VALUES(scene_type),
-            rating=VALUES(rating)
+            rating=IFNULL(rating, VALUES(rating))
         """,
         (feature.name, tourism, description, feature.latitude, feature.longitude, scene_type, rating),
     )
