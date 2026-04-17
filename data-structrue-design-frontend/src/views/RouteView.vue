@@ -36,8 +36,14 @@ const durationHours = computed(() => ((routeResult.value?.time || 0) / 1000 / 36
 
 const initMap = () => {
   mapInstance.value = L.map('route-map').setView(CHINA_CENTER, DEFAULT_ZOOM)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20,
+    maxNativeZoom: 20,
+    detectRetina: true,
+    updateWhenZooming: false,
+    keepBuffer: 8,
   }).addTo(mapInstance.value)
   markerLayer.value = L.layerGroup().addTo(mapInstance.value)
 }
@@ -123,7 +129,7 @@ const submit = async () => {
     drawMarkers()
     ElMessage.success('路线规划成功')
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || '路线规划失败，请确认后端已启用 GraphHopper')
+    ElMessage.error(error.response?.data?.message || '路线规划失败，请检查后端 GraphHopper 数据文件配置')
   } finally {
     loading.value = false
   }

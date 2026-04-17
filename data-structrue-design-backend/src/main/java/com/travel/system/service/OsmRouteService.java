@@ -32,7 +32,7 @@ public class OsmRouteService {
     public OsmRouteResponse route(double startLat, double startLon, double endLat, double endLon) {
         if (graphHopper == null) {
             throw new ResponseStatusException(SERVICE_UNAVAILABLE,
-                    "GraphHopper 未启用，请设置 GRAPHHOPPER_ENABLED=true 并配置 GRAPHHOPPER_OSM_FILE");
+                    "GraphHopper 不可用，请检查 GRAPHHOPPER_OSM_FILE 路径和 OSM 数据文件");
         }
 
         GHRequest request = new GHRequest(startLat, startLon, endLat, endLon)

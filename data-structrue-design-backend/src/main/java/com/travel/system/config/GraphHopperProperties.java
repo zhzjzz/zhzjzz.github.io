@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Getter
 @ConfigurationProperties(prefix = "routing.graphhopper")
 public class GraphHopperProperties {
-    private boolean enabled;
+    private boolean enabled = true;
     private String osmFile;
     private String graphLocation;
     private String profile;

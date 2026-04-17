@@ -9,6 +9,11 @@
         SELECT COUNT(1) FROM user_account
     </select>
 
+    <!-- 查询全部用户 -->
+    <select id="findAll" resultType="com.travel.system.model.UserAccount">
+        SELECT * FROM user_account
+    </select>
+
     <!-- 根据用户名查找用户 -->
     <select id="findByUsername" resultType="com.travel.system.model.UserAccount">
         SELECT * FROM user_account WHERE username = #{username}

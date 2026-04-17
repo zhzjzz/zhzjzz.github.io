@@ -18,9 +18,6 @@ spring:
   elasticsearch:
     # 5. 改为你电脑的 IP
     uris: ${ES_URIS:http://192.168.64.128:9200}
-    # 禁用 SSL 验证（本地开发环境）
-    ssl:
-      enabled: false
     # 如果需要用户名密码认证，取消下面的注释并配置
     # username: elastic
     # password: your-password
@@ -38,7 +35,7 @@ server:
 
 routing:
   graphhopper:
-    enabled: ${GRAPHHOPPER_ENABLED:false}
+    enabled: ${GRAPHHOPPER_ENABLED:true}
     osm-file: ${GRAPHHOPPER_OSM_FILE:data/osm/china-260415.osm.pbf}
     graph-location: ${GRAPHHOPPER_GRAPH_LOCATION:data/graph-cache}
     profile: ${GRAPHHOPPER_PROFILE:car}

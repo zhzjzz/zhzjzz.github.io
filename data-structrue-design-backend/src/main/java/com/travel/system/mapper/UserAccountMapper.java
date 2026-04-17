@@ -4,6 +4,7 @@ import com.travel.system.model.UserAccount;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -19,6 +20,13 @@ public interface UserAccountMapper {
      * @return 用户数量
      */
     long count();
+
+    /**
+     * 查询全部用户。
+     *
+     * @return 用户列表
+     */
+    List<UserAccount> findAll();
 
     /**
      * 根据用户名查找用户。

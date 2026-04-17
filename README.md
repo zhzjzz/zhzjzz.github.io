@@ -23,7 +23,7 @@ mvn spring-boot:run
 - `MYSQL_URL` / `MYSQL_USERNAME` / `MYSQL_PASSWORD`
 - `ES_URIS`
 - `SERVER_PORT`
-- `GRAPHHOPPER_ENABLED`（默认 `false`）
+- `GRAPHHOPPER_ENABLED`（默认 `true`）
 - `GRAPHHOPPER_OSM_FILE`（默认 `data/osm/china-latest.osm.pbf`）
 - `GRAPHHOPPER_GRAPH_LOCATION`（默认 `data/graph-cache`）
 - `GRAPHHOPPER_PROFILE`（默认 `car`）
@@ -33,7 +33,7 @@ mvn spring-boot:run
 
 ### GraphHopper + OSM 路由
 
-1. 下载中国区 OSM 数据（`.osm.pbf`）并放置到 `data/osm/china-latest.osm.pbf`（可通过环境变量覆盖）。
+1. 下载中国区 OSM 数据（`.osm.pbf`）并放置到 `data-structrue-design-backend/data/osm/china-latest.osm.pbf`（可通过环境变量覆盖）。
 2. 首次导入图数据耗时较长，请确保缓存目录有写权限。
 3. 推荐用较大堆内存启动后端（全国数据）：
 
@@ -66,3 +66,4 @@ npm run dev
 - `GET /api/itineraries`
 - `POST /api/itineraries`
 - `GET /api/foods/top?k=10`
+- `POST /api/search/sync-all`（一键将 destination/diary/facility/food/itinerary/road_node/road_edge/user_account 全量同步到 ES）
