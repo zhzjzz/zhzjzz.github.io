@@ -14,6 +14,10 @@ import java.nio.file.Path;
 @Configuration
 @EnableConfigurationProperties(GraphHopperProperties.class)
 public class GraphHopperConfig {
+    private static final String PROFILE_CAR = "car";
+    private static final String PROFILE_BIKE = "bike";
+    private static final String PROFILE_FOOT = "foot";
+    private static final String PROFILE_PUBLIC_TRANSPORT = "public_transport";
 
     @Bean(destroyMethod = "close")
     @ConditionalOnProperty(prefix = "routing.graphhopper", name = "enabled", havingValue = "true")
@@ -21,8 +25,18 @@ public class GraphHopperConfig {
         GraphHopper hopper = new GraphHopper();
         hopper.setOSMFile(resolveBackendRelativePath(properties.getOsmFile()));
         hopper.setGraphHopperLocation(resolveBackendRelativePath(properties.getGraphLocation()));
-        hopper.setProfiles(new Profile(properties.getProfile()).setVehicle(properties.getVehicle()).setWeighting("fastest"));
-        hopper.getCHPreparationHandler().setCHProfiles(new CHProfile(properties.getProfile()));
+        hopper.setProfiles(
+                new Profile(PROFILE_CAR).setVehicle(PROFILE_CAR).setWeighting("fastest"),
+                new Profile(PROFILE_BIKE).setVehicle(PROFILE_BIKE).setWeighting("fastest"),
+                new Profile(PROFILE_FOOT).setVehicle(PROFILE_FOOT).setWeighting("fastest"),
+                new Profile(PROFILE_PUBLIC_TRANSPORT).setVehicle(PROFILE_FOOT).setWeighting("fastest")
+        );
+        hopper.getCHPreparationHandler().setCHProfiles(
+                new CHProfile(PROFILE_CAR),
+                new CHProfile(PROFILE_BIKE),
+                new CHProfile(PROFILE_FOOT),
+                new CHProfile(PROFILE_PUBLIC_TRANSPORT)
+        );
         hopper.importOrLoad();
         return hopper;
     }

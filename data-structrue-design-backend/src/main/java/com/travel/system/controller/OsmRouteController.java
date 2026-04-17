@@ -21,7 +21,7 @@ public class OsmRouteController {
         this.osmRouteService = osmRouteService;
     }
 
-    @Operation(summary = "经纬度路线规划", description = "输入起终点经纬度，返回路线点集、总距离和预计耗时")
+    @Operation(summary = "经纬度路线规划", description = "输入起终点经纬度和出行方式，返回路线点集、总距离和预计耗时")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "规划成功"),
             @ApiResponse(responseCode = "400", description = "参数错误或路径不可达"),
@@ -31,7 +31,8 @@ public class OsmRouteController {
     public OsmRouteResponse route(@RequestParam double startLat,
                                   @RequestParam double startLon,
                                   @RequestParam double endLat,
-                                  @RequestParam double endLon) {
-        return osmRouteService.route(startLat, startLon, endLat, endLon);
+                                  @RequestParam double endLon,
+                                  @RequestParam(defaultValue = "car") String mode) {
+        return osmRouteService.route(startLat, startLon, endLat, endLon, mode);
     }
 }

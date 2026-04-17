@@ -17,7 +17,14 @@ const routeResult = ref(null)
 const form = ref({
   startId: null,
   endId: null,
+  mode: 'car',
 })
+const transportModes = [
+  { value: 'car', label: '汽车' },
+  { value: 'bike', label: '自行车' },
+  { value: 'walk', label: '徒步' },
+  { value: 'public_transport', label: '公共交通' },
+]
 
 const selectableEndDestinations = computed(() =>
   destinations.value.filter((item) => item.id !== form.value.startId)
@@ -36,15 +43,18 @@ const durationHours = computed(() => ((routeResult.value?.time || 0) / 1000 / 36
 
 const initMap = () => {
   mapInstance.value = L.map('route-map').setView(CHINA_CENTER, DEFAULT_ZOOM)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20,
-    maxNativeZoom: 19,
-    detectRetina: true,
-    updateWhenZooming: false,
-    keepBuffer: 8,
-  }).addTo(mapInstance.value)
+  L.tileLayer(
+    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+    {
+      attribution: '&copy; 高德地图',
+      subdomains: ['1', '2', '3', '4'],
+      maxZoom: 20,
+      maxNativeZoom: 19,
+      detectRetina: true,
+      updateWhenZooming: false,
+      keepBuffer: 8,
+    }
+  ).addTo(mapInstance.value)
   markerLayer.value = L.layerGroup().addTo(mapInstance.value)
 }
 
@@ -123,6 +133,7 @@ const submit = async () => {
       startLon: selectedStart.value.longitude,
       endLat: selectedEnd.value.latitude,
       endLon: selectedEnd.value.longitude,
+      mode: form.value.mode,
     })
     routeResult.value = data
     drawRoute(data.path)
@@ -166,7 +177,7 @@ onBeforeUnmount(() => {
 
       <el-form :model="form" label-width="120px" class="route-form">
         <el-row :gutter="12">
-          <el-col :md="12" :xs="24">
+          <el-col :md="8" :xs="24">
             <el-form-item label="起点">
               <el-select
                 v-model="form.startId"
@@ -183,7 +194,7 @@ onBeforeUnmount(() => {
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :md="12" :xs="24">
+          <el-col :md="8" :xs="24">
             <el-form-item label="终点">
               <el-select
                 v-model="form.endId"
@@ -196,6 +207,18 @@ onBeforeUnmount(() => {
                   :key="item.id"
                   :label="item.name"
                   :value="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :md="8" :xs="24">
+            <el-form-item label="出行方式">
+              <el-select v-model="form.mode" class="full-width" placeholder="请选择出行方式">
+                <el-option
+                  v-for="item in transportModes"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
                 />
               </el-select>
             </el-form-item>
@@ -232,5 +255,9 @@ onBeforeUnmount(() => {
   height: 520px;
   border-radius: 16px;
   overflow: hidden;
+}
+
+.route-map :deep(.leaflet-tile) {
+  filter: saturate(1.25) contrast(1.12) brightness(0.9);
 }
 </style>
