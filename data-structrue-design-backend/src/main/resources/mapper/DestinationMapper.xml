@@ -24,8 +24,8 @@
     <!-- 插入新目的地记录 -->
     <insert id="insert" parameterType="com.travel.system.model.Destination"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO destination(name, scene_type, category, heat, rating, description, latitude, longitude)
-        VALUES(#{name}, #{sceneType}, #{category}, #{heat}, #{rating}, #{description}, #{latitude}, #{longitude})
+        INSERT INTO destination(name, scene_type, category, rating, description, latitude, longitude)
+        VALUES(#{name}, #{sceneType}, #{category}, #{rating}, #{description}, #{latitude}, #{longitude})
     </insert>
 
     <!-- 更新已有目的地记录 -->
@@ -34,7 +34,6 @@
         SET name = #{name},
             scene_type = #{sceneType},
             category = #{category},
-            heat = #{heat},
             rating = #{rating},
             description = #{description},
             latitude = #{latitude},

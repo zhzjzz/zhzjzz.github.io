@@ -16,7 +16,6 @@
             <result column="destination_name" property="name"/>
             <result column="destination_scene_type" property="sceneType"/>
             <result column="destination_category" property="category"/>
-            <result column="destination_heat" property="heat"/>
             <result column="destination_rating" property="rating"/>
             <result column="destination_description" property="description"/>
             <result column="destination_latitude" property="latitude"/>
@@ -36,7 +35,6 @@
                d.name        AS destination_name,
                d.scene_type  AS destination_scene_type,
                d.category    AS destination_category,
-               d.heat        AS destination_heat,
                d.rating      AS destination_rating,
                d.description AS destination_description,
                d.latitude    AS destination_latitude,
@@ -57,7 +55,6 @@
                d.name        AS destination_name,
                d.scene_type  AS destination_scene_type,
                d.category    AS destination_category,
-               d.heat        AS destination_heat,
                d.rating      AS destination_rating,
                d.description AS destination_description,
                d.latitude    AS destination_latitude,

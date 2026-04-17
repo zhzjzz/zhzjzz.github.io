@@ -14,6 +14,7 @@ public class Food {
     private String storeName;
     private Double heat;
     private Double rating;
+    @Transient
     private Double distanceMeters;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "destination_id")

@@ -18,6 +18,7 @@ public class Destination {
     private String name;
     private String sceneType;
     private String category;
+    @Transient
     private Double heat;
     private Double rating;
     @Column(length = 1000)

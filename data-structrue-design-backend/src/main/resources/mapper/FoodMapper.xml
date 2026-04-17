@@ -11,13 +11,11 @@
         <result column="store_name" property="storeName"/>
         <result column="heat" property="heat"/>
         <result column="rating" property="rating"/>
-        <result column="distance_meters" property="distanceMeters"/>
         <association property="destination" javaType="com.travel.system.model.Destination">
             <id column="destination_ref_id" property="id"/>
             <result column="destination_name" property="name"/>
             <result column="destination_scene_type" property="sceneType"/>
             <result column="destination_category" property="category"/>
-            <result column="destination_heat" property="heat"/>
             <result column="destination_rating" property="rating"/>
             <result column="destination_description" property="description"/>
             <result column="destination_latitude" property="latitude"/>
@@ -33,13 +31,11 @@
                f.store_name,
                f.heat,
                f.rating,
-               f.distance_meters,
                f.destination_id,
                d.id          AS destination_ref_id,
                d.name        AS destination_name,
                d.scene_type  AS destination_scene_type,
                d.category    AS destination_category,
-               d.heat        AS destination_heat,
                d.rating      AS destination_rating,
                d.description AS destination_description,
                d.latitude    AS destination_latitude,
@@ -56,13 +52,11 @@
                f.store_name,
                f.heat,
                f.rating,
-               f.distance_meters,
                f.destination_id,
                d.id          AS destination_ref_id,
                d.name        AS destination_name,
                d.scene_type  AS destination_scene_type,
                d.category    AS destination_category,
-               d.heat        AS destination_heat,
                d.rating      AS destination_rating,
                d.description AS destination_description,
                d.latitude    AS destination_latitude,
@@ -77,8 +71,8 @@
     <!-- 插入美食 -->
     <insert id="insert" parameterType="com.travel.system.model.Food"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO food (name, cuisine, store_name, heat, rating, distance_meters, destination_id)
-        VALUES (#{name}, #{cuisine}, #{storeName}, #{heat}, #{rating}, #{distanceMeters}, #{destination.id})
+        INSERT INTO food (name, cuisine, store_name, heat, rating, destination_id)
+        VALUES (#{name}, #{cuisine}, #{storeName}, #{heat}, #{rating}, #{destination.id})
     </insert>
 
     <!-- 更新美食 -->
@@ -89,7 +83,6 @@
             store_name = #{storeName},
             heat = #{heat},
             rating = #{rating},
-            distance_meters = #{distanceMeters},
             destination_id = #{destination.id}
         WHERE id = #{id}
     </update>

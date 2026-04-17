@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import math
+import random
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -18,6 +19,9 @@ AMENITY_FACILITY_TAGS = {
 AMENITY_FOOD_TAGS = {"restaurant", "fast_food", "cafe", "food_court", "bar", "pub", "ice_cream"}
 SHOP_FOOD_TAGS = {"bakery", "confectionery", "beverages", "tea", "coffee", "deli"}
 EARTH_RADIUS_METERS = 6_371_000.0
+RATING_MIN = 3.0
+RATING_MAX = 4.9
+RATING_PRECISION = 1
 
 
 @dataclass
@@ -100,18 +104,20 @@ def upsert_destination(cursor, feature: OsmFeature) -> int:
     tourism = feature.tags.get("tourism")
     description = feature.tags.get("description") or feature.tags.get("name:en")
     scene_type = tourism or feature.tags.get("historic")
+    rating = round(random.uniform(RATING_MIN, RATING_MAX), RATING_PRECISION)
     cursor.execute(
         """
-        INSERT INTO destination (name, category, description, latitude, longitude, scene_type, heat, rating)
-        VALUES (%s, %s, %s, %s, %s, %s, NULL, NULL)
+        INSERT INTO destination (name, category, description, latitude, longitude, scene_type, rating)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             category=VALUES(category),
             description=VALUES(description),
             latitude=VALUES(latitude),
             longitude=VALUES(longitude),
-            scene_type=VALUES(scene_type)
+            scene_type=VALUES(scene_type),
+            rating=IFNULL(rating, VALUES(rating))
         """,
-        (feature.name, tourism, description, feature.latitude, feature.longitude, scene_type),
+        (feature.name, tourism, description, feature.latitude, feature.longitude, scene_type, rating),
     )
     cursor.execute("SELECT id FROM destination WHERE name=%s", (feature.name,))
     row = cursor.fetchone()
@@ -140,17 +146,24 @@ def upsert_food(cursor, feature: OsmFeature, destination_id: Optional[int]) -> b
     exists = cursor.fetchone()
     if exists:
         return False
+    rating = round(random.uniform(RATING_MIN, RATING_MAX), RATING_PRECISION)
     cursor.execute(
         """
-        INSERT INTO food (name, cuisine, store_name, heat, rating, distance_meters, destination_id)
-        VALUES (%s, %s, %s, NULL, NULL, NULL, %s)
+        INSERT INTO food (name, cuisine, store_name, heat, rating, destination_id)
+        VALUES (%s, %s, %s, NULL, %s, %s)
         """,
-        (feature.name, cuisine, store_name, destination_id),
+        (feature.name, cuisine, store_name, rating, destination_id),
     )
     return True
 
 
-def nearest_destination_id(destinations: List[Tuple[int, float, float]], lat: float, lon: float, max_link_meters: float) -> Optional[int]:
+def nearest_destination_id(
+    destinations: List[Tuple[int, float, float]],
+    lat: float,
+    lon: float,
+    max_link_meters: float,
+    strict_link_radius: bool = False,
+) -> Optional[int]:
     best_id = None
     best_distance = None
     for destination_id, d_lat, d_lon in destinations:
@@ -158,8 +171,11 @@ def nearest_destination_id(destinations: List[Tuple[int, float, float]], lat: fl
         if best_distance is None or distance < best_distance:
             best_distance = distance
             best_id = destination_id
-    if best_distance is None or best_distance > max_link_meters:
+    if best_distance is None:
         return None
+    if best_distance > max_link_meters:
+        # Fallback to nearest destination when threshold is exceeded.
+        return None if strict_link_radius else best_id
     return best_id
 
 
@@ -179,6 +195,13 @@ def main() -> None:
     parser.add_argument("--password", required=True)
     parser.add_argument("--database", required=True)
     parser.add_argument("--max-link-meters", type=float, default=2000.0, help="facility/food 关联最近目的地的最大距离")
+    parser.add_argument(
+        "--strict-link-radius",
+        "--require-link-within-radius",
+        dest="strict_link_radius",
+        action="store_true",
+        help="超出 max-link-meters 时保持 destination_id 为空",
+    )
     parser.add_argument("--limit", type=int, default=0, help="仅导入前 N 条（0 表示不限）")
     args = parser.parse_args()
 
@@ -210,13 +233,13 @@ def main() -> None:
             for feature in features:
                 if classify(feature.tags) == "facility":
                     destination_id = nearest_destination_id(
-                        destination_points, feature.latitude, feature.longitude, args.max_link_meters
+                        destination_points, feature.latitude, feature.longitude, args.max_link_meters, args.strict_link_radius
                     )
                     insert_facility(cursor, feature, destination_id)
                     facility_count += 1
                 elif classify(feature.tags) == "food":
                     destination_id = nearest_destination_id(
-                        destination_points, feature.latitude, feature.longitude, args.max_link_meters
+                        destination_points, feature.latitude, feature.longitude, args.max_link_meters, args.strict_link_radius
                     )
                     if upsert_food(cursor, feature, destination_id):
                         food_inserted_count += 1
