@@ -20,10 +20,10 @@ mvn spring-boot:run
 ```
 
 可通过环境变量配置：
-- `MYSQL_URL` / `MYSQL_USERNAME` / `MYSQL_PASSWORD`
+- `MYSQL_URL` / `MYSQL_USERNAME` / `MYSQL_PASSWORD`（默认使用内置 H2 内存库；设置后可切换到 MySQL）
 - `ES_URIS`
 - `SERVER_PORT`
-- `GRAPHHOPPER_ENABLED`（默认 `true`）
+- `GRAPHHOPPER_ENABLED`（默认 `false`）
 - `GRAPHHOPPER_OSM_FILE`（默认 `data/osm/china-latest.osm.pbf`）
 - `GRAPHHOPPER_GRAPH_LOCATION`（默认 `data/graph-cache`）
 - `GRAPHHOPPER_PROFILE`（默认 `car`）
@@ -52,7 +52,8 @@ npm run dev
 默认地址：`http://localhost:5173`
 
 如需修改后端地址：
-- 在前端环境变量中设置 `VITE_API_BASE_URL`（默认 `http://localhost:8080/api`）
+- 在前端环境变量中设置 `VITE_API_BASE_URL`（默认 `/api`）
+- 开发模式也可设置 `VITE_DEV_API_TARGET`（默认 `http://localhost:8080`）以修改 Vite `/api` 代理目标
 
 ### 已实现 API（示例）
 
