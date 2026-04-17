@@ -26,11 +26,14 @@ class OsmFeature:
 
 
 def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6_371_000.0
-    d_lat = math.radians(lat2 - lat1)
-    d_lon = math.radians(lon2 - lon1)
-    a = math.sin(d_lat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lon / 2) ** 2
-    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    earth_radius_meters = 6_371_000.0
+    delta_lat_rad = math.radians(lat2 - lat1)
+    delta_lon_rad = math.radians(lon2 - lon1)
+    haversine_a = (
+        math.sin(delta_lat_rad / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(delta_lon_rad / 2) ** 2
+    )
+    return 2 * earth_radius_meters * math.atan2(math.sqrt(haversine_a), math.sqrt(1 - haversine_a))
 
 
 def classify(tags: Dict[str, str]) -> Optional[str]:
