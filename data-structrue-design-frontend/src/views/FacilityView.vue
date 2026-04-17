@@ -1,46 +1,46 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { listRoadNodes, searchNearbyFacilities } from '../api/travel'
+import { listDestinations, searchNearbyFacilities } from '../api/travel'
 
 const loading = ref(false)
-const roadNodes = ref([])
+const destinations = ref([])
 const results = ref([])
 
 const form = ref({
-  fromNodeId: null,
+  fromDestinationId: null,
   type: '',
   keyword: '',
   maxDistanceMeters: 1000,
-  transport: 'walk',
 })
 
 const facilityTypeOptions = ['洗手间', '食堂', '超市', '咖啡馆', '图书馆', '商店']
 
-const selectedNodeName = computed(() => {
-  const node = roadNodes.value.find((item) => item.id === form.value.fromNodeId)
-  return node?.name || '未选择'
+const selectedDestinationName = computed(() => {
+  const item = destinations.value.find((destination) => destination.id === form.value.fromDestinationId)
+  return item?.name || '未选择'
 })
 
-const loadRoadNodes = async () => {
-  const { data } = await listRoadNodes()
-  roadNodes.value = data
-  if (!form.value.fromNodeId && data.length) {
-    form.value.fromNodeId = data[0].id
+const loadDestinations = async () => {
+  const { data } = await listDestinations()
+  destinations.value = data
+  if (!form.value.fromDestinationId && data.length) {
+    form.value.fromDestinationId = data[0].id
   }
 }
 
 const search = async () => {
-  if (!form.value.fromNodeId) {
-    ElMessage.warning('请先选择当前位置节点')
+  const selectedDestination = destinations.value.find((destination) => destination.id === form.value.fromDestinationId)
+  if (!selectedDestination || selectedDestination.latitude == null || selectedDestination.longitude == null) {
+    ElMessage.warning('请先选择有坐标的起点目的地')
     return
   }
 
   loading.value = true
   try {
     const params = {
-      fromNodeId: form.value.fromNodeId,
-      transport: form.value.transport,
+      fromLat: selectedDestination.latitude,
+      fromLon: selectedDestination.longitude,
     }
     if (form.value.type) params.type = form.value.type
     if (form.value.keyword.trim()) params.keyword = form.value.keyword.trim()
@@ -55,8 +55,8 @@ const search = async () => {
 }
 
 onMounted(async () => {
-  await loadRoadNodes()
-  if (form.value.fromNodeId) {
+  await loadDestinations()
+  if (form.value.fromDestinationId) {
     await search()
   }
 })
@@ -68,30 +68,21 @@ onMounted(async () => {
       <div class="module-header">
         <div>
           <h2>场所查询</h2>
-          <p class="module-subtitle">从当前位置出发，按路径距离查找附近服务设施，并支持类别过滤与关键字检索。</p>
+          <p class="module-subtitle">从起点目的地出发，按空间距离查找附近服务设施，并支持类别过滤与关键字检索。</p>
         </div>
       </div>
 
       <el-form :model="form" label-width="120px">
         <el-row :gutter="12">
-          <el-col :md="12" :xs="24">
-            <el-form-item label="当前位置节点">
-              <el-select v-model="form.fromNodeId" class="full-width" placeholder="请选择起点节点">
+            <el-col :md="12" :xs="24">
+            <el-form-item label="起点目的地">
+              <el-select v-model="form.fromDestinationId" class="full-width" placeholder="请选择起点目的地">
                 <el-option
-                  v-for="node in roadNodes"
-                  :key="node.id"
-                  :label="`${node.name}（ID: ${node.id}）`"
-                  :value="node.id"
+                  v-for="destination in destinations"
+                  :key="destination.id"
+                  :label="`${destination.name}（ID: ${destination.id}）`"
+                  :value="destination.id"
                 />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :md="12" :xs="24">
-            <el-form-item label="交通工具">
-              <el-select v-model="form.transport" class="full-width">
-                <el-option label="步行" value="walk" />
-                <el-option label="自行车" value="bike" />
-                <el-option label="电瓶车" value="shuttle" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -123,9 +114,9 @@ onMounted(async () => {
         </el-row>
 
         <div class="toolbar">
-          <el-tag type="info" effect="plain">当前起点：{{ selectedNodeName }}</el-tag>
+          <el-tag type="info" effect="plain">当前起点：{{ selectedDestinationName }}</el-tag>
           <div class="toolbar-actions">
-            <el-button @click="loadRoadNodes">刷新节点</el-button>
+            <el-button @click="loadDestinations">刷新目的地</el-button>
             <el-button type="primary" :loading="loading" @click="search">查询附近场所</el-button>
           </div>
         </div>
@@ -138,10 +129,9 @@ onMounted(async () => {
         <el-table-column prop="facility.name" label="场所名称" min-width="180" />
         <el-table-column prop="facility.facilityType" label="类别" width="130" />
         <el-table-column prop="facility.destination.name" label="所属目的地" min-width="160" />
-        <el-table-column prop="nearestNodeName" label="映射节点" min-width="140" />
-        <el-table-column prop="routeDistanceMeters" label="路径距离（米）" width="150">
+        <el-table-column prop="distanceMeters" label="距离（米）" width="150">
           <template #default="{ row }">
-            {{ Math.round(row.routeDistanceMeters) }}
+            {{ Math.round(row.distanceMeters) }}
           </template>
         </el-table-column>
       </el-table>

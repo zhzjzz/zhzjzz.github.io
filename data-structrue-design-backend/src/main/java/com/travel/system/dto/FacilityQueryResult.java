@@ -8,7 +8,5 @@ import lombok.Data;
 @AllArgsConstructor
 public class FacilityQueryResult {
     private Facility facility;
-    private Long nearestNodeId;
-    private String nearestNodeName;
-    private Double routeDistanceMeters;
+    private Double distanceMeters;
 }

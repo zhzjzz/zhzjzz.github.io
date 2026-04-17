@@ -24,7 +24,6 @@ import java.util.List;
  *     <li>设施数据（卫生间、咖啡馆、食堂等）</li>
  *     <li>美食数据</li>
  *     <li>用户日记数据</li>
- *     <li>道路网络图数据（节点和边）</li>
  *     <li>Elasticsearch 索引同步</li>
  * </ul>
  * </p>
@@ -58,16 +57,6 @@ public class DataInitializer implements CommandLineRunner {
      * 日记数据访问映射器
      */
     private final DiaryMapper diaryMapper;
-    
-    /**
-     * 道路节点数据访问映射器
-     */
-    private final RoadNodeMapper roadNodeMapper;
-    
-    /**
-     * 道路边数据访问映射器
-     */
-    private final RoadEdgeMapper roadEdgeMapper;
     
     /**
      * 认证服务，用于创建种子用户
@@ -106,8 +95,6 @@ public class DataInitializer implements CommandLineRunner {
      * @param foodMapper 美食映射器
      * @param facilityMapper 设施映射器
      * @param diaryMapper 日记映射器
-     * @param roadNodeMapper 道路节点映射器
-     * @param roadEdgeMapper 道路边映射器
      * @param authService 认证服务
      * @param destinationSearchRepositoryProvider 目的地搜索仓库提供者
      * @param foodSearchRepositoryProvider 美食搜索仓库提供者
@@ -118,8 +105,6 @@ public class DataInitializer implements CommandLineRunner {
                            FoodMapper foodMapper,
                            FacilityMapper facilityMapper,
                            DiaryMapper diaryMapper,
-                           RoadNodeMapper roadNodeMapper,
-                           RoadEdgeMapper roadEdgeMapper,
                            AuthService authService,
                            ObjectProvider<DestinationSearchRepository> destinationSearchRepositoryProvider,
                            ObjectProvider<FoodSearchRepository> foodSearchRepositoryProvider,
@@ -129,8 +114,6 @@ public class DataInitializer implements CommandLineRunner {
         this.foodMapper = foodMapper;
         this.facilityMapper = facilityMapper;
         this.diaryMapper = diaryMapper;
-        this.roadNodeMapper = roadNodeMapper;
-        this.roadEdgeMapper = roadEdgeMapper;
         this.authService = authService;
         this.destinationSearchRepository = destinationSearchRepositoryProvider.getIfAvailable();
         this.foodSearchRepository = foodSearchRepositoryProvider.getIfAvailable();
@@ -148,7 +131,6 @@ public class DataInitializer implements CommandLineRunner {
      *     <li>校园设施数据</li>
      *     <li>校园美食数据</li>
      *     <li>用户日记数据</li>
-     *     <li>道路网络图数据</li>
      *     <li>Elasticsearch 数据同步</li>
      * </ol>
      * </p>
@@ -164,7 +146,6 @@ public class DataInitializer implements CommandLineRunner {
         ensureFacilities(bupt);
         ensureFood(bupt);
         ensureDiary(bupt);
-        ensureRoadGraph();
         
         // 同步数据到 Elasticsearch
         syncDataToElasticsearch();
@@ -450,90 +431,4 @@ public class DataInitializer implements CommandLineRunner {
         diaryMapper.insert(diary);
     }
 
-    /**
-     * 确保道路网络图数据存在
-     * <p>
-     * 创建校园道路网络的基础节点和边：
-     * <ul>
-     *     <li>北门、主楼、图书馆 三个节点</li>
-     *     <li>北门-主楼、主楼-图书馆、北门-图书馆 三条双向边</li>
-     * </ul>
-     * 支持步行、自行车、班车等交通方式
-     * </p>
-     */
-    private void ensureRoadGraph() {
-        if (!roadNodeMapper.findAll().isEmpty()) {
-            return;
-        }
-
-        // 创建北门节点
-        RoadNode gate = new RoadNode();
-        gate.setName("北门");
-        gate.setNodeType("入口");
-        gate.setLatitude(39.9656);
-        gate.setLongitude(116.3505);
-        roadNodeMapper.insert(gate);
-
-        // 创建主楼节点
-        RoadNode mainBuilding = new RoadNode();
-        mainBuilding.setName("主楼");
-        mainBuilding.setNodeType("建筑");
-        mainBuilding.setLatitude(39.9651);
-        mainBuilding.setLongitude(116.3510);
-        roadNodeMapper.insert(mainBuilding);
-
-        // 创建图书馆节点
-        RoadNode library = new RoadNode();
-        library.setName("图书馆");
-        library.setNodeType("建筑");
-        library.setLatitude(39.9649);
-        library.setLongitude(116.3515);
-        roadNodeMapper.insert(library);
-
-        // 创建双向边连接各节点
-        createBidirectionalEdge(gate, mainBuilding, 280.0, 75.0, 0.9, "walk,bike,shuttle");
-        createBidirectionalEdge(mainBuilding, library, 220.0, 70.0, 0.8, "walk,bike,shuttle");
-        createBidirectionalEdge(gate, library, 500.0, 68.0, 0.7, "walk,bike");
-    }
-
-    /**
-     * 创建双向道路边
-     * <p>
-     * 在道路网络中，大多数道路都是双向通行的。
-     * 此方法会创建两条 RoadEdge 记录，分别表示 from→to 和 to→from
-     * </p>
-     *
-     * @param from            起点节点
-     * @param to              终点节点
-     * @param distance        距离（米）
-     * @param idealSpeed      理想速度（米/分钟）
-     * @param congestion      拥堵系数（0.0-1.0，值越大越畅通）
-     * @param allowedTransport 允许的交通工具类型（逗号分隔），如"walk,bike,car"
-     */
-    private void createBidirectionalEdge(RoadNode from,
-                                         RoadNode to,
-                                         double distance,
-                                         double idealSpeed,
-                                         double congestion,
-                                         String allowedTransport) {
-        // 正向边 from → to
-        RoadEdge forward = new RoadEdge();
-        forward.setFromNode(from);
-        forward.setToNode(to);
-        forward.setDistanceMeters(distance);
-        forward.setIdealSpeed(idealSpeed);
-        forward.setCongestion(congestion);
-        forward.setAllowedTransport(allowedTransport);
-        roadEdgeMapper.insert(forward);
-
-        // 反向边 to → from
-        RoadEdge backward = new RoadEdge();
-        backward.setFromNode(to);
-        backward.setToNode(from);
-        backward.setDistanceMeters(distance);
-        backward.setIdealSpeed(idealSpeed);
-        backward.setCongestion(congestion);
-        backward.setAllowedTransport(allowedTransport);
-        roadEdgeMapper.insert(backward);
-    }
 }

@@ -2,10 +2,8 @@ package com.travel.system.service;
 
 import com.travel.system.dto.FacilityQueryResult;
 import com.travel.system.model.Facility;
-import com.travel.system.model.RoadNode;
 import com.travel.system.mapper.FacilityMapper;
 import com.travel.system.repository.FacilitySearchRepository;
-import com.travel.system.mapper.RoadNodeMapper;
 import com.travel.system.search.FacilityDocument;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -13,7 +11,6 @@ import org.springframework.stereotype.Service;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Spliterators;
 import java.util.stream.Collectors;
@@ -43,85 +40,31 @@ import java.util.stream.StreamSupport;
  */
 @Service
 public class FacilitySearchService {
+    private static final double EARTH_RADIUS_METERS = 6_371_000d;
 
-    /**
-     * 设施数据访问映射器（MySQL）
-     */
     private final FacilityMapper facilityRepository;
-    
-    /**
-     * 设施搜索仓库（Elasticsearch），可为 null
-     */
     private final FacilitySearchRepository facilitySearchRepository;
-    
-    /**
-     * 道路节点数据访问映射器
-     */
-    private final RoadNodeMapper roadNodeMapper;
-    
-    /**
-     * 路线规划服务，用于计算路网最短距离
-     */
-    private final RoutePlanningService routePlanningService;
 
-    /**
-     * 构造函数，注入依赖
-     *
-     * @param facilityRepository 设施数据访问映射器
-     * @param facilitySearchRepositoryProvider ES 搜索仓库提供者（可选）
-     * @param roadNodeRepository 道路节点数据访问映射器
-     * @param routePlanningService 路线规划服务
-     */
     public FacilitySearchService(FacilityMapper facilityRepository,
-                                 ObjectProvider<FacilitySearchRepository> facilitySearchRepositoryProvider,
-                                 RoadNodeMapper roadNodeRepository,
-                                 RoutePlanningService routePlanningService) {
+                                 ObjectProvider<FacilitySearchRepository> facilitySearchRepositoryProvider) {
         this.facilityRepository = facilityRepository;
         this.facilitySearchRepository = facilitySearchRepositoryProvider.getIfAvailable();
-        this.roadNodeMapper = roadNodeRepository;
-        this.routePlanningService = routePlanningService;
     }
 
-    /**
-     * 搜索附近设施
-     * <p>
-     * 综合搜索流程：
-     * <ol>
-     *     <li>获取候选设施列表（ES优先，MySQL回退）</li>
-     *     <li>获取所有道路节点作为路网入口</li>
-     *     <li>使用 Dijkstra 计算从起点到所有节点的最短路网距离</li>
-     *     <li>为每个设施找到最近的道路节点，并获取路网距离</li>
-     *     <li>应用过滤条件：设施类型、关键字、最大距离</li>
-     *     <li>按路网距离升序排序返回</li>
-     * </ol>
-     * </p>
-     *
-     * @param fromNodeId        起点道路节点ID（用户当前位置对应的最近路网节点）
-     * @param facilityType      可选：设施类型过滤条件（如"咖啡馆"、"食堂"）
-     * @param keyword           可选：关键字搜索（匹配名称、类型、目的地）
-     * @param maxDistanceMeters 可选：最大距离限制（米）
-     * @param transport         交通方式（如"walk"、"bike"），影响路网计算
-     * @return 设施查询结果列表，包含设施信息和路网距离；按距离升序排列
-     */
-    public List<FacilityQueryResult> searchNearby(Long fromNodeId,
+    public List<FacilityQueryResult> searchNearby(Double fromLat,
+                                                  Double fromLon,
                                                   String facilityType,
                                                   String keyword,
-                                                  Double maxDistanceMeters,
-                                                  String transport) {
-        // 优先获取设施列表（使用 ES 模糊搜索或全量查询）
+                                                  Double maxDistanceMeters) {
         List<Facility> facilities = searchFacilities(facilityType, keyword);
-        
-        // 获取道路网络节点和最短距离映射
-        List<RoadNode> roadNodes = roadNodeMapper.findAll();
-        Map<Long, Double> distanceMap = routePlanningService.shortestDistanceMap(fromNodeId, transport);
 
         return facilities.stream()
                 .filter(facility -> matchesFacilityType(facility, facilityType))
                 .filter(facility -> matchesKeyword(facility, keyword))
-                .map(facility -> toResult(facility, roadNodes, distanceMap))
+                .map(facility -> toResult(facility, fromLat, fromLon))
                 .filter(Objects::nonNull)
-                .filter(result -> maxDistanceMeters == null || result.getRouteDistanceMeters() <= maxDistanceMeters)
-                .sorted(Comparator.comparingDouble(FacilityQueryResult::getRouteDistanceMeters))
+                .filter(result -> maxDistanceMeters == null || result.getDistanceMeters() <= maxDistanceMeters)
+                .sorted(Comparator.comparingDouble(FacilityQueryResult::getDistanceMeters))
                 .toList();
     }
     
@@ -141,18 +84,15 @@ public class FacilitySearchService {
      * @return 设施实体列表
      */
     private List<Facility> searchFacilities(String facilityType, String keyword) {
-        // 如果有搜索条件，优先使用 ES
         if ((keyword != null && !keyword.isBlank()) || (facilityType != null && !facilityType.isBlank())) {
             if (facilitySearchRepository != null) {
                 try {
                     List<FacilityDocument> docs;
                     if (keyword != null && !keyword.isBlank()) {
-                        // 使用关键字搜索名称、类型或目的地
                         docs = facilitySearchRepository
                             .findByNameContainingOrFacilityTypeContainingOrDestinationNameContaining(
                                 keyword, keyword, keyword);
                     } else {
-                        // 只按类型搜索
                         docs = StreamSupport.stream(
                                 Spliterators.spliteratorUnknownSize(
                                     facilitySearchRepository.findAll().iterator(), 0), false)
@@ -163,45 +103,24 @@ public class FacilitySearchService {
                     }
                     return docs.stream().map(this::toFacility).collect(Collectors.toList());
                 } catch (Exception e) {
-                    // ES 搜索失败时回退到 MySQL
                 }
             }
         }
-        
-        // 使用 MySQL 全量查询
         return facilityRepository.findAll();
     }
 
-    /**
-     * 将设施实体转换为查询结果对象
-     * <p>
-     * 计算设施到起点的路网距离：
-     * <ol>
-     *     <li>找到设施的最近道路节点</li>
-     *     <li>从距离映射表中获取到该节点的路网距离</li>
-     *     <li>封装为查询结果</li>
-     * </ol>
-     * </p>
-     *
-     * @param facility    设施实体
-     * @param roadNodes   所有道路节点
-     * @param distanceMap 节点ID到最短距离的映射
-     * @return 设施查询结果；若无法计算距离则返回 null
-     */
     private FacilityQueryResult toResult(Facility facility,
-                                         List<RoadNode> roadNodes,
-                                         Map<Long, Double> distanceMap) {
-        // 找到设施附近的最近路网节点
-        RoadNode nearestNode = findNearestNode(facility, roadNodes);
-        if (nearestNode == null) {
+                                         Double fromLat,
+                                         Double fromLon) {
+        if (fromLat == null || fromLon == null) {
             return null;
         }
-        // 获取从起点到该节点的路网距离
-        Double routeDistance = distanceMap.get(nearestNode.getId());
-        if (routeDistance == null || routeDistance.isInfinite()) {
+        LatLng facilityLocation = resolveFacilityLocation(facility);
+        if (facilityLocation == null) {
             return null;
         }
-        return new FacilityQueryResult(facility, nearestNode.getId(), nearestNode.getName(), routeDistance);
+        double distanceMeters = haversineMeters(fromLat, fromLon, facilityLocation.lat(), facilityLocation.lon());
+        return new FacilityQueryResult(facility, distanceMeters);
     }
 
     /**
@@ -237,65 +156,29 @@ public class FacilitySearchService {
                 || (facility.getDestination() != null && containsIgnoreCase(facility.getDestination().getName(), keyword));
     }
 
-    /**
-     * 查找设施最近的道路节点
-     * <p>
-     * 使用欧几里得距离（简化计算）找到设施坐标最近的节点。
-     * 如果设施自身没有坐标，尝试使用其所属目的地的坐标
-     * </p>
-     *
-     * @param facility  设施实体
-     * @param roadNodes 候选道路节点列表
-     * @return 最近的道路节点；若无法计算则返回 null
-     */
-    private RoadNode findNearestNode(Facility facility, List<RoadNode> roadNodes) {
-        // 筛选有坐标信息的节点
-        List<RoadNode> candidates = roadNodes.stream()
-                .filter(node -> node.getLatitude() != null && node.getLongitude() != null)
-                .toList();
-
-        // 获取设施坐标（优先使用设施自身坐标，否则使用目的地坐标）
+    private LatLng resolveFacilityLocation(Facility facility) {
         Double lat = facility.getLatitude();
         Double lng = facility.getLongitude();
-
         if (lat == null || lng == null) {
             if (facility.getDestination() != null) {
                 lat = facility.getDestination().getLatitude();
                 lng = facility.getDestination().getLongitude();
             }
         }
-
-        // 计算最近节点
-        if (lat != null && lng != null && !candidates.isEmpty()) {
-            final double targetLat = lat;
-            final double targetLng = lng;
-            return candidates.stream()
-                    .min(Comparator.comparingDouble(node -> squaredDistance(node, targetLat, targetLng)))
-                    .orElse(null);
+        if (lat == null || lng == null) {
+            return null;
         }
-
-        // 无效时返回第一个节点
-        if (!roadNodes.isEmpty()) {
-            return roadNodes.get(0);
-        }
-        return null;
+        return new LatLng(lat, lng);
     }
 
-    /**
-     * 计算平方距离（简化版，避免开方运算）
-     * <p>
-     * 用于比较距离大小，实际距离 = sqrt(squaredDistance)
-     * </p>
-     *
-     * @param node    道路节点
-     * @param lat     目标纬度
-     * @param lng     目标经度
-     * @return 平方距离值
-     */
-    private double squaredDistance(RoadNode node, double lat, double lng) {
-        double dLat = node.getLatitude() - lat;
-        double dLng = node.getLongitude() - lng;
-        return dLat * dLat + dLng * dLng;
+    private double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return EARTH_RADIUS_METERS * c;
     }
 
     /**
@@ -329,5 +212,8 @@ public class FacilitySearchService {
         facility.setLatitude(doc.getLatitude());
         facility.setLongitude(doc.getLongitude());
         return facility;
+    }
+
+    private record LatLng(double lat, double lon) {
     }
 }

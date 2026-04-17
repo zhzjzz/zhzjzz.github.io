@@ -21,11 +21,8 @@ export const listItineraries = () => http.get('/itineraries')
 export const createItinerary = (payload) => http.post('/itineraries', payload)
 
 // 路线规划接口。
-export const planRoute = (payload) => http.post('/routes/plan', payload)
 export const getOsmRoute = (params) => http.get('/route', { params })
 export const listDestinations = () => http.get('/destinations')
 
 // 场所查询接口。
-export const listRoadNodes = () => http.get('/road-nodes')
-export const getRoadGraph = () => http.get('/road-nodes/graph')
 export const searchNearbyFacilities = (params) => http.get('/facilities/nearby', { params })

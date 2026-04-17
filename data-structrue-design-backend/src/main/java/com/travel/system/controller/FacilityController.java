@@ -76,26 +76,25 @@ public class FacilityController {
     /**
      * 附近设施搜索接口。
      *
-     * <p>从指定的道路节点出发，根据交通方式（步行/骑行/驾车）计算可达设施，
-     * 并按距离由近到远排序返回。支持按类型和关键字过滤，以及最大距离限制。
+     * <p>从指定经纬度出发，按空间距离由近到远排序返回。支持按类型和关键字过滤，
+     * 以及最大距离限制。
      *
-     * @param fromNodeId        起始道路节点 ID（必填）
+     * @param fromLat           起点纬度（必填）
+     * @param fromLon           起点经度（必填）
      * @param type              设施类型过滤条件（可选）
      * @param keyword           名称或描述关键字过滤（可选）
      * @param maxDistanceMeters 最大搜索距离（米），为空则不限（可选）
-     * @param transport         交通方式，支持 {@code walk}、{@code bike}、{@code drive}，默认 {@code walk}
      * @return 按距离排序的 {@link FacilityQueryResult} 列表
      */
-    @Operation(summary = "附近设施搜索", description = "从指定道路节点出发，按交通方式搜索附近设施并排序")
+    @Operation(summary = "附近设施搜索", description = "从指定经纬度出发搜索附近设施并按距离排序")
     @ApiResponse(responseCode = "200", description = "搜索成功")
     @GetMapping("/nearby")
     public List<FacilityQueryResult> nearby(
-            @Parameter(description = "起始道路节点ID") @RequestParam Long fromNodeId,
+            @Parameter(description = "起点纬度") @RequestParam Double fromLat,
+            @Parameter(description = "起点经度") @RequestParam Double fromLon,
             @Parameter(description = "设施类型过滤") @RequestParam(required = false) String type,
             @Parameter(description = "名称或描述关键字过滤") @RequestParam(required = false) String keyword,
-            @Parameter(description = "最大搜索距离（米）") @RequestParam(required = false) Double maxDistanceMeters,
-            @Parameter(description = "交通方式：walk/bike/drive，默认walk") @RequestParam(defaultValue = "walk") String transport) {
-        // 委托 FacilitySearchService 执行基于图遍历的空间查询
-        return facilitySearchService.searchNearby(fromNodeId, type, keyword, maxDistanceMeters, transport);
+            @Parameter(description = "最大搜索距离（米）") @RequestParam(required = false) Double maxDistanceMeters) {
+        return facilitySearchService.searchNearby(fromLat, fromLon, type, keyword, maxDistanceMeters);
     }
 }

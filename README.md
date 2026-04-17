@@ -58,7 +58,6 @@ npm run dev
 
 - `GET /api/destinations`
 - `GET /api/destinations/top?k=10`
-- `POST /api/routes/plan`
 - `GET /api/route?startLat=...&startLon=...&endLat=...&endLon=...`
 - `GET /api/diaries`
 - `POST /api/diaries`
@@ -66,4 +65,4 @@ npm run dev
 - `GET /api/itineraries`
 - `POST /api/itineraries`
 - `GET /api/foods/top?k=10`
-- `POST /api/search/sync-all`（一键将 destination/diary/facility/food/itinerary/road_node/road_edge/user_account 全量同步到 ES）
+- `POST /api/search/sync-all`（一键将 destination/diary/facility/food/itinerary/user_account 全量同步到 ES）
