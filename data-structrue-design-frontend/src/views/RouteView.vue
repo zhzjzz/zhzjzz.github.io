@@ -40,7 +40,7 @@ const initMap = () => {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     subdomains: 'abcd',
     maxZoom: 20,
-    maxNativeZoom: 20,
+    maxNativeZoom: 19,
     detectRetina: true,
     updateWhenZooming: false,
     keepBuffer: 8,
