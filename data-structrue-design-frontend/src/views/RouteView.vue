@@ -43,6 +43,7 @@ const durationHours = computed(() => ((routeResult.value?.time || 0) / 1000 / 36
 
 const initMap = () => {
   mapInstance.value = L.map('route-map').setView(CHINA_CENTER, DEFAULT_ZOOM)
+  // webrd0{s} + subdomains 1~4 用于轮询瓦片子域名，减少单域并发压力。
   L.tileLayer(
     'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
     {

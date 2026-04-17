@@ -25,6 +25,7 @@ public class OsmRouteService {
     private static final String PROFILE_BIKE = "bike";
     private static final String PROFILE_FOOT = "foot";
     private static final String PROFILE_PUBLIC_TRANSPORT = "public_transport";
+    // 官方建议前端入参：car / bike / walk / public_transport；其余为兼容别名。
     private static final Map<String, String> MODE_PROFILE_MAPPING = Map.ofEntries(
             Map.entry("car", PROFILE_CAR),
             Map.entry("bike", PROFILE_BIKE),
