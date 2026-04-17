@@ -31,15 +31,15 @@ import java.util.List;
 public class ItineraryController {
 
     /** 行程数据的 JPA 持久层仓库。 */
-private final ItineraryMapper itineraryRepository;
+private final ItineraryMapper itineraryMapper;
 
     /**
-     * 构造函数注入 {@link ItineraryRepository}。
+     * 构造函数注入 {@link ItineraryMapper}。
      *
-     * @param itineraryRepository 行程持久化接口
+     * @param itineraryMapper 行程持久化接口
      */
-public ItineraryController(ItineraryMapper itineraryRepository) {
-        this.itineraryRepository = itineraryRepository;
+public ItineraryController(ItineraryMapper itineraryMapper) {
+        this.itineraryMapper = itineraryMapper;
     }
 
     /**
@@ -51,7 +51,7 @@ public ItineraryController(ItineraryMapper itineraryRepository) {
     @ApiResponse(responseCode = "200", description = "查询成功")
     @GetMapping
     public List<Itinerary> list() {
-        return itineraryRepository.findAll();
+        return itineraryMapper.findAll();
     }
 
     /**
@@ -72,6 +72,6 @@ public ItineraryController(ItineraryMapper itineraryRepository) {
     public Itinerary create(@RequestBody Itinerary itinerary) {
         // 为协作场景记录最新更新时间，便于后续同步
         itinerary.setUpdatedAt(LocalDateTime.now());
-        return itineraryRepository.save(itinerary);
+        return itineraryMapper.save(itinerary);
     }
 }

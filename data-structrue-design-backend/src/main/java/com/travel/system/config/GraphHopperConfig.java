@@ -3,6 +3,7 @@ package com.travel.system.config;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.config.CHProfile;
 import com.graphhopper.config.Profile;
+import com.graphhopper.util.CustomModel; // 【新增引入 CustomModel】
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -25,13 +26,16 @@ public class GraphHopperConfig {
         GraphHopper hopper = new GraphHopper();
         hopper.setOSMFile(resolveBackendRelativePath(properties.getOsmFile()));
         hopper.setGraphHopperLocation(resolveBackendRelativePath(properties.getGraphLocation()));
+
+        // 【修改点：全部改为 custom 权重并传入 CustomModel】
         hopper.setProfiles(
-                new Profile(PROFILE_CAR).setVehicle(PROFILE_CAR).setWeighting("fastest"),
-                new Profile(PROFILE_BIKE).setVehicle(PROFILE_BIKE).setWeighting("fastest"),
-                new Profile(PROFILE_FOOT).setVehicle(PROFILE_FOOT).setWeighting("fastest"),
+                new Profile(PROFILE_CAR).setVehicle(PROFILE_CAR).setWeighting("custom").setCustomModel(new CustomModel()),
+                new Profile(PROFILE_BIKE).setVehicle(PROFILE_BIKE).setWeighting("custom").setCustomModel(new CustomModel()),
+                new Profile(PROFILE_FOOT).setVehicle(PROFILE_FOOT).setWeighting("custom").setCustomModel(new CustomModel()),
                 // TODO: 接入 GTFS 后替换为真实公共交通 profile；当前 OSM-only 场景下按步行近似。
-                new Profile(PROFILE_PUBLIC_TRANSPORT).setVehicle(PROFILE_FOOT).setWeighting("fastest")
+                new Profile(PROFILE_PUBLIC_TRANSPORT).setVehicle(PROFILE_FOOT).setWeighting("custom").setCustomModel(new CustomModel())
         );
+
         hopper.getCHPreparationHandler().setCHProfiles(
                 new CHProfile(PROFILE_CAR),
                 new CHProfile(PROFILE_BIKE),
