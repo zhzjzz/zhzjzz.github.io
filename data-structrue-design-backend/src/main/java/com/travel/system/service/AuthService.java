@@ -59,6 +59,7 @@ public class AuthService {
         UserAccount user = userAccountMapper.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户未注册或用户名错误"));
 
+
         // 对比密码哈希，确保安全性
         if (!sha256(request.getPassword()).equals(user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误，请重试");

@@ -11,7 +11,7 @@ spring:
       ddl-auto: update
     show-sql: false
   elasticsearch:
-    uris: ${ES_URIS:http://localhost:9200}
+    uris: ${ES_URIS:http://192.168.64.128:9200}
   data:
     elasticsearch:
       repositories:
@@ -27,5 +27,5 @@ server:
 routing:
   graphhopper:
     enabled: ${GRAPHHOPPER_ENABLED:true}
-    osm-file: ${GRAPHHOPPER_OSM_FILE:data/osm/china-latest.osm.pbf}
+    osm-file: ${GRAPHHOPPER_OSM_FILE:data/osm/china-260415.osm.pbf}
     graph-location: ${GRAPHHOPPER_GRAPH_LOCATION:data/graph-cache}
