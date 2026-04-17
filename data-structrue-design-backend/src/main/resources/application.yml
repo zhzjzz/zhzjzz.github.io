@@ -28,11 +28,6 @@ spring:
     elasticsearch:
       repositories:
         enabled: ${ES_REPOSITORIES_ENABLED:true}
-  # ...下面的配置保持不变即可
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
 
 mybatis:
   configuration:
@@ -44,7 +39,7 @@ server:
 routing:
   graphhopper:
     enabled: ${GRAPHHOPPER_ENABLED:false}
-    osm-file: ${GRAPHHOPPER_OSM_FILE:data/osm/china-latest.osm.pbf}
+    osm-file: ${GRAPHHOPPER_OSM_FILE:data/osm/china-260415.osm.pbf}
     graph-location: ${GRAPHHOPPER_GRAPH_LOCATION:data/graph-cache}
     profile: ${GRAPHHOPPER_PROFILE:car}
     vehicle: ${GRAPHHOPPER_VEHICLE:car}
