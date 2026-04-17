@@ -19,6 +19,9 @@ AMENITY_FACILITY_TAGS = {
 AMENITY_FOOD_TAGS = {"restaurant", "fast_food", "cafe", "food_court", "bar", "pub", "ice_cream"}
 SHOP_FOOD_TAGS = {"bakery", "confectionery", "beverages", "tea", "coffee", "deli"}
 EARTH_RADIUS_METERS = 6_371_000.0
+RATING_MIN = 3.0
+RATING_MAX = 4.9
+RATING_PRECISION = 1
 
 
 @dataclass
@@ -101,7 +104,7 @@ def upsert_destination(cursor, feature: OsmFeature) -> int:
     tourism = feature.tags.get("tourism")
     description = feature.tags.get("description") or feature.tags.get("name:en")
     scene_type = tourism or feature.tags.get("historic")
-    rating = round(random.uniform(3.0, 4.9), 1)
+    rating = round(random.uniform(RATING_MIN, RATING_MAX), RATING_PRECISION)
     cursor.execute(
         """
         INSERT INTO destination (name, category, description, latitude, longitude, scene_type, rating)
@@ -143,7 +146,7 @@ def upsert_food(cursor, feature: OsmFeature, destination_id: Optional[int]) -> b
     exists = cursor.fetchone()
     if exists:
         return False
-    rating = round(random.uniform(3.0, 4.9), 1)
+    rating = round(random.uniform(RATING_MIN, RATING_MAX), RATING_PRECISION)
     cursor.execute(
         """
         INSERT INTO food (name, cuisine, store_name, heat, rating, destination_id)
@@ -170,11 +173,9 @@ def nearest_destination_id(
             best_id = destination_id
     if best_distance is None:
         return None
-    if best_distance > max_link_meters and not strict_link_radius:
-        # Fallback to nearest destination when threshold is exceeded.
-        return best_id
     if best_distance > max_link_meters:
-        return None
+        # Fallback to nearest destination when threshold is exceeded.
+        return None if strict_link_radius else best_id
     return best_id
 
 
