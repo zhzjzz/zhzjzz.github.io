@@ -36,7 +36,7 @@ onMounted(loadFoods)
         </div>
         <div class="listing-body">
           <h3>{{ item.name }}</h3>
-          <p>{{ item.cuisine }} · 热度 {{ item.heat }}</p>
+          <p>{{ item.cuisine }} · 评分 {{ item.rating }}</p>
           <strong>精选推荐</strong>
         </div>
       </article>

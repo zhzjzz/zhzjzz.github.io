@@ -137,9 +137,7 @@ public class DataInitializer implements CommandLineRunner {
         food.setName("老北京炸酱面");
         food.setCuisine("京菜");
         food.setStoreName("校园食堂一层");
-        food.setHeat(4.5);
         food.setRating(4.6);
-        food.setDistanceMeters(350.0);
         food.setDestination(bupt);
         foodMapper.insert(food);
     }

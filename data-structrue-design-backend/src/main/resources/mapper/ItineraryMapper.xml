@@ -17,18 +17,20 @@
     <!-- 插入新行程记录 -->
     <insert id="insert" parameterType="com.travel.system.model.Itinerary"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO itinerary(user_id, title, description, start_date, end_date)
-        VALUES(#{userId}, #{title}, #{description}, #{startDate}, #{endDate})
+        INSERT INTO itinerary(name, owner, collaborators, strategy, transport_mode, notes, updated_at)
+        VALUES(#{name}, #{owner}, #{collaborators}, #{strategy}, #{transportMode}, #{notes}, #{updatedAt})
     </insert>
 
     <!-- 更新已有行程记录 -->
     <update id="update" parameterType="com.travel.system.model.Itinerary">
         UPDATE itinerary
-        SET user_id = #{userId},
-            title = #{title},
-            description = #{description},
-            start_date = #{startDate},
-            end_date = #{endDate}
+        SET name = #{name},
+            owner = #{owner},
+            collaborators = #{collaborators},
+            strategy = #{strategy},
+            transport_mode = #{transportMode},
+            notes = #{notes},
+            updated_at = #{updatedAt}
         WHERE id = #{id}
     </update>
 

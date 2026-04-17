@@ -12,9 +12,7 @@ public class Food {
     private String name;
     private String cuisine;
     private String storeName;
-    private Double heat;
     private Double rating;
-    private Double distanceMeters;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "destination_id")
     private Destination destination;

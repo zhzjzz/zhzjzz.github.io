@@ -15,7 +15,7 @@ import java.util.PriorityQueue;
  *
  * <ul>
  *   <li>使用小顶堆（{@link PriorityQueue}）维护当前最好的 {@code k} 条记录，避免对全量数据进行完整排序；</li>
- *   <li>为目的地和美食分别定义不同的综合评分函数 {@link #destinationScore(Destination)} 与 {@link #foodScore(Food)}，兼顾热度、评分以及（对美食）距离因素；</li>
+ *   <li>为目的地和美食分别定义不同的综合评分函数 {@link #destinationScore(Destination)} 与 {@link #foodScore(Food)}，兼顾评分与关联目的地热度等因素；</li>
  *   <li>最终将堆中的元素转为列表并按照评分降序返回。</li>
  * </ul>
  *
@@ -77,15 +77,14 @@ public class RecommendationService {
     }
 
     /**
-     * 美食综合评分：热度 45% + 评分 45% + 距离 10%（距离越近得分越高）。
+     * 美食综合评分：评分 80% + 关联目的地热度 20%。
      *
      * @param f 美食实体
      * @return 计算后的分数
      */
     private double foodScore(Food f) {
-        double distance = f.getDistanceMeters() == null ? 1000.0 : f.getDistanceMeters();
-        return safe(f.getHeat()) * 0.45 + safe(f.getRating()) * 0.45
-                + Math.max(0, (1000 - distance) / 1000) * 0.1;
+        Double destinationHeat = f.getDestination() == null ? null : f.getDestination().getHeat();
+        return safe(f.getRating()) * 0.8 + safe(destinationHeat) * 0.2;
     }
 
     /**
