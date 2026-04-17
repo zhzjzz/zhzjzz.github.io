@@ -21,7 +21,7 @@ public class ElasticsearchSyncController {
         this.elasticsearchFullSyncService = elasticsearchFullSyncService;
     }
 
-    @Operation(summary = "全量同步可检索业务表到 ES", description = "按表全量读取 MySQL 并批量写入 Elasticsearch 索引（不包含 road_node / road_edge）")
+    @Operation(summary = "全量同步可检索业务表到 ES", description = "按表全量读取 MySQL 并批量写入 Elasticsearch 索引（不包含当前未纳入检索的表）")
     @ApiResponse(responseCode = "200", description = "同步完成")
     @PostMapping("/sync-all")
     public Map<String, Object> syncAll() {
