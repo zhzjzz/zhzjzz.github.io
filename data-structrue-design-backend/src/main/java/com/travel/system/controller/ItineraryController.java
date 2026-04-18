@@ -6,7 +6,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -54,6 +56,20 @@ public ItineraryController(ItineraryMapper itineraryMapper) {
         return itineraryMapper.findAll();
     }
 
+    @Operation(summary = "按 ID 查询行程", description = "根据行程 ID 获取详情，便于多人共享同一个行程链接/编号")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "查询成功"),
+        @ApiResponse(responseCode = "404", description = "行程不存在")
+    })
+    @GetMapping("/{id}")
+    public Itinerary getById(@PathVariable Long id) {
+        Itinerary itinerary = itineraryMapper.findById(id);
+        if (itinerary == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "行程不存在");
+        }
+        return itinerary;
+    }
+
     /**
      * 创建新行程并自动打上更新时间戳。
      *
@@ -73,5 +89,27 @@ public ItineraryController(ItineraryMapper itineraryMapper) {
         // 为协作场景记录最新更新时间，便于后续同步
         itinerary.setUpdatedAt(LocalDateTime.now());
         return itineraryMapper.save(itinerary);
+    }
+
+    @Operation(summary = "更新行程", description = "支持多人协作更新；当客户端更新时间早于服务端时返回冲突")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "更新成功"),
+        @ApiResponse(responseCode = "404", description = "行程不存在"),
+        @ApiResponse(responseCode = "409", description = "行程已被其他协作者更新")
+    })
+    @PutMapping("/{id}")
+    public Itinerary update(@PathVariable Long id, @RequestBody Itinerary itinerary) {
+        Itinerary existing = itineraryMapper.findById(id);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "行程不存在");
+        }
+        itinerary.setId(id);
+        var expectedUpdatedAt = itinerary.getUpdatedAt();
+        itinerary.setUpdatedAt(LocalDateTime.now());
+        int changed = itineraryMapper.updateIfUnchanged(itinerary, expectedUpdatedAt);
+        if (changed == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该行程已被其他协作者更新，请刷新后重试");
+        }
+        return itineraryMapper.findById(id);
     }
 }

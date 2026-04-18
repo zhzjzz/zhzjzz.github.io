@@ -11,8 +11,10 @@ import org.springframework.stereotype.Service;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -101,7 +103,7 @@ public class FacilitySearchService {
                                     .contains(facilityType.toLowerCase(Locale.ROOT)))
                             .collect(Collectors.toList());
                     }
-                    return docs.stream().map(this::toFacility).collect(Collectors.toList());
+                    return mergeWithMysqlFacilities(docs);
                 } catch (Exception e) {
                 }
             }
@@ -212,6 +214,55 @@ public class FacilitySearchService {
         facility.setLatitude(doc.getLatitude());
         facility.setLongitude(doc.getLongitude());
         return facility;
+    }
+
+    private List<Facility> mergeWithMysqlFacilities(List<FacilityDocument> docs) {
+        if (docs == null || docs.isEmpty()) {
+            return List.of();
+        }
+        List<DocWithId> docsWithId = docs.stream()
+                .map(doc -> new DocWithId(doc, parseId(doc.getId())))
+                .toList();
+        List<Long> ids = docsWithId.stream()
+                .map(DocWithId::id)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, Facility> mysqlFacilitiesById = ids.isEmpty()
+                ? Map.of()
+                : facilityRepository.findByIds(ids)
+                .stream()
+                .collect(Collectors.toMap(Facility::getId, Function.identity(), (left, right) -> left));
+
+        Map<Long, Facility> mergedById = docsWithId.stream()
+                .filter(item -> item.id() != null)
+                .map(item -> {
+                    Facility mysqlFacility = mysqlFacilitiesById.get(item.id());
+                    Facility merged = mysqlFacility != null ? mysqlFacility : toFacility(item.doc());
+                    return merged != null ? Map.entry(item.id(), merged) : null;
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (left, right) -> left));
+
+        return docsWithId.stream()
+                .map(item -> item.id() == null ? null : mergedById.get(item.id()))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private Long parseId(String id) {
+        if (id == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(id);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private record DocWithId(FacilityDocument doc, Long id) {
     }
 
     private record LatLng(double lat, double lon) {
