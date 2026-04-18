@@ -110,7 +110,12 @@ public ItineraryController(ItineraryMapper itineraryMapper) {
         }
 
         itinerary.setId(id);
+        var expectedUpdatedAt = itinerary.getUpdatedAt();
         itinerary.setUpdatedAt(LocalDateTime.now());
-        return itineraryMapper.save(itinerary);
+        int changed = itineraryMapper.updateIfUnchanged(itinerary, expectedUpdatedAt);
+        if (changed == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该行程已被其他协作者更新，请刷新后重试");
+        }
+        return itineraryMapper.findById(id);
     }
 }

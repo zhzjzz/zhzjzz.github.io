@@ -34,4 +34,20 @@
         WHERE id = #{id}
     </update>
 
+    <update id="updateIfUnchanged">
+        UPDATE itinerary
+        SET name = #{itinerary.name},
+            owner = #{itinerary.owner},
+            collaborators = #{itinerary.collaborators},
+            strategy = #{itinerary.strategy},
+            transport_mode = #{itinerary.transportMode},
+            notes = #{itinerary.notes},
+            updated_at = #{itinerary.updatedAt}
+        WHERE id = #{itinerary.id}
+          AND (
+            (updated_at IS NULL AND #{expectedUpdatedAt} IS NULL)
+            OR updated_at = #{expectedUpdatedAt}
+          )
+    </update>
+
 </mapper>

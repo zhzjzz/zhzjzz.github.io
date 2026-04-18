@@ -2,7 +2,9 @@ package com.travel.system.mapper;
 
 import com.travel.system.model.Itinerary;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -44,6 +46,16 @@ public interface ItineraryMapper {
      * @param itinerary itinerary entity
      */
     void update(Itinerary itinerary);
+
+    /**
+     * 带乐观锁条件更新：仅当更新时间匹配时更新。
+     *
+     * @param itinerary        行程实体
+     * @param expectedUpdatedAt 客户端期望的更新时间
+     * @return 受影响行数
+     */
+    int updateIfUnchanged(@Param("itinerary") Itinerary itinerary,
+                          @Param("expectedUpdatedAt") LocalDateTime expectedUpdatedAt);
 
     /**
      * Save (insert or update) an itinerary.

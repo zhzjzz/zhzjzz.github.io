@@ -64,6 +64,30 @@
         WHERE LOWER(f.facility_type) LIKE CONCAT('%', LOWER(#{type}), '%')
     </select>
 
+    <!-- 按 ID 列表查询设施 -->
+    <select id="findByIds" resultMap="facilityResultMap">
+        SELECT f.id,
+               f.name,
+               f.facility_type,
+               f.latitude,
+               f.longitude,
+               f.destination_id,
+               d.id          AS destination_ref_id,
+               d.name        AS destination_name,
+               d.scene_type  AS destination_scene_type,
+               d.category    AS destination_category,
+               d.rating      AS destination_rating,
+               d.description AS destination_description,
+               d.latitude    AS destination_latitude,
+               d.longitude   AS destination_longitude
+        FROM facility f
+                 LEFT JOIN destination d ON d.id = f.destination_id
+        WHERE f.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
     <!-- 插入新设施 -->
     <insert id="insert" parameterType="com.travel.system.model.Facility"
             useGeneratedKeys="true" keyProperty="id">

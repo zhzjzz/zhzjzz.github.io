@@ -175,7 +175,11 @@ const submitUpdate = async () => {
 
 onMounted(async () => {
   await load()
-  syncTimer.value = setInterval(load, 3000)
+  syncTimer.value = setInterval(() => {
+    if (selectedId.value) {
+      load()
+    }
+  }, 3000)
 })
 
 onUnmounted(() => {

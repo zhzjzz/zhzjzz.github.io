@@ -9,7 +9,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -221,24 +220,51 @@ public class FacilitySearchService {
         if (docs == null || docs.isEmpty()) {
             return List.of();
         }
-        Map<Long, Facility> mysqlFacilitiesById = facilityRepository.findAll()
+        List<Long> ids = docs.stream()
+                .map(FacilityDocument::getId)
+                .filter(Objects::nonNull)
+                .map(id -> {
+                    try {
+                        return Long.valueOf(id);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, Facility> mysqlFacilitiesById = ids.isEmpty()
+                ? Map.of()
+                : facilityRepository.findByIds(ids)
                 .stream()
                 .collect(Collectors.toMap(Facility::getId, Function.identity(), (left, right) -> left));
+
+        Map<Long, Facility> mergedById = docs.stream()
+                .map(doc -> {
+                    try {
+                        Long id = Long.valueOf(doc.getId());
+                        Facility mysqlFacility = mysqlFacilitiesById.get(id);
+                        Facility merged = mysqlFacility != null ? mysqlFacility : toFacility(doc);
+                        return merged != null ? Map.entry(id, merged) : null;
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (left, right) -> left));
 
         return docs.stream()
                 .map(doc -> {
                     try {
                         Long id = Long.valueOf(doc.getId());
-                        Facility mysqlFacility = mysqlFacilitiesById.get(id);
-                        return mysqlFacility != null ? mysqlFacility : toFacility(doc);
+                        return mergedById.get(id);
                     } catch (NumberFormatException e) {
-                        return toFacility(doc);
+                        return null;
                     }
                 })
                 .filter(Objects::nonNull)
-                .collect(Collectors.collectingAndThen(
-                        Collectors.toCollection(() -> new LinkedHashSet<Facility>()),
-                        List::copyOf));
+                .toList();
     }
 
     private record LatLng(double lat, double lon) {

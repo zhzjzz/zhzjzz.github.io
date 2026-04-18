@@ -41,6 +41,14 @@ public interface FacilityMapper {
 List<Facility> findByFacilityTypeContainingIgnoreCase(@Param("type") String type);
 
     /**
+     * 根据 ID 列表查询设施，并左联目的地表获取关联信息。
+     *
+     * @param ids 设施 ID 列表
+     * @return 匹配的设施列表
+     */
+    List<Facility> findByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 插入新设施记录。
      *
      * @param facility 设施实体
