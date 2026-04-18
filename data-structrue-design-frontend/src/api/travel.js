@@ -23,6 +23,8 @@ export const createItinerary = (payload) => http.post('/itineraries', payload)
 // 路线规划接口。
 export const getOsmRoute = (params) => http.get('/route', { params })
 export const listDestinations = () => http.get('/destinations')
+export const searchRouteDestinations = (keyword, limit = 10) =>
+  http.get('/destinations/route-search', { params: { keyword, limit } })
 
 // 场所查询接口。
 export const searchNearbyFacilities = (params) => http.get('/facilities/nearby', { params })

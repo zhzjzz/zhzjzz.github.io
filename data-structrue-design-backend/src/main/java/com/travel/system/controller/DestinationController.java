@@ -67,6 +67,15 @@ public class DestinationController {
         return destinationService.list(keyword, 1, Integer.MAX_VALUE);
     }
 
+    @Operation(summary = "路线规划地点搜索", description = "用于路线规划输入框的地点搜索，优先 Elasticsearch，支持限制返回数量")
+    @ApiResponse(responseCode = "200", description = "查询成功")
+    @GetMapping("/route-search")
+    public List<Destination> routeSearch(
+            @Parameter(description = "搜索关键字，用于模糊匹配名称或类别") @RequestParam String keyword,
+            @Parameter(description = "最大返回数量，默认10，最大50") @RequestParam(defaultValue = "10") int limit) {
+        return destinationService.searchForRoute(keyword, limit);
+    }
+
     /**
      * 返回热度+评分综合排序的前 {@code k} 名目的地。
      *

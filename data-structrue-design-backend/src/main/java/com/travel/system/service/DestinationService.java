@@ -1,11 +1,12 @@
 package com.travel.system.service;
 
-import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.travel.system.mapper.DestinationMapper;
 import com.travel.system.repository.DestinationSearchRepository;
 import com.travel.system.model.Destination;
 import com.travel.system.search.DestinationDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
  */
 @Service
 public class DestinationService {
+    private static final Logger log = LoggerFactory.getLogger(DestinationService.class);
 
     /** 目的地持久层（MyBatis Mapper）。 */
     private final DestinationMapper destinationMapper;
@@ -90,6 +92,34 @@ public class DestinationService {
     public List<Destination> topK(int k) {
         List<Destination> all = destinationMapper.findAll();
         return recommendationService.topKDestinations(all, k);
+    }
+
+    public List<Destination> searchForRoute(String keyword, int limit) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        if (normalizedKeyword.isEmpty()) {
+            return List.of();
+        }
+
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+
+        if (destinationSearchRepository != null) {
+            try {
+                return destinationSearchRepository.findByNameOrCategory(normalizedKeyword, normalizedKeyword)
+                        .stream()
+                        .map(this::toDestination)
+                        .filter(destination -> destination.getLatitude() != null && destination.getLongitude() != null)
+                        .limit(safeLimit)
+                        .collect(Collectors.toList());
+            } catch (Exception e) {
+                log.warn("Route destination ES search failed, fallback to MySQL. keyword={}", normalizedKeyword, e);
+            }
+        }
+
+        return destinationMapper.findByKeyword(normalizedKeyword)
+                .stream()
+                .filter(destination -> destination.getLatitude() != null && destination.getLongitude() != null)
+                .limit(safeLimit)
+                .collect(Collectors.toList());
     }
 
     /**
