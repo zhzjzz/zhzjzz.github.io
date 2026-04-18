@@ -86,7 +86,7 @@ export function wgs84ToGcj02(lng, lat) {
 
 /**
  * 批量将 WGS-84 坐标数组 [lat, lng] 转换为 GCJ-02
- * @param {Array<[number, number]>} coords - Leaflet 格式的 [lat, lng] 数组
+ * @param {Array<[number, number]>} coords - 地图折线常用格式的 [lat, lng] 数组
  * @returns {Array<[number, number]>} - 转换后的 [lat, lng] 数组
  */
 export function wgs84ToGcj02Batch(coords) {

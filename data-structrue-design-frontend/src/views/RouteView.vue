@@ -1,17 +1,19 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import AMapLoader from '@amap/amap-jsapi-loader'
 import { getOsmRoute, searchRouteDestinations } from '../api/travel'
 import { wgs84ToGcj02, wgs84ToGcj02Batch } from '../utils/coordTransform'
 
-const CHINA_CENTER = [35.8617, 104.1954]
+const CHINA_CENTER = [104.1954, 35.8617]
 const DEFAULT_ZOOM = 4
+const AMAP_VERSION = '2.0'
+const AMAP_PLUGINS = ['AMap.Scale', 'AMap.ToolBar']
 
 const mapInstance = ref(null)
+const mapApi = ref(null)
 const routeLayer = ref(null)
-const markerLayer = ref(null)
+const markerLayers = ref([])
 const loading = ref(false)
 const routeResult = ref(null)
 const form = ref({
@@ -38,63 +40,172 @@ const selectedStops = computed(() =>
 const distanceKm = computed(() => ((routeResult.value?.distance || 0) / 1000).toFixed(2))
 const durationHours = computed(() => ((routeResult.value?.time || 0) / 1000 / 3600).toFixed(2))
 
-const initMap = () => {
-  mapInstance.value = L.map('route-map').setView(CHINA_CENTER, DEFAULT_ZOOM)
-  // webrd0{s} + subdomains 1~4 用于轮询瓦片子域名，减少单域并发压力。
-  L.tileLayer(
-    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
-    {
-      attribution: '&copy; 高德地图',
-      subdomains: ['1', '2', '3', '4'],
-      maxZoom: 18,
-      maxNativeZoom: 18,
-      updateWhenZooming: false,
-      keepBuffer: 8,
-    }
-  ).addTo(mapInstance.value)
-  markerLayer.value = L.layerGroup().addTo(mapInstance.value)
+const clearRouteLayer = () => {
+  if (routeLayer.value && mapInstance.value) {
+    mapInstance.value.remove(routeLayer.value)
+  }
+  routeLayer.value = null
+}
+
+const clearMarkerLayers = () => {
+  if (markerLayers.value.length && mapInstance.value) {
+    mapInstance.value.remove(markerLayers.value)
+  }
+  markerLayers.value = []
+}
+
+const initMap = async () => {
+  const amapKey = (import.meta.env.VITE_AMAP_KEY || '').trim()
+  if (!amapKey) {
+    ElMessage.warning('未配置 VITE_AMAP_KEY，无法加载高德地图')
+    return
+  }
+
+  try {
+    const AMap = await AMapLoader.load({
+      key: amapKey,
+      version: AMAP_VERSION,
+      plugins: AMAP_PLUGINS,
+    })
+    mapApi.value = AMap
+    mapInstance.value = new AMap.Map('route-map', {
+      zoom: DEFAULT_ZOOM,
+      center: CHINA_CENTER,
+      mapStyle: 'amap://styles/normal',
+      viewMode: '2D',
+      features: ['bg', 'road', 'point'],
+    })
+    mapInstance.value.addControl(new AMap.Scale())
+    mapInstance.value.addControl(new AMap.ToolBar({ position: 'RB' }))
+  } catch (error) {
+    ElMessage.error('高德地图加载失败，请检查 Key 或网络')
+  }
 }
 
 const drawRoute = (path) => {
-  if (!mapInstance.value) return
-  if (routeLayer.value) {
-    mapInstance.value.removeLayer(routeLayer.value)
-    routeLayer.value = null
-  }
+  if (!mapInstance.value || !mapApi.value) return
+  clearRouteLayer()
   if (!path?.length) return
-  // 高德底图使用 GCJ-02 坐标系，需将 GraphHopper 返回的 WGS-84 坐标转换后绘制
+
   const gcjPath = wgs84ToGcj02Batch(path)
-  routeLayer.value = L.polyline(gcjPath, { color: '#ff385c', weight: 5 }).addTo(mapInstance.value)
-  mapInstance.value.fitBounds(routeLayer.value.getBounds(), { padding: [24, 24] })
+  const amapPath = gcjPath.map(([lat, lng]) => [lng, lat])
+  routeLayer.value = new mapApi.value.Polyline({
+    path: amapPath,
+    strokeColor: '#1677ff',
+    strokeWeight: 7,
+    strokeOpacity: 0.94,
+    isOutline: true,
+    outlineColor: '#ffffff',
+    lineJoin: 'round',
+    showDir: true,
+  })
+  mapInstance.value.add(routeLayer.value)
+  mapInstance.value.setFitView([routeLayer.value], false, [70, 70, 70, 70], 17)
+}
+
+const createPointOverlay = ({ lng, lat, color, title }) => {
+  const marker = new mapApi.value.CircleMarker({
+    center: [lng, lat],
+    radius: 9,
+    strokeColor: '#ffffff',
+    strokeWeight: 2,
+    fillColor: color,
+    fillOpacity: 1,
+    zIndex: 120,
+  })
+  const text = new mapApi.value.Text({
+    position: [lng, lat],
+    text: title,
+    anchor: 'bottom-center',
+    offset: [0, -16],
+    style: {
+      background: '#111827',
+      color: '#f9fafb',
+      border: 'none',
+      borderRadius: '999px',
+      padding: '4px 10px',
+      fontSize: '12px',
+      fontWeight: 600,
+      boxShadow: '0 6px 18px rgba(17,24,39,0.25)',
+    },
+    zIndex: 130,
+  })
+  return [marker, text]
 }
 
 const drawMarkers = () => {
-  if (!mapInstance.value || !markerLayer.value) return
-  markerLayer.value.clearLayers()
+  if (!mapInstance.value || !mapApi.value) return
+  clearMarkerLayers()
+
   if (startSelection.value) {
-    // WGS-84 → GCJ-02 转换，消除高德底图偏移
     const [gcjLng, gcjLat] = wgs84ToGcj02(startSelection.value.longitude, startSelection.value.latitude)
-    L.circleMarker([gcjLat, gcjLng], {
-      radius: 7,
-      color: '#1677ff',
-      fillColor: '#1677ff',
-      fillOpacity: 1,
-    })
-      .bindPopup(`起点：${startSelection.value.name}`)
-      .addTo(markerLayer.value)
+    markerLayers.value.push(
+      ...createPointOverlay({
+        lng: gcjLng,
+        lat: gcjLat,
+        color: '#1677ff',
+        title: `起点：${startSelection.value.name}`,
+      })
+    )
   }
+
   selectedStops.value.forEach((destination, index) => {
     const isLast = index === selectedStops.value.length - 1
     const [gcjLng, gcjLat] = wgs84ToGcj02(destination.longitude, destination.latitude)
-    L.circleMarker([gcjLat, gcjLng], {
-      radius: 7,
-      color: isLast ? '#22c55e' : '#f59e0b',
-      fillColor: isLast ? '#22c55e' : '#f59e0b',
-      fillOpacity: 1,
-    })
-      .bindPopup(`${isLast ? '终点' : `途经点${index + 1}`}：${destination.name}`)
-      .addTo(markerLayer.value)
+    markerLayers.value.push(
+      ...createPointOverlay({
+        lng: gcjLng,
+        lat: gcjLat,
+        color: isLast ? '#22c55e' : '#f59e0b',
+        title: `${isLast ? '终点' : `途经点${index + 1}`}：${destination.name}`,
+      })
+    )
   })
+
+  if (markerLayers.value.length) {
+    mapInstance.value.add(markerLayers.value)
+  }
+}
+
+const refreshMapView = () => {
+  if (!mapInstance.value) return
+  const overlays = [routeLayer.value, ...markerLayers.value].filter(Boolean)
+  if (overlays.length) {
+    mapInstance.value.setFitView(overlays, false, [70, 70, 70, 70], 17)
+  } else {
+    mapInstance.value.setZoomAndCenter(DEFAULT_ZOOM, CHINA_CENTER)
+  }
+}
+
+const onStartSelect = (item) => {
+  startSelection.value = item.raw
+  startInput.value = item.value
+  drawMarkers()
+  refreshMapView()
+}
+
+const onStartInput = (value) => {
+  if (startSelection.value && value !== startSelection.value.name) {
+    startSelection.value = null
+    drawMarkers()
+    refreshMapView()
+  }
+}
+
+const onDestinationSelect = (index, item) => {
+  destinationStops.value[index].selection = item.raw
+  destinationStops.value[index].input = item.value
+  drawMarkers()
+  refreshMapView()
+}
+
+const onDestinationInput = (index, value) => {
+  const current = destinationStops.value[index]
+  if (current.selection && value !== current.selection.name) {
+    current.selection = null
+    drawMarkers()
+    refreshMapView()
+  }
 }
 
 const fetchDestinationSuggestions = async (queryString, callback) => {
@@ -118,33 +229,6 @@ const fetchDestinationSuggestions = async (queryString, callback) => {
   }
 }
 
-const onStartSelect = (item) => {
-  startSelection.value = item.raw
-  startInput.value = item.value
-  drawMarkers()
-}
-
-const onStartInput = (value) => {
-  if (startSelection.value && value !== startSelection.value.name) {
-    startSelection.value = null
-    drawMarkers()
-  }
-}
-
-const onDestinationSelect = (index, item) => {
-  destinationStops.value[index].selection = item.raw
-  destinationStops.value[index].input = item.value
-  drawMarkers()
-}
-
-const onDestinationInput = (index, value) => {
-  const current = destinationStops.value[index]
-  if (current.selection && value !== current.selection.name) {
-    current.selection = null
-    drawMarkers()
-  }
-}
-
 const addDestinationStop = () => {
   destinationStops.value.push({
     input: '',
@@ -156,6 +240,7 @@ const removeDestinationStop = (index) => {
   if (destinationStops.value.length <= 1) return
   destinationStops.value.splice(index, 1)
   drawMarkers()
+  refreshMapView()
 }
 
 const submit = async () => {
@@ -211,6 +296,7 @@ const submit = async () => {
     }
     drawRoute(mergedPath)
     drawMarkers()
+    refreshMapView()
     ElMessage.success('路线规划成功')
   } catch (error) {
     ElMessage.error(error?.message || error?.response?.data?.message || '路线规划失败，请检查后端 GraphHopper 数据文件配置')
@@ -221,15 +307,18 @@ const submit = async () => {
 
 onMounted(async () => {
   await nextTick()
-  initMap()
-  mapInstance.value?.invalidateSize()
+  await initMap()
+  mapInstance.value?.resize()
 })
 
 onBeforeUnmount(() => {
+  clearRouteLayer()
+  clearMarkerLayers()
   if (mapInstance.value) {
-    mapInstance.value.remove()
+    mapInstance.value.destroy()
     mapInstance.value = null
   }
+  mapApi.value = null
 })
 </script>
 
@@ -302,6 +391,9 @@ onBeforeUnmount(() => {
       <el-empty v-else description="请搜索起点和多个目的地后点击规划路线" />
 
       <el-divider />
+      <div class="map-title">
+        <span>高德官方 JS API 地图</span>
+      </div>
       <div id="route-map" class="route-map" />
     </el-card>
   </section>
@@ -336,9 +428,20 @@ onBeforeUnmount(() => {
   height: 520px;
   border-radius: 16px;
   overflow: hidden;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  background: linear-gradient(135deg, #e6f0ff 0%, #f8fbff 100%);
 }
 
-.route-map :deep(.leaflet-tile) {
-  filter: saturate(1.25) contrast(1.12) brightness(0.9);
+.map-title {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
 }
 </style>
