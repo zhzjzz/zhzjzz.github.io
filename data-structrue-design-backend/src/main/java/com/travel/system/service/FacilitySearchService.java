@@ -9,10 +9,13 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -101,7 +104,7 @@ public class FacilitySearchService {
                                     .contains(facilityType.toLowerCase(Locale.ROOT)))
                             .collect(Collectors.toList());
                     }
-                    return docs.stream().map(this::toFacility).collect(Collectors.toList());
+                    return mergeWithMysqlFacilities(docs);
                 } catch (Exception e) {
                 }
             }
@@ -212,6 +215,30 @@ public class FacilitySearchService {
         facility.setLatitude(doc.getLatitude());
         facility.setLongitude(doc.getLongitude());
         return facility;
+    }
+
+    private List<Facility> mergeWithMysqlFacilities(List<FacilityDocument> docs) {
+        if (docs == null || docs.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Facility> mysqlFacilitiesById = facilityRepository.findAll()
+                .stream()
+                .collect(Collectors.toMap(Facility::getId, Function.identity(), (left, right) -> left));
+
+        return docs.stream()
+                .map(doc -> {
+                    try {
+                        Long id = Long.valueOf(doc.getId());
+                        Facility mysqlFacility = mysqlFacilitiesById.get(id);
+                        return mysqlFacility != null ? mysqlFacility : toFacility(doc);
+                    } catch (NumberFormatException e) {
+                        return toFacility(doc);
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toCollection(() -> new LinkedHashSet<Facility>()),
+                        List::copyOf));
     }
 
     private record LatLng(double lat, double lon) {

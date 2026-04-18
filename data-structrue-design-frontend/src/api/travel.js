@@ -19,6 +19,8 @@ export const searchDiaryFullText = (keyword) => http.get('/diaries/search', { pa
 // 行程协作接口。
 export const listItineraries = () => http.get('/itineraries')
 export const createItinerary = (payload) => http.post('/itineraries', payload)
+export const getItinerary = (id) => http.get(`/itineraries/${id}`)
+export const updateItinerary = (id, payload) => http.put(`/itineraries/${id}`, payload)
 
 // 路线规划接口。
 export const getOsmRoute = (params) => http.get('/route', { params })
