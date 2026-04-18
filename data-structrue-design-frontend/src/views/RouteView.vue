@@ -9,11 +9,15 @@ const CHINA_CENTER = [104.1954, 35.8617]
 const DEFAULT_ZOOM = 4
 const AMAP_VERSION = '2.0'
 const AMAP_PLUGINS = ['AMap.Scale', 'AMap.ToolBar']
+const MAP_FIT_PADDING = [70, 70, 70, 70]
+const MAP_MAX_ZOOM = 17
+const MARKER_TEXT_BG_COLOR = '#111827'
+const MARKER_TEXT_COLOR = '#f9fafb'
 
 const mapInstance = ref(null)
 const mapApi = ref(null)
 const routeLayer = ref(null)
-const markerLayers = ref([])
+const markerOverlays = ref([])
 const loading = ref(false)
 const routeResult = ref(null)
 const form = ref({
@@ -48,10 +52,10 @@ const clearRouteLayer = () => {
 }
 
 const clearMarkerLayers = () => {
-  if (markerLayers.value.length && mapInstance.value) {
-    mapInstance.value.remove(markerLayers.value)
+  if (markerOverlays.value.length && mapInstance.value) {
+    mapInstance.value.remove(markerOverlays.value)
   }
-  markerLayers.value = []
+  markerOverlays.value = []
 }
 
 const initMap = async () => {
@@ -78,7 +82,7 @@ const initMap = async () => {
     mapInstance.value.addControl(new AMap.Scale())
     mapInstance.value.addControl(new AMap.ToolBar({ position: 'RB' }))
   } catch (error) {
-    ElMessage.error('高德地图加载失败，请检查 Key 或网络')
+    ElMessage.error(`高德地图加载失败：${error?.message || '请检查 Key 或网络'}`)
   }
 }
 
@@ -88,9 +92,10 @@ const drawRoute = (path) => {
   if (!path?.length) return
 
   const gcjPath = wgs84ToGcj02Batch(path)
-  const amapPath = gcjPath.map(([lat, lng]) => [lng, lat])
+  // AMap 坐标顺序为 [lng, lat]，内部路径使用 [lat, lng]
+  const amapLngLatPath = gcjPath.map(([lat, lng]) => [lng, lat])
   routeLayer.value = new mapApi.value.Polyline({
-    path: amapPath,
+    path: amapLngLatPath,
     strokeColor: '#1677ff',
     strokeWeight: 7,
     strokeOpacity: 0.94,
@@ -100,10 +105,10 @@ const drawRoute = (path) => {
     showDir: true,
   })
   mapInstance.value.add(routeLayer.value)
-  mapInstance.value.setFitView([routeLayer.value], false, [70, 70, 70, 70], 17)
+  mapInstance.value.setFitView([routeLayer.value], false, MAP_FIT_PADDING, MAP_MAX_ZOOM)
 }
 
-const createPointOverlay = ({ lng, lat, color, title }) => {
+const createMarkerWithLabel = ({ lng, lat, color, title }) => {
   const marker = new mapApi.value.CircleMarker({
     center: [lng, lat],
     radius: 9,
@@ -119,8 +124,8 @@ const createPointOverlay = ({ lng, lat, color, title }) => {
     anchor: 'bottom-center',
     offset: [0, -16],
     style: {
-      background: '#111827',
-      color: '#f9fafb',
+      background: MARKER_TEXT_BG_COLOR,
+      color: MARKER_TEXT_COLOR,
       border: 'none',
       borderRadius: '999px',
       padding: '4px 10px',
@@ -139,8 +144,8 @@ const drawMarkers = () => {
 
   if (startSelection.value) {
     const [gcjLng, gcjLat] = wgs84ToGcj02(startSelection.value.longitude, startSelection.value.latitude)
-    markerLayers.value.push(
-      ...createPointOverlay({
+    markerOverlays.value.push(
+      ...createMarkerWithLabel({
         lng: gcjLng,
         lat: gcjLat,
         color: '#1677ff',
@@ -152,8 +157,8 @@ const drawMarkers = () => {
   selectedStops.value.forEach((destination, index) => {
     const isLast = index === selectedStops.value.length - 1
     const [gcjLng, gcjLat] = wgs84ToGcj02(destination.longitude, destination.latitude)
-    markerLayers.value.push(
-      ...createPointOverlay({
+    markerOverlays.value.push(
+      ...createMarkerWithLabel({
         lng: gcjLng,
         lat: gcjLat,
         color: isLast ? '#22c55e' : '#f59e0b',
@@ -162,16 +167,16 @@ const drawMarkers = () => {
     )
   })
 
-  if (markerLayers.value.length) {
-    mapInstance.value.add(markerLayers.value)
+  if (markerOverlays.value.length) {
+    mapInstance.value.add(markerOverlays.value)
   }
 }
 
 const refreshMapView = () => {
   if (!mapInstance.value) return
-  const overlays = [routeLayer.value, ...markerLayers.value].filter(Boolean)
+  const overlays = [routeLayer.value, ...markerOverlays.value].filter(Boolean)
   if (overlays.length) {
-    mapInstance.value.setFitView(overlays, false, [70, 70, 70, 70], 17)
+    mapInstance.value.setFitView(overlays, false, MAP_FIT_PADDING, MAP_MAX_ZOOM)
   } else {
     mapInstance.value.setZoomAndCenter(DEFAULT_ZOOM, CHINA_CENTER)
   }

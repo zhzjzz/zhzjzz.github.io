@@ -55,7 +55,7 @@ npm run dev
 如需修改后端地址：
 - 在前端环境变量中设置 `VITE_API_BASE_URL`（默认 `/api`）
 - 开发模式也可设置 `VITE_DEV_API_TARGET`（默认 `http://localhost:8080`）以修改 Vite `/api` 代理目标
-- 路线页地图需配置高德 Key：`VITE_AMAP_KEY`
+- 路线页地图需配置高德 Key：`VITE_AMAP_KEY`（需在高德开放平台 https://lbs.amap.com/ 注册并创建应用获取，建议在控制台按域名限制 Key）
 
 ### 已实现 API（示例）
 
