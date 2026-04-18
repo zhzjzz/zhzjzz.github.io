@@ -26,5 +26,7 @@ export const listDestinations = () => http.get('/destinations')
 export const searchRouteDestinations = (keyword, limit = 10) =>
   http.get('/destinations/route-search', { params: { keyword, limit } })
 
-// 场所查询接口。
+// 设施查询接口。
+// 查询场所列表；不传 type 时返回全部，用于前端动态提取可选类别。
+export const listFacilities = (type) => http.get('/facilities', { params: type ? { type } : {} })
 export const searchNearbyFacilities = (params) => http.get('/facilities/nearby', { params })

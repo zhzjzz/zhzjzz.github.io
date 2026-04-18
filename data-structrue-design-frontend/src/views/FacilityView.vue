@@ -1,11 +1,13 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { listDestinations, searchNearbyFacilities } from '../api/travel'
+import { listDestinations, listFacilities, searchNearbyFacilities } from '../api/travel'
 
 const loading = ref(false)
+const loadingTypeOptions = ref(false)
 const destinations = ref([])
 const results = ref([])
+const facilityTypeOptions = ref([])
 
 const form = ref({
   fromDestinationId: null,
@@ -14,12 +16,24 @@ const form = ref({
   maxDistanceMeters: 1000,
 })
 
-const facilityTypeOptions = ['洗手间', '食堂', '超市', '咖啡馆', '图书馆', '商店']
-
 const selectedDestinationName = computed(() => {
   const item = destinations.value.find((destination) => destination.id === form.value.fromDestinationId)
   return item?.name || '未选择'
 })
+
+const loadFacilityTypeOptions = async (keyword = '') => {
+  loadingTypeOptions.value = true
+  try {
+    const type = keyword.trim()
+    const { data } = await listFacilities(type)
+    facilityTypeOptions.value = [...new Set(data.map((item) => item.facilityType).filter(Boolean))]
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('加载设施类别失败，请稍后重试')
+  } finally {
+    loadingTypeOptions.value = false
+  }
+}
 
 const loadDestinations = async () => {
   const { data } = await listDestinations()
@@ -55,7 +69,7 @@ const search = async () => {
 }
 
 onMounted(async () => {
-  await loadDestinations()
+  await Promise.all([loadDestinations(), loadFacilityTypeOptions()])
   if (form.value.fromDestinationId) {
     await search()
   }
@@ -91,7 +105,19 @@ onMounted(async () => {
         <el-row :gutter="12">
           <el-col :md="8" :xs="24">
             <el-form-item label="设施类别">
-              <el-select v-model="form.type" class="full-width" clearable placeholder="全部类别">
+              <el-select
+                v-model="form.type"
+                class="full-width"
+                clearable
+                filterable
+                remote
+                allow-create
+                default-first-option
+                reserve-keyword
+                :loading="loadingTypeOptions"
+                placeholder="输入类别关键字搜索，留空可看全部类型"
+                :remote-method="loadFacilityTypeOptions"
+              >
                 <el-option
                   v-for="item in facilityTypeOptions"
                   :key="item"
