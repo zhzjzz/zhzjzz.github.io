@@ -14,6 +14,7 @@ public class Food {
     private String cuisine;
     private String storeName;
     private Double rating;
+    private Double heat;
     @Transient
     private Double distanceMeters;
     @ManyToOne(fetch = FetchType.LAZY)

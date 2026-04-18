@@ -211,7 +211,6 @@ public class ElasticsearchFullSyncService {
         doc.setName(food.getName());
         doc.setCuisine(food.getCuisine());
         doc.setStoreName(food.getStoreName());
-        doc.setHeat(food.getHeat());
         doc.setRating(food.getRating());
         if (food.getDestination() != null) {
             doc.setDestinationName(food.getDestination().getName());
