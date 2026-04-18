@@ -62,6 +62,43 @@ public class ElasticsearchFullSyncService {
     }
 
     /**
+     * 删除所有 ES 索引及其中的数据。
+     */
+    public Map<String, Object> deleteAllIndices() {
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        if (elasticsearchOperations == null) {
+            result.put("error", "Elasticsearch 不可用，无法删除");
+            return result;
+        }
+
+        Class<?>[] documentClasses = {
+                DestinationDocument.class,
+                DiaryDocument.class,
+                FacilityDocument.class,
+                FoodDocument.class,
+                ItineraryDocument.class,
+                UserAccountDocument.class
+        };
+        for (Class<?> clazz : documentClasses) {
+            try {
+                IndexOperations indexOps = elasticsearchOperations.indexOps(clazz);
+                boolean existed = indexOps.exists();
+                if (existed) {
+                    indexOps.delete();
+                    result.put(clazz.getSimpleName(), " deleted OK");
+                } else {
+                    result.put(clazz.getSimpleName(), " index not existed, skipped");
+                }
+            } catch (Exception e) {
+                result.put(clazz.getSimpleName(), " error: " + e.getMessage());
+            }
+        }
+        result.put("message", "所有 ES 索引已删除");
+        return result;
+    }
+
+    /**
      * 全量同步：先删除旧索引、按新的 @Field 注解重建索引映射，再批量写入数据。
      */
     public Map<String, Object> syncAllTables() {

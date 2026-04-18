@@ -44,12 +44,12 @@ import java.util.stream.StreamSupport;
 public class FacilitySearchService {
     private static final double EARTH_RADIUS_METERS = 6_371_000d;
 
-    private final FacilityMapper facilityRepository;
+    private final FacilityMapper facilityMapper;
     private final FacilitySearchRepository facilitySearchRepository;
 
-    public FacilitySearchService(FacilityMapper facilityRepository,
+    public FacilitySearchService(FacilityMapper facilityMapper,
                                  ObjectProvider<FacilitySearchRepository> facilitySearchRepositoryProvider) {
-        this.facilityRepository = facilityRepository;
+        this.facilityMapper = facilityMapper;
         this.facilitySearchRepository = facilitySearchRepositoryProvider.getIfAvailable();
     }
 
@@ -108,7 +108,7 @@ public class FacilitySearchService {
                 }
             }
         }
-        return facilityRepository.findAll();
+        return facilityMapper.findAll();
     }
 
     private FacilityQueryResult toResult(Facility facility,
@@ -231,7 +231,7 @@ public class FacilitySearchService {
 
         Map<Long, Facility> mysqlFacilitiesById = ids.isEmpty()
                 ? Map.of()
-                : facilityRepository.findByIds(ids)
+                : facilityMapper.findByIds(ids)
                 .stream()
                 .collect(Collectors.toMap(Facility::getId, Function.identity(), (left, right) -> left));
 
