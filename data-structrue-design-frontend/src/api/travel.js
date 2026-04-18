@@ -27,4 +27,5 @@ export const searchRouteDestinations = (keyword, limit = 10) =>
   http.get('/destinations/route-search', { params: { keyword, limit } })
 
 // 场所查询接口。
+export const listFacilities = (type) => http.get('/facilities', { params: { type } })
 export const searchNearbyFacilities = (params) => http.get('/facilities/nearby', { params })
