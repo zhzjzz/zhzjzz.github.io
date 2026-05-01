@@ -1,0 +1,31 @@
+# =============================================================
+# 生产/正式环境配置 (profile: prod)
+# 使用 MySQL、Elasticsearch、GraphHopper 完整功能
+# 启动方式: mvn spring-boot:run -Dspring-boot.run.profiles=prod
+# =============================================================
+
+spring:
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/travel_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: ${MYSQL_DRIVER:com.mysql.cj.jdbc.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.MySQLDialect
+
+  # ES 必须可用
+  elasticsearch:
+    uris: ${ES_URIS:http://192.168.64.128:9200}
+  data:
+    elasticsearch:
+      repositories:
+        enabled: true
+
+# GraphHopper 使用完整中国地图
+routing:
+  graphhopper:
+    enabled: true
+    osm-file: data/osm/china-260415.osm.pbf
+    graph-location: data/graph-cache

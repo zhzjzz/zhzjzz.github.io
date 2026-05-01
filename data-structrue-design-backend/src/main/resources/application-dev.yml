@@ -1,0 +1,36 @@
+# =============================================================
+# 开发环境配置 (profile: dev)
+# 团队成员在各自电脑上运行时使用此配置
+# 启动方式: mvn spring-boot:run -Dspring-boot.run.profiles=dev
+# =============================================================
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/dev-db/travel_system;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  # ES 默认关闭，团队成员无需安装 ES 即可运行
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
+  data:
+    elasticsearch:
+      repositories:
+        enabled: ${ES_REPOSITORIES_ENABLED:false}
+
+# GraphHopper 默认关闭，团队成员无需下载 OSM 数据即可运行
+# 如需测试路由功能，设为 true 并确保 OSM 文件存在
+routing:
+  graphhopper:
+    enabled: ${GRAPHHOPPER_ENABLED:false}
+    osm-file: ${GRAPHHOPPER_OSM_FILE:data/osm/beijing-260416.osm.pbf}
+    graph-location: ${GRAPHHOPPER_GRAPH_LOCATION:data/graph-cache}
