@@ -1,0 +1,10 @@
+*.jar
+!target/*.jar
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+data/osm/
+data/graph-cache/
+.env
