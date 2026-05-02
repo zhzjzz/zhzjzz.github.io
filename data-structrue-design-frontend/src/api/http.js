@@ -1,7 +1,12 @@
 import axios from 'axios'
 
+const resolvedBase = import.meta.env.VITE_API_BASE_URL || '/api'
+const baseURL = resolvedBase.startsWith('http') && !resolvedBase.endsWith('/api')
+  ? resolvedBase + '/api'
+  : resolvedBase
+
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL,
   timeout: 8000,
 })
 
