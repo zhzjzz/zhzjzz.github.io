@@ -8,7 +8,6 @@
 
 - JDK 17+
 - Maven 3.8+
-- (可选) Docker — 仅在需要测试 ES/MySQL 时
 
 ### 2. 克隆并运行
 
@@ -20,8 +19,6 @@ mvn spring-boot:run
 
 项目默认使用 `dev` profile，**无需任何额外配置**即可启动：
 - 数据库：内嵌 H2（文件存储在 `data/dev-db/`）
-- Elasticsearch：关闭
-- GraphHopper 路由：关闭
 
 ### 3. 验证启动成功
 
@@ -36,19 +33,15 @@ mvn spring-boot:run
 
 | 功能 | dev (默认) | prod |
 |------|-----------|------|
-| 数据库 | H2 内嵌 | MySQL |
-| Elasticsearch | 关闭 | 开启 |
-| GraphHopper 路由 | 关闭 | 开启 |
-| 全文搜索 API | 降级为数据库查询 | 正常工作 |
-| 路由规划 API | 返回 503 | 正常工作 |
+| 数据库 | H2 内嵌（零配置） | MySQL |
+| 全文搜索 | MySQL LIKE 模糊查询 | MySQL LIKE 模糊查询 |
+| 行程多人协作 | WebSocket 可用 | WebSocket 可用 |
 
-所有核心 CRUD 功能（景点、美食、日记、行程等）在 dev 环境下均可正常使用。
+所有 CRUD 功能（景点、美食、日记、行程等）以及 WebSocket 协作在 dev 和 prod 环境下均可正常使用。
 
 ---
 
-## 切换到正式环境
-
-### 方式一：环境变量
+## 切换到 MySQL (prod)
 
 ```bash
 # Windows (PowerShell)
@@ -64,65 +57,116 @@ export MYSQL_PASSWORD=your_password
 mvn spring-boot:run
 ```
 
-### 方式二：使用 .env 文件
-
-```bash
-cp .env.example .env
-# 编辑 .env，填入实际的数据库密码、ES 地址等
-```
-
----
-
-## 使用 Docker 运行 MySQL + ES
-
-如果本地没有 MySQL 和 Elasticsearch，可以用 Docker 一键启动：
+或者用 Docker 快速启动 MySQL：
 
 ```bash
 docker compose -f docker-compose-dev.yml up -d
+# MySQL 运行在 localhost:3307，用户: travel_user，密码: travel_pass
 ```
 
-这会启动：
-- MySQL 8.0 → `localhost:3307`（用户: travel_user，密码: travel_pass）
-- Elasticsearch 8.12 → `localhost:9201`
+---
 
-然后以 prod profile 连接：
+## 部署到阿里云学生机
+
+### 步骤 1：购买并配置服务器
+
+1. 访问 [阿里云学生机](https://www.aliyun.com/act/aliyun/campus) 完成学生认证
+2. 购买 2核2G 云服务器（约 ￥9.9/月）
+3. 选择操作系统：**Ubuntu 22.04**
+4. 购买后进入控制台 → 实例 → 安全组 → 添加规则：
+   - 端口 8080（应用）
+   - 端口 22（SSH）
+
+### 步骤 2：连接到服务器
 
 ```bash
-# Windows (PowerShell)
-$env:SPRING_PROFILES_ACTIVE="prod"
-$env:MYSQL_URL="jdbc:mysql://localhost:3307/travel_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai"
-$env:MYSQL_USERNAME="travel_user"
-$env:MYSQL_PASSWORD="travel_pass"
-$env:ES_URIS="http://localhost:9201"
-mvn spring-boot:run
-
-# Linux / macOS
-export SPRING_PROFILES_ACTIVE=prod
-export MYSQL_URL="jdbc:mysql://localhost:3307/travel_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai"
-export MYSQL_USERNAME=travel_user
-export MYSQL_PASSWORD=travel_pass
-export ES_URIS=http://localhost:9201
-mvn spring-boot:run
+ssh root@<你的服务器公网IP>
 ```
+
+### 步骤 3：一键部署
+
+在服务器上运行以下命令：
+
+```bash
+# 1. 安装 Git
+apt update && apt install git -y
+
+# 2. 克隆项目
+git clone <仓库地址>
+cd data-structrue-design-backend
+
+# 3. 运行一键部署脚本（会自动安装 Docker、构建镜像、启动服务）
+chmod +x deploy.sh
+./deploy.sh
+```
+
+部署脚本会自动完成：
+1. 安装 Docker 和 Docker Compose
+2. 构建 Spring Boot 应用镜像（JVM 限制 256MB）
+3. 启动 MySQL（限制 300MB）+ 应用（限制 400MB）
+4. 等待应用就绪并输出访问地址
+
+### 步骤 4：验证部署成功
+
+```
+API 文档: http://<服务器IP>:8080/swagger-ui.html
+健康检查: http://<服务器IP>:8080/actuator/health
+```
+
+### 常见命令
+
+```bash
+# 查看日志
+docker compose -f docker-compose-prod.yml logs -f app
+
+# 重启服务
+docker compose -f docker-compose-prod.yml restart
+
+# 停止服务
+docker compose -f docker-compose-prod.yml down
+
+# 更新代码后重新部署
+git pull
+docker build -t travel-system:latest .
+docker compose -f docker-compose-prod.yml up -d
+```
+
+### 内存预估
+
+| 组件 | 限制内存 |
+|------|---------|
+| MySQL 8.0 | 300MB |
+| Spring Boot JVM | 256MB |
+| 操作系统 | ~500MB |
+| **总计** | **~1GB** |
+
+2核2G 服务器完全够用。
 
 ---
 
-## GraphHopper 路由功能
+## 前端配合
 
-路由功能需要 OSM 地图数据文件。小型北京地图 (~36MB) 可用于开发测试。
+前端需要配置后端 API 地址为 `http://<服务器IP>:8080`。
 
-如果需要完整中国地图路由：
-1. 下载 OSM 数据文件到 `data/osm/` 目录
-2. 设置环境变量 `GRAPHHOPPER_ENABLED=true`
-3. 首次启动会构建图缓存，需要几分钟
-
----
-
-## OSM 数据文件获取
-
-北京地图（约 36MB，开发用）：
+WebSocket 协作编辑连接方式：
+```javascript
+const socket = new SockJS('http://<服务器IP>:8080/ws');
+const stomp = Stomp.over(socket);
+stomp.connect({}, () => {
+  // 订阅行程实时更新
+  stomp.subscribe('/topic/itinerary/' + itineraryId, (msg) => {
+    const update = JSON.parse(msg.body);
+    if (update.type === 'UPDATED') {
+      // 更新界面
+    } else if (update.type === 'CONFLICT') {
+      // 提示冲突，需要刷新
+    }
+  });
+  // 发送编辑消息
+  stomp.send('/app/itinerary/' + itineraryId + '/edit', {}, JSON.stringify({
+    username: currentUser,
+    expectedUpdatedAt: lastKnownTimestamp,
+    name: newName,  // 只发改变的字段，其他字段为 null
+  }));
+});
 ```
-data/osm/beijing-260416.osm.pbf
-```
-
-完整中国地图（约 1.5GB，生产用）需单独提供，不提交到 Git。

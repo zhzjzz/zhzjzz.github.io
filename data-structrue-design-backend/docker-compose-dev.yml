@@ -1,19 +1,8 @@
-# =============================================================
-# Docker Compose — 一键启动本地开发所需的服务 (MySQL + Elasticsearch)
+# Docker Compose — 一键启动本地 MySQL
 #
 # 使用方法:
 #   启动:  docker compose -f docker-compose-dev.yml up -d
 #   停止:  docker compose -f docker-compose-dev.yml down
-#   查看状态: docker compose -f docker-compose-dev.yml ps
-#
-# 启动后用 prod profile 连接这些服务:
-#   SPRING_PROFILES_ACTIVE=prod \
-#   MYSQL_URL=jdbc:mysql://localhost:3307/travel_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai \
-#   MYSQL_USERNAME=travel_user \
-#   MYSQL_PASSWORD=travel_pass \
-#   ES_URIS=http://localhost:9201 \
-#   mvn spring-boot:run
-# =============================================================
 
 services:
   mysql:
@@ -30,18 +19,5 @@ services:
       - travel-mysql-data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
-  elasticsearch:
-    image: elasticsearch:8.12.0
-    container_name: travel-es
-    ports:
-      - "9201:9200"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    volumes:
-      - travel-es-data:/usr/share/elasticsearch/data
-
 volumes:
   travel-mysql-data:
-  travel-es-data:

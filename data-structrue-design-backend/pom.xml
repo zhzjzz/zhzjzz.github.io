@@ -5,12 +5,11 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Use Spring Boot parent to manage dependency versions -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.5.13</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
 
     <groupId>com.travel</groupId>
@@ -23,9 +22,6 @@
 
     <properties>
         <java.version>17</java.version>
-        <!-- 强制把 Spring Boot 的 Jackson 降级到一个 GraphHopper 支持的版本 -->
-        <jackson.version>2.14.2</jackson.version>
-        <jackson-bom.version>2.14.2</jackson-bom.version>
     </properties>
 
     <dependencies>
@@ -35,7 +31,6 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -50,10 +45,9 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
-        <!-- Lombok (optional) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -94,14 +88,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.graphhopper</groupId>
-            <artifactId>graphhopper-core</artifactId>
-            <!-- 8.0 与当前 Spring Boot 3 / Java 17 组合兼容稳定 -->
-            <version>8.0</version>
-        </dependency>
-
-        <!-- Test (optional) -->
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -110,7 +96,6 @@
 
     <build>
         <plugins>
-            <!-- Spring Boot Maven plugin (inherits version from parent) -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
