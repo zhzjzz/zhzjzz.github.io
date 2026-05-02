@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 
-//@Component
+@Component
 public class DataInitializer implements CommandLineRunner {
 
     private final DestinationMapper destinationMapper;
