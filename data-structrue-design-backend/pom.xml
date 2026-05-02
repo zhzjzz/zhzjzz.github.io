@@ -14,7 +14,7 @@
 
     <groupId>com.travel</groupId>
     <artifactId>travel-system</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1-SNAPSHOT</version>  
     <packaging>jar</packaging>
 
     <name>travel-system</name>
