@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "mcp__filesystem__list_directory",
-      "Bash(git -C d:/gitCode/zhzjzz status --short)"
+      "Bash(git -C d:/gitCode/zhzjzz status --short)",
+      "mcp__filesystem__read_text_file"
     ]
   }
 }
