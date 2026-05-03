@@ -8,8 +8,7 @@
             <TabSessionState>
               <option name="provider" value="claude" />
               <option name="sessionId" value="18e9bc89-f6f7-4ebe-a765-5273363ecc23" />
-              <option name="cwd" value="$PROJECT_DIR$" />
-              <option name="model" value="claude-opus-4-7[1m]" />
+              <option name="model" value="claude-sonnet-4-6[1m]" />
               <option name="permissionMode" value="bypassPermissions" />
               <option name="reasoningEffort" value="medium" />
             </TabSessionState>
