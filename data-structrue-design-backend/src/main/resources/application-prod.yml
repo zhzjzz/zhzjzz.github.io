@@ -1,12 +1,14 @@
-# 生产/正式环境配置 (profile: prod)
-# 使用 MySQL 数据库
+# MySQL 数据库配置 (profile: prod)
+# 默认连接本机 MySQL (localhost:3306)
+# 生产/远程部署时通过环境变量覆盖: MYSQL_URL / MYSQL_USERNAME / MYSQL_PASSWORD
+#
 # 启动: SPRING_PROFILES_ACTIVE=prod mvn spring-boot:run
 
 spring:
   datasource:
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/travel_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
-    username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:root}
+    username: ${MYSQL_USERNAME:}
+    password: ${MYSQL_PASSWORD:}
     driver-class-name: ${MYSQL_DRIVER:com.mysql.cj.jdbc.Driver}
   jpa:
     hibernate:

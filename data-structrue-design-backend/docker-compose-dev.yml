@@ -1,8 +1,16 @@
-# Docker Compose — 一键启动本地 MySQL
+# =============================================================
+# Docker Compose — 本地开发用 MySQL (非生产)
+# =============================================================
+# 本项目内置 H2 (dev profile) 和 MySQL (prod profile) 两套数据库。
+# H2 是零配置内存/文件数据库，开箱即用。
+# 当你需要测试 MySQL 行为时，用本文件启动一个本地 MySQL 容器。
 #
-# 使用方法:
-#   启动:  docker compose -f docker-compose-dev.yml up -d
-#   停止:  docker compose -f docker-compose-dev.yml down
+# 启动:   docker compose -f docker-compose-dev.yml up -d
+# 停止:   docker compose -f docker-compose-dev.yml down
+# 清空:   docker compose -f docker-compose-dev.yml down -v
+#
+# 然后切换 profile:  SPRING_PROFILES_ACTIVE=prod mvn spring-boot:run
+# 应用会自动连接到 localhost:3307 的 MySQL
 
 services:
   mysql:

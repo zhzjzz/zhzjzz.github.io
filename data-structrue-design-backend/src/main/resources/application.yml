@@ -1,14 +1,20 @@
 # =============================================================
-# 通用配置 — 所有 profile 共享
-# 默认激活 dev profile，团队成员开箱即用
-# 切换到正式环境: 设置环境变量 SPRING_PROFILES_ACTIVE=prod
+#  通用配置 — 所有 profile 共享
 # =============================================================
+#
+# 数据库切换: 改 profiles.active 那行即可
+#
+#   H2 (开发):   active: dev     → mvn spring-boot:run
+#   MySQL:       active: prod    → mvn spring-boot:run
+#
+# IDEA 里切: Run Configuration → Active profiles → 填 dev 或 prod
 
 spring:
   application:
     name: personalized-travel-system
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+#    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: ${SPRING_PROFILES_ACTIVE:prod}
   jpa:
     hibernate:
       ddl-auto: update
