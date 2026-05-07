@@ -277,7 +277,7 @@ onMounted(loadRows)
   font-size: 28px;
   font-weight: 700;
   line-height: 1.43;
-  letter-spacing: -0.18px;
+  letter-spacing: 0;
 }
 
 .hero-copy p {

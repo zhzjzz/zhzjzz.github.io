@@ -81,14 +81,15 @@ onMounted(async () => {
     <el-card class="module-card facility-card">
       <div class="module-header">
         <div>
+          <p class="demo-eyebrow">Nearby Search</p>
           <h2>场所查询</h2>
-          <p class="module-subtitle">从起点目的地出发，按空间距离查找附近服务设施，并支持类别过滤与关键字检索。</p>
+          <p class="module-subtitle">从起点目的地出发，按空间距离查询周边服务设施，并支持类别过滤和关键词检索。</p>
         </div>
       </div>
 
       <el-form :model="form" label-width="120px">
         <el-row :gutter="12">
-            <el-col :md="12" :xs="24">
+          <el-col :md="12" :xs="24">
             <el-form-item label="起点目的地">
               <el-select v-model="form.fromDestinationId" class="full-width" placeholder="请选择起点目的地">
                 <el-option
@@ -115,7 +116,7 @@ onMounted(async () => {
                 default-first-option
                 reserve-keyword
                 :loading="loadingTypeOptions"
-                placeholder="输入类别关键字搜索，留空可看全部类型"
+                placeholder="输入类别关键词搜索，留空可看全部类型"
                 :remote-method="loadFacilityTypeOptions"
               >
                 <el-option
@@ -128,7 +129,7 @@ onMounted(async () => {
             </el-form-item>
           </el-col>
           <el-col :md="8" :xs="24">
-            <el-form-item label="关键字">
+            <el-form-item label="关键词">
               <el-input v-model="form.keyword" placeholder="名称/类别/所属地点" clearable />
             </el-form-item>
           </el-col>
@@ -145,6 +146,11 @@ onMounted(async () => {
             <el-button @click="loadDestinations">刷新目的地</el-button>
             <el-button type="primary" :loading="loading" @click="search">查询附近场所</el-button>
           </div>
+        </div>
+
+        <div class="result-summary">
+          <span>当前起点：{{ selectedDestinationName }}</span>
+          <strong>{{ results.length }} 个结果</strong>
         </div>
       </el-form>
 
@@ -181,5 +187,22 @@ onMounted(async () => {
 .toolbar-actions {
   display: flex;
   gap: 10px;
+}
+
+.result-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.result-summary strong {
+  color: #111827;
+  font-size: 18px;
 }
 </style>
