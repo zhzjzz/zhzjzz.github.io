@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.nav.SpotMapper">
+
+    <resultMap id="spotResultMap" type="com.travel.system.model.nav.Spot">
+        <id column="spot_id" property="spotId"/>
+        <result column="name" property="name"/>
+        <result column="category" property="category"/>
+        <result column="hotness" property="hotness"/>
+        <result column="rating" property="rating"/>
+        <result column="description" property="description"/>
+        <result column="keywords" property="keywords"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="spotResultMap">
+        SELECT spot_id, name, category, hotness, rating, description, keywords
+        FROM spots
+    </select>
+
+    <select id="findByKeyword" resultMap="spotResultMap">
+        SELECT spot_id, name, category, hotness, rating, description, keywords
+        FROM spots
+        WHERE name LIKE '%' || #{keyword} || '%'
+           OR keywords LIKE '%' || #{keyword} || '%'
+    </select>
+
+    <select id="findByCategory" resultMap="spotResultMap">
+        SELECT spot_id, name, category, hotness, rating, description, keywords
+        FROM spots
+        WHERE category = #{category}
+    </select>
+
+    <select id="findBySpotId" resultMap="spotResultMap">
+        SELECT spot_id, name, category, hotness, rating, description, keywords
+        FROM spots
+        WHERE spot_id = #{spotId}
+    </select>
+
+    <select id="findByName" resultMap="spotResultMap">
+        SELECT spot_id, name, category, hotness, rating, description, keywords
+        FROM spots
+        WHERE name = #{name}
+        LIMIT 1
+    </select>
+
+</mapper>

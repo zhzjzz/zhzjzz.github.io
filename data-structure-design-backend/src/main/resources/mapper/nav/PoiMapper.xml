@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.nav.PoiMapper">
+
+    <resultMap id="poiResultMap" type="com.travel.system.model.nav.Poi">
+        <id column="poi_id" property="poiId"/>
+        <result column="spot_name" property="spotName"/>
+        <result column="name" property="name"/>
+        <result column="type" property="type"/>
+        <result column="nearest_node_id" property="nearestNodeId"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="poiResultMap">
+        SELECT poi_id, spot_name, name, type, nearest_node_id
+        FROM pois
+    </select>
+
+    <select id="findBySpotName" resultMap="poiResultMap">
+        SELECT poi_id, spot_name, name, type, nearest_node_id
+        FROM pois
+        WHERE spot_name = #{spotName}
+           OR (
+             NOT EXISTS (SELECT 1 FROM pois WHERE spot_name = #{spotName})
+             AND (
+               spot_name LIKE '%' || #{spotName} || '%'
+               OR #{spotName} LIKE '%' || spot_name || '%'
+             )
+           )
+    </select>
+
+    <select id="findBySpotNameAndType" resultMap="poiResultMap">
+        SELECT poi_id, spot_name, name, type, nearest_node_id
+        FROM pois
+        WHERE (spot_name = #{spotName}
+           OR (
+             NOT EXISTS (SELECT 1 FROM pois WHERE spot_name = #{spotName})
+             AND (
+               spot_name LIKE '%' || #{spotName} || '%'
+               OR #{spotName} LIKE '%' || spot_name || '%'
+             )
+           ))
+          AND type = #{type}
+    </select>
+
+    <select id="findByPoiId" resultMap="poiResultMap">
+        SELECT poi_id, spot_name, name, type, nearest_node_id
+        FROM pois
+        WHERE poi_id = #{poiId}
+    </select>
+
+</mapper>

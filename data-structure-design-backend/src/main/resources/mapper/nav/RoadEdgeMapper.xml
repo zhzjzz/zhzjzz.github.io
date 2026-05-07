@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.nav.RoadEdgeMapper">
+
+    <resultMap id="roadEdgeResultMap" type="com.travel.system.model.nav.RoadEdge">
+        <result column="u" property="u"/>
+        <result column="v" property="v"/>
+        <result column="spot_name" property="spotName"/>
+        <result column="length" property="length"/>
+        <result column="congestion_base" property="congestionBase"/>
+        <result column="allowed_vehicles" property="allowedVehicles"/>
+        <result column="geometry" property="geometry"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="roadEdgeResultMap">
+        SELECT u, v, spot_name, length, congestion_base, allowed_vehicles, geom AS geometry
+        FROM edges
+        WHERE u IS NOT NULL AND v IS NOT NULL
+    </select>
+
+    <select id="findBySpotName" resultMap="roadEdgeResultMap">
+        SELECT u, v, spot_name, length, congestion_base, allowed_vehicles, geom AS geometry
+        FROM edges
+        WHERE u IS NOT NULL
+          AND v IS NOT NULL
+          AND spot_name = #{spotName}
+    </select>
+
+    <select id="findByNode" resultMap="roadEdgeResultMap">
+        SELECT u, v, spot_name, length, congestion_base, allowed_vehicles, geom AS geometry
+        FROM edges
+        WHERE u = #{osmid} OR v = #{osmid}
+    </select>
+
+</mapper>

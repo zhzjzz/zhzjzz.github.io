@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.nav.BuildingMapper">
+
+    <resultMap id="buildingResultMap" type="com.travel.system.model.nav.Building">
+        <id column="building_id" property="buildingId"/>
+        <result column="spot_name" property="spotName"/>
+        <result column="name" property="name"/>
+        <result column="type" property="type"/>
+        <result column="nearest_node_id" property="nearestNodeId"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="buildingResultMap">
+        SELECT building_id, spot_name, name, type, nearest_node_id
+        FROM buildings
+    </select>
+
+    <select id="findBySpotName" resultMap="buildingResultMap">
+        SELECT building_id, spot_name, name, type, nearest_node_id
+        FROM buildings
+        WHERE spot_name = #{spotName}
+           OR (
+             NOT EXISTS (SELECT 1 FROM buildings WHERE spot_name = #{spotName})
+             AND (
+               spot_name LIKE '%' || #{spotName} || '%'
+               OR #{spotName} LIKE '%' || spot_name || '%'
+             )
+           )
+    </select>
+
+    <select id="findBySpotNameAndType" resultMap="buildingResultMap">
+        SELECT building_id, spot_name, name, type, nearest_node_id
+        FROM buildings
+        WHERE (spot_name = #{spotName}
+           OR (
+             NOT EXISTS (SELECT 1 FROM buildings WHERE spot_name = #{spotName})
+             AND (
+               spot_name LIKE '%' || #{spotName} || '%'
+               OR #{spotName} LIKE '%' || spot_name || '%'
+             )
+           ))
+          AND type = #{type}
+    </select>
+
+    <select id="findByBuildingId" resultMap="buildingResultMap">
+        SELECT building_id, spot_name, name, type, nearest_node_id
+        FROM buildings
+        WHERE building_id = #{buildingId}
+    </select>
+
+</mapper>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.nav.RoadNodeMapper">
+
+    <resultMap id="roadNodeResultMap" type="com.travel.system.model.nav.RoadNode">
+        <id column="osmid" property="osmid"/>
+        <result column="spot_name" property="spotName"/>
+        <result column="y" property="y"/>
+        <result column="x" property="x"/>
+        <result column="floor" property="floor"/>
+        <result column="geometry" property="geometry"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="roadNodeResultMap">
+        SELECT osmid, spot_name, y, x, floor, geom AS geometry
+        FROM nodes
+        WHERE osmid IS NOT NULL
+    </select>
+
+    <select id="findBySpotName" resultMap="roadNodeResultMap">
+        SELECT osmid, spot_name, y, x, floor, geom AS geometry
+        FROM nodes
+        WHERE osmid IS NOT NULL
+          AND spot_name = #{spotName}
+    </select>
+
+    <select id="findByOsmid" resultMap="roadNodeResultMap">
+        SELECT osmid, spot_name, y, x, floor, geom AS geometry
+        FROM nodes
+        WHERE osmid = #{osmid}
+    </select>
+
+    <select id="findFirstBySpotName" resultMap="roadNodeResultMap">
+        SELECT osmid, spot_name, y, x, floor, geom AS geometry
+        FROM nodes
+        WHERE osmid IS NOT NULL
+          AND spot_name = #{spotName}
+        LIMIT 1
+    </select>
+
+</mapper>

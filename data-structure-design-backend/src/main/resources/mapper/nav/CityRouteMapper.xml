@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.nav.CityRouteMapper">
+
+    <resultMap id="cityRouteResultMap" type="com.travel.system.model.nav.CityRoute">
+        <id column="route_id" property="routeId"/>
+        <result column="from_spot" property="fromSpot"/>
+        <result column="to_spot" property="toSpot"/>
+        <result column="transit_type" property="transitType"/>
+        <result column="time_cost" property="timeCost"/>
+        <result column="distance" property="distance"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="cityRouteResultMap">
+        SELECT route_id, from_spot, to_spot, transit_type, time_cost, distance
+        FROM city_routes
+    </select>
+
+    <select id="findByFromSpot" resultMap="cityRouteResultMap">
+        SELECT route_id, from_spot, to_spot, transit_type, time_cost, distance
+        FROM city_routes
+        WHERE from_spot = #{fromSpot}
+    </select>
+
+    <select id="findByToSpot" resultMap="cityRouteResultMap">
+        SELECT route_id, from_spot, to_spot, transit_type, time_cost, distance
+        FROM city_routes
+        WHERE to_spot = #{toSpot}
+    </select>
+
+    <select id="findByFromAndTo" resultMap="cityRouteResultMap">
+        SELECT route_id, from_spot, to_spot, transit_type, time_cost, distance
+        FROM city_routes
+        WHERE from_spot = #{fromSpot} AND to_spot = #{toSpot}
+        LIMIT 1
+    </select>
+
+</mapper>
