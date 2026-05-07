@@ -6,13 +6,27 @@ import { getTopFoods } from '../api/travel'
 const foods = ref([])
 const router = useRouter()
 
+const featureCards = [
+  { title: '目的地推荐', text: '按评分、热度和综合分生成 Top10 推荐。', path: '/destinations', accent: 'coral' },
+  { title: '多景区路线', text: '串联多个景区和地点，展示总距离、总耗时与分段路径。', path: '/routes', accent: 'teal' },
+  { title: '附近场所', text: '从目的地坐标出发，查询周边服务设施。', path: '/facilities', accent: 'amber' },
+  { title: '协作行程', text: '管理多人行程、策略、交通方式与备注。', path: '/itineraries', accent: 'blue' },
+]
+
+const dashboardStats = [
+  { label: '推荐模块', value: '4' },
+  { label: '演示路径', value: '1' },
+  { label: '路线类型', value: '多景区' },
+  { label: '数据源', value: 'SQLite' },
+]
+
 const loadFoods = async () => {
   const { data } = await getTopFoods(5)
   foods.value = data
 }
 
-const goDestinations = () => {
-  router.push('/destinations')
+const go = (path) => {
+  router.push(path)
 }
 
 onMounted(loadFoods)
@@ -20,27 +34,62 @@ onMounted(loadFoods)
 
 <template>
   <section class="home-page">
-    <el-card class="module-card hero-card">
+    <section class="demo-hero home-hero reveal-in">
       <div>
-        <h1>Find your next stay with 智能体旅游系统</h1>
-        <p>像浏览旅行杂志一样探索推荐目的地、路线规划、日记与多人协作行程。</p>
+        <p class="demo-eyebrow">Travel AI Showcase</p>
+        <h1 class="demo-title">个性化旅行推荐与路线规划系统</h1>
+        <p class="demo-copy">
+          面向课堂演示的完整旅行系统：从目的地推荐、场所查询到多景区路线规划和协作行程管理，形成一条清晰的功能闭环。
+        </p>
       </div>
-      <el-button type="primary" size="large" @click="goDestinations">开始探索</el-button>
-    </el-card>
+      <div class="hero-actions">
+        <el-button type="primary" size="large" @click="go('/routes')">进入路线演示</el-button>
+        <el-button size="large" @click="go('/destinations')">查看推荐榜单</el-button>
+      </div>
+    </section>
 
-    <section class="listings">
-      <article class="listing-card" v-for="item in foods" :key="item.id">
-        <div class="listing-media">
-          <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" />
-          <div v-else class="image-placeholder">暂无图片</div>
-        </div>
-        <div class="listing-body">
-          <h3>{{ item.name }}</h3>
-          <p>{{ item.cuisine }} · 评分 {{ item.rating }}</p>
-          <strong>精选推荐</strong>
-        </div>
+    <section class="demo-grid">
+      <article v-for="item in dashboardStats" :key="item.label" class="metric-card reveal-in">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
       </article>
-      <el-empty v-if="!foods.length" description="暂无推荐数据" />
+    </section>
+
+    <section class="feature-grid">
+      <button
+        v-for="item in featureCards"
+        :key="item.title"
+        type="button"
+        class="feature-card reveal-in"
+        :class="`accent-${item.accent}`"
+        @click="go(item.path)"
+      >
+        <span>{{ item.title }}</span>
+        <strong>{{ item.text }}</strong>
+      </button>
+    </section>
+
+    <section class="food-strip">
+      <div class="module-header">
+        <div>
+          <h2>美食推荐样例</h2>
+          <p class="module-subtitle">用于展示系统可以扩展到餐饮、景点、路线等多类旅行数据。</p>
+        </div>
+      </div>
+      <div class="listings">
+        <article class="listing-card reveal-in" v-for="item in foods" :key="item.id">
+          <div class="listing-media">
+            <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" />
+            <div v-else class="image-placeholder">暂无图片</div>
+          </div>
+          <div class="listing-body">
+            <h3>{{ item.name }}</h3>
+            <p>{{ item.cuisine || '地方特色' }} · 评分 {{ item.rating || '-' }}</p>
+            <strong>精选推荐</strong>
+          </div>
+        </article>
+        <el-empty v-if="!foods.length" description="暂无推荐数据" />
+      </div>
     </section>
   </section>
 </template>
@@ -51,32 +100,70 @@ onMounted(loadFoods)
   gap: 24px;
 }
 
-.hero-card {
-  border-radius: 32px;
-  padding: 10px;
+.home-hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.hero-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  background:
-    linear-gradient(135deg, rgba(255, 56, 92, 0.08), rgba(255, 255, 255, 0.96) 42%),
-    #ffffff;
-  border: 1px solid rgba(255, 56, 92, 0.12);
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.hero-card h1 {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1.43;
-  letter-spacing: 0;
-  color: #222222;
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
 }
 
-.hero-card p {
-  margin-top: 8px;
-  max-width: 720px;
-  color: #6a6a6a;
-  font-size: 14px;
+.feature-card {
+  min-height: 150px;
+  padding: 20px;
+  text-align: left;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.14);
+}
+
+.feature-card span {
+  color: #ff385c;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.feature-card strong {
+  display: block;
+  margin-top: 12px;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.accent-teal span {
+  color: #0f766e;
+}
+
+.accent-amber span {
+  color: #d97706;
+}
+
+.accent-blue span {
+  color: #2563eb;
+}
+
+.food-strip {
+  display: grid;
+  gap: 16px;
 }
 
 .listings {
@@ -106,19 +193,20 @@ onMounted(loadFoods)
 }
 
 .listing-media::after {
-  content: '♡';
+  content: '精选';
   position: absolute;
   right: 10px;
   top: 10px;
-  width: 30px;
   height: 30px;
-  border-radius: 50%;
+  padding: 0 10px;
+  border-radius: 999px;
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 12px;
   color: #222222;
-  font-size: 16px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .listing-media img {
@@ -162,9 +250,12 @@ onMounted(loadFoods)
 }
 
 @media (max-width: 744px) {
-  .hero-card {
-    flex-direction: column;
-    align-items: flex-start;
+  .home-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions {
+    justify-content: flex-start;
   }
 }
 </style>
