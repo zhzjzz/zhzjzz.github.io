@@ -1,172 +1,127 @@
-# 后端项目环境配置指南
+﻿# Backend Setup
 
-## 快速开始 (本地开发)
+This backend uses SQLite/GeoPackage only. It no longer requires MySQL, H2, Docker, or a Linux server.
 
-团队成员只需以下步骤即可在本地运行后端：
-
-### 1. 前置要求
+## Required Environment
 
 - JDK 17+
 - Maven 3.8+
+- SQLite database file at `data/tourism_system.gpkg`
 
-### 2. 克隆并运行
+## Database File
 
-```bash
-git clone <仓库地址>
-cd data-structrue-design-backend
+The default datasource is configured in `src/main/resources/application.yml`:\n\n```yaml\nspring:\n  datasource:\n    url: ${SQLITE_URL:jdbc:sqlite:data-structure-design-backend/data/tourism_system.gpkg}\n    driver-class-name: org.sqlite.JDBC\n    hikari:\n      jdbc-url: ${SQLITE_URL:jdbc:sqlite:data-structure-design-backend/data/tourism_system.gpkg}\n```yaml
+spring:
+  datasource:
+    url: ${SQLITE_URL:jdbc:sqlite:data/tourism_system.gpkg}
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      jdbc-url: ${SQLITE_URL:jdbc:sqlite:data/tourism_system.gpkg}
+```
+
+This default relative path is resolved from the process working directory. It is designed for IDE run configurations whose working directory is the repository root:\n\n```powershell\nD:\\gitCode\\zhzjzz\n```\n\nIf you run Maven from the backend directory, override `SQLITE_URL` first:\n\n```powershell\ncd D:\\gitCode\\zhzjzz\\data-structure-design-backend\n$env:SQLITE_URL="jdbc:sqlite:data/tourism_system.gpkg"\nmvn spring-boot:run\n```
+
+The database should be here:
+
+```text
+data-structure-design-backend/data/tourism_system.gpkg
+```
+
+The application also auto-detects the database before Spring Boot starts. It checks these locations first: `data/tourism_system.gpkg`, `data-structure-design-backend/data/tourism_system.gpkg`, and the old typo path `data-structure-design-backend/data/tourism_system.gpkg`. If your database is somewhere else, set `SQLITE_URL` before running:
+
+```powershell
+$env:SQLITE_URL="jdbc:sqlite:D:/your/path/tourism_system.gpkg"
 mvn spring-boot:run
 ```
 
-项目默认使用 `dev` profile，**无需任何额外配置**即可启动：
-- 数据库：内嵌 H2（文件存储在 `data/dev-db/`）
+Use forward slashes in JDBC URLs on Windows to avoid escaping issues.
 
-### 3. 验证启动成功
+## Run Locally
 
-- API 文档: http://localhost:8080/swagger-ui.html
-- H2 控制台: http://localhost:8080/h2-console
-  - JDBC URL: `jdbc:h2:file:./data/dev-db/travel_system`
-  - 用户名: `sa`，密码: 空
+```powershell
+cd D:\\gitCode\\zhzjzz\nmvn -f data-structure-design-backend/pom.xml spring-boot:run
+```
 
----
+If port 8080 is occupied:
 
-## 功能说明
-
-| 功能 | dev (默认) | prod |
-|------|-----------|------|
-| 数据库 | H2 内嵌（零配置） | MySQL |
-| 全文搜索 | MySQL LIKE 模糊查询 | MySQL LIKE 模糊查询 |
-| 行程多人协作 | WebSocket 可用 | WebSocket 可用 |
-
-所有 CRUD 功能（景点、美食、日记、行程等）以及 WebSocket 协作在 dev 和 prod 环境下均可正常使用。
-
----
-
-## 切换到 MySQL (prod)
-
-```bash
-# Windows (PowerShell)
-$env:SPRING_PROFILES_ACTIVE="prod"
-$env:MYSQL_USERNAME="root"
-$env:MYSQL_PASSWORD="your_password"
-mvn spring-boot:run
-
-# Linux / macOS
-export SPRING_PROFILES_ACTIVE=prod
-export MYSQL_USERNAME=root
-export MYSQL_PASSWORD=your_password
+```powershell
+$env:SERVER_PORT="8081"
 mvn spring-boot:run
 ```
 
-或者用 Docker 快速启动 MySQL：
+Or stop the process using 8080:
 
-```bash
-docker compose -f docker-compose-dev.yml up -d
-# MySQL 运行在 localhost:3307，用户: travel_user，密码: travel_pass
+```powershell
+netstat -ano | findstr :8080
+taskkill /PID <PID> /F
 ```
 
----
+## Common Startup Errors
 
-## 部署到阿里云学生机
+### `Failed to configure a DataSource: 'url' attribute is not specified`
 
-### 步骤 1：购买并配置服务器
+Usually one of these is true:
 
-1. 访问 [阿里云学生机](https://www.aliyun.com/act/aliyun/campus) 完成学生认证
-2. 购买 2核2G 云服务器（约 ￥9.9/月）
-3. 选择操作系统：**Ubuntu 22.04**
-4. 购买后进入控制台 → 实例 → 安全组 → 添加规则：
-   - 端口 8080（应用）
-   - 端口 22（SSH）
+- `src/main/resources/application.yml` is missing from the active run configuration.
+- The app is being started from the wrong module/directory.
+- The packaged `target/classes/application.yml` is stale.
 
-### 步骤 2：连接到服务器
+Fix:
 
-```bash
-ssh root@<你的服务器公网IP>
+```powershell
+cd D:\gitCode\zhzjzz\data-structure-design-backend
+mvn clean compile
+mvn spring-boot:run
 ```
 
-### 步骤 3：一键部署
+### `path to ... does not exist`
 
-在服务器上运行以下命令：
+The SQLite JDBC URL points to a non-existent file or folder.
 
-```bash
-# 1. 安装 Git
-apt update && apt install git -y
+Fix by either placing the DB at:
 
-# 2. 克隆项目
-git clone <仓库地址>
-cd data-structrue-design-backend
-
-# 3. 运行一键部署脚本（会自动安装 Docker、构建镜像、启动服务）
-chmod +x deploy.sh
-./deploy.sh
+```text
+data/tourism_system.gpkg
 ```
 
-部署脚本会自动完成：
-1. 安装 Docker 和 Docker Compose
-2. 构建 Spring Boot 应用镜像（JVM 限制 256MB）
-3. 启动 MySQL（限制 300MB）+ 应用（限制 400MB）
-4. 等待应用就绪并输出访问地址
+or overriding:
 
-### 步骤 4：验证部署成功
-
-```
-API 文档: http://<服务器IP>:8080/swagger-ui.html
-健康检查: http://<服务器IP>:8080/actuator/health
+```powershell
+$env:SQLITE_URL="jdbc:sqlite:D:/absolute/path/tourism_system.gpkg"
 ```
 
-### 常见命令
+### `Port 8080 was already in use`
 
-```bash
-# 查看日志
-docker compose -f docker-compose-prod.yml logs -f app
+Use another port:
 
-# 重启服务
-docker compose -f docker-compose-prod.yml restart
-
-# 停止服务
-docker compose -f docker-compose-prod.yml down
-
-# 更新代码后重新部署
-git pull
-docker build -t travel-system:latest .
-docker compose -f docker-compose-prod.yml up -d
+```powershell
+$env:SERVER_PORT="8081"
+mvn spring-boot:run
 ```
 
-### 内存预估
+or stop the old process:
 
-| 组件 | 限制内存 |
-|------|---------|
-| MySQL 8.0 | 300MB |
-| Spring Boot JVM | 256MB |
-| 操作系统 | ~500MB |
-| **总计** | **~1GB** |
-
-2核2G 服务器完全够用。
-
----
-
-## 前端配合
-
-前端需要配置后端 API 地址为 `http://<服务器IP>:8080`。
-
-WebSocket 协作编辑连接方式：
-```javascript
-const socket = new SockJS('http://<服务器IP>:8080/ws');
-const stomp = Stomp.over(socket);
-stomp.connect({}, () => {
-  // 订阅行程实时更新
-  stomp.subscribe('/topic/itinerary/' + itineraryId, (msg) => {
-    const update = JSON.parse(msg.body);
-    if (update.type === 'UPDATED') {
-      // 更新界面
-    } else if (update.type === 'CONFLICT') {
-      // 提示冲突，需要刷新
-    }
-  });
-  // 发送编辑消息
-  stomp.send('/app/itinerary/' + itineraryId + '/edit', {}, JSON.stringify({
-    username: currentUser,
-    expectedUpdatedAt: lastKnownTimestamp,
-    name: newName,  // 只发改变的字段，其他字段为 null
-  }));
-});
+```powershell
+netstat -ano | findstr :8080
+taskkill /PID <PID> /F
 ```
+
+## API Checks
+
+After startup:
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- Health: `http://localhost:8080/actuator/health`
+
+## Frontend Connection
+
+The frontend deployed on GitHub Pages should call the backend through the ngrok URL configured in the frontend `.env`:
+
+```env
+VITE_API_BASE_URL=https://your-ngrok-domain.ngrok-free.app/api
+```
+
+Do not hard-code personal ngrok URLs in source code. Keep local values in `.env`, and commit `.env.example` only.
+
+
+

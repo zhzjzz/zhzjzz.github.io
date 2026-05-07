@@ -1,3 +1,11 @@
-.vscode/
+﻿.vscode/
 data/
 *.log
+
+# Local IDE state/backups
+.idea/workspace.xml
+.idea/workspace.xml.*
+
+# Old typo paths, should never be recreated or committed
+data-structrue-design-backend/
+data-structrue-design-frontend/

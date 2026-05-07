@@ -13,12 +13,10 @@ public class TransportModeService {
 
     public static final double SPEED_WALK = 1.2;
     public static final double SPEED_BIKE = 4.0;
-    public static final double SPEED_CART = 6.0;
 
     public double getIdealSpeed(String transportMode) {
         return switch (transportMode != null ? transportMode.toLowerCase() : "walk") {
             case "bike" -> SPEED_BIKE;
-            case "cart" -> SPEED_CART;
             default -> SPEED_WALK;
         };
     }
@@ -41,11 +39,12 @@ public class TransportModeService {
      * 判断一条边是否允许某种交通工具。
      */
     public boolean isVehicleAllowed(RoadEdge edge, String transportMode) {
+        String mode = normalizeMode(transportMode);
         if (edge.getAllowedVehicles() == null || edge.getAllowedVehicles().isBlank()) {
-            return "walk".equalsIgnoreCase(transportMode);
+            return "walk".equalsIgnoreCase(mode);
         }
         String[] vehicles = edge.getAllowedVehicles().toLowerCase().split(",");
-        return Arrays.asList(vehicles).contains(transportMode.toLowerCase());
+        return Arrays.asList(vehicles).contains(mode);
     }
 
     /**
@@ -73,5 +72,13 @@ public class TransportModeService {
                     return false;
                 })
                 .toList();
+    }
+
+    private String normalizeMode(String transportMode) {
+        if (transportMode == null || transportMode.isBlank()) {
+            return "walk";
+        }
+        String mode = transportMode.trim().toLowerCase();
+        return "cart".equals(mode) ? "bike" : mode;
     }
 }

@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
     <data-source source="LOCAL" name="travel_system@localhost" uuid="2e685b42-ddab-4622-9194-511009659ffc">
       <driver-ref>mysql.8</driver-ref>
       <synchronize>true</synchronize>
       <imported>true</imported>
-      <remarks>$PROJECT_DIR$/data-structrue-design-backend/src/main/resources/application-prod.yml</remarks>
+      <remarks>$PROJECT_DIR$/data-structure-design-backend/src/main/resources/application-prod.yml</remarks>
       <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
       <jdbc-url>jdbc:mysql://localhost:3306/travel_system?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=Asia/Shanghai</jdbc-url>
       <jdbc-additional-properties>
@@ -19,7 +19,7 @@
       <driver-ref>h2.unified</driver-ref>
       <synchronize>true</synchronize>
       <imported>true</imported>
-      <remarks>$PROJECT_DIR$/data-structrue-design-backend/src/main/resources/application-dev.yml</remarks>
+      <remarks>$PROJECT_DIR$/data-structure-design-backend/src/main/resources/application-dev.yml</remarks>
       <jdbc-driver>org.h2.Driver</jdbc-driver>
       <jdbc-url>jdbc:h2:./data/dev-db/travel_system;AUTO_SERVER=TRUE</jdbc-url>
       <jdbc-additional-properties>
@@ -33,7 +33,7 @@
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <imported>true</imported>
-      <remarks>$PROJECT_DIR$/data-structrue-design-backend/src/main/resources/application.yml</remarks>
+      <remarks>$PROJECT_DIR$/data-structure-design-backend/src/main/resources/application.yml</remarks>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/../../vscode</jdbc-url>
       <jdbc-additional-properties>
