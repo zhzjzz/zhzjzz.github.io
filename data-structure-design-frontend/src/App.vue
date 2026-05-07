@@ -20,8 +20,7 @@ const isLoginPage = computed(() => route.name === 'login')
 .app-shell {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 14% 0%, rgba(255, 56, 92, 0.08), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #fff8f8 42%, #ffffff 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.96) 48%, #ffffff 100%);
 }
 
 .page-container {
