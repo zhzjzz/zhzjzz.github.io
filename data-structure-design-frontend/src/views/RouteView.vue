@@ -24,11 +24,13 @@ const polylineLayers = ref([])
 const drivingLayers = ref([])
 const markerOverlays = ref([])
 const loading = ref(false)
+const demoLoading = ref(false)
 const nodeLoading = ref(false)
 const routeResult = ref(null)
 const strategy = ref('SHORTEST_TIME')
 const optimizeVisitOrder = ref(false)
 const visits = ref([])
+const demoSpotKeywords = ['西湖', '故宫', '公园', '大学']
 
 const newVisit = () => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -274,6 +276,59 @@ const onSpotInput = (visit, value) => {
   }
 }
 
+const findDemoSpots = async () => {
+  const selected = []
+  for (const keyword of demoSpotKeywords) {
+    const { data } = await searchNavSpots({ keyword, limit: 4 })
+    for (const spot of data || []) {
+      if (spot?.name && !selected.some((item) => item.name === spot.name)) {
+        selected.push(spot)
+      }
+      if (selected.length >= 2) return selected
+    }
+  }
+  return selected
+}
+
+const chooseDemoNodeIds = (visit) => {
+  const options = nodeOptions(visit)
+  return options.slice(0, 2).map((item) => item.value).filter((value) => value != null)
+}
+
+const applyDemoScenario = async () => {
+  demoLoading.value = true
+  routeResult.value = null
+  clearPolylines()
+  clearMarkers()
+  try {
+    const spots = await findDemoSpots()
+    if (spots.length < 1) {
+      ElMessage.warning('没有找到可用于演示的景区数据，请手动搜索景区')
+      return
+    }
+    visits.value = spots.slice(0, 2).map((spot, index) => ({
+      ...newVisit(),
+      spotInput: spot.name,
+      spot,
+      transportMode: index === 0 ? 'walk' : 'bike',
+    }))
+    for (const visit of visits.value) {
+      await loadVisitData(visit)
+      visit.nodeIds = chooseDemoNodeIds(visit)
+    }
+    strategy.value = 'SHORTEST_TIME'
+    optimizeVisitOrder.value = true
+    drawSelectedMarkers()
+    refreshMapView()
+    ElMessage.success('演示路线参数已填充，可以直接点击规划路线')
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('演示数据填充失败，请检查后端服务和数据库')
+  } finally {
+    demoLoading.value = false
+  }
+}
+
 const addVisit = () => {
   visits.value.push(newVisit())
 }
@@ -393,6 +448,7 @@ onBeforeUnmount(() => {
           inactive-text="按选择顺序访问"
         />
         <div class="toolbar-actions">
+          <el-button :loading="demoLoading" @click="applyDemoScenario">演示模式</el-button>
           <el-button @click="addVisit">添加景区</el-button>
           <el-button type="primary" :loading="loading" @click="submit">规划路线</el-button>
         </div>
@@ -463,11 +519,20 @@ onBeforeUnmount(() => {
       <div id="route-map" class="route-map" />
 
       <el-divider />
-      <el-descriptions v-if="routeResult" :column="3" border>
-        <el-descriptions-item label="总距离">{{ totalDistanceKm }} km</el-descriptions-item>
-        <el-descriptions-item label="总耗时">{{ totalDurationMin }} 分钟</el-descriptions-item>
-        <el-descriptions-item label="路线段数">{{ routeResult.segments?.length || 0 }}</el-descriptions-item>
-      </el-descriptions>
+      <section v-if="routeResult" class="route-summary-grid reveal-in">
+        <article class="metric-card">
+          <span>总距离</span>
+          <strong>{{ totalDistanceKm }} km</strong>
+        </article>
+        <article class="metric-card">
+          <span>总耗时</span>
+          <strong>{{ totalDurationMin }} 分钟</strong>
+        </article>
+        <article class="metric-card">
+          <span>路线段数</span>
+          <strong>{{ routeResult.segments?.length || 0 }}</strong>
+        </article>
+      </section>
 
       <div v-if="routeResult" class="segment-list">
         <div v-for="segment in segmentStats" :key="segment.index" class="segment-item">
@@ -605,7 +670,16 @@ onBeforeUnmount(() => {
   margin-top: 16px;
 }
 
+.route-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
 .segment-item {
+  position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: minmax(220px, 1fr) 110px 90px 90px;
   gap: 12px;
@@ -613,6 +687,16 @@ onBeforeUnmount(() => {
   border-radius: 16px;
   background: #f8fafc;
   color: #334155;
+}
+
+.segment-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #ff385c, #0f766e);
 }
 
 .segment-item strong {
@@ -629,6 +713,10 @@ onBeforeUnmount(() => {
   }
 
   .segment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .route-summary-grid {
     grid-template-columns: 1fr;
   }
 
