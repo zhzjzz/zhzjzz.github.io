@@ -6,11 +6,12 @@ import { getTopDestinations, searchDestinations } from '../api/travel'
 const keyword = ref('')
 const rows = ref([])
 const loading = ref(false)
+const rankMode = ref('composite')
 
 const loadTop = async () => {
   loading.value = true
   try {
-    const { data } = await getTopDestinations(10)
+    const { data } = await getTopDestinations(10, rankMode.value)
     rows.value = data
   } finally {
     loading.value = false
@@ -55,7 +56,14 @@ onMounted(loadTop)
             @keyup.enter="doSearch"
           />
         </el-col>
-        <el-col :md="12" :xs="24" class="btn-group">
+        <el-col :md="6" :xs="24">
+          <el-select v-model="rankMode" size="large" class="full-width" @change="loadTop">
+            <el-option label="综合推荐" value="composite" />
+            <el-option label="评分 Top10" value="rating" />
+            <el-option label="热度 Top10" value="heat" />
+          </el-select>
+        </el-col>
+        <el-col :md="6" :xs="24" class="btn-group">
           <el-button type="primary" size="large" @click="doSearch">检索</el-button>
           <el-button size="large" @click="loadTop">Top10</el-button>
         </el-col>
@@ -75,6 +83,10 @@ onMounted(loadTop)
 <style scoped>
 .toolbar-row {
   margin-bottom: 16px;
+}
+
+.full-width {
+  width: 100%;
 }
 
 .btn-group {

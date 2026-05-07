@@ -13,7 +13,7 @@ const navItems = [
   { label: '目的地推荐', path: '/destinations' },
   { label: '路线规划', path: '/routes' },
   { label: '场所查询', path: '/facilities' },
-  { label: '旅游日记', path: '/diaries' },
+  { label: '旅行日记', path: '/diaries' },
   { label: '协作行程', path: '/itineraries' },
 ]
 
@@ -31,32 +31,25 @@ const logout = () => {
 
 <template>
   <header class="nav-shell">
-    <button
-      class="brand"
-      type="button"
-      aria-label="返回首页"
-      @click="go('/')"
-    >
-      <strong>Travel.AI</strong>
-      <span>个性化旅游系统</span>
+    <button class="brand" type="button" aria-label="返回首页" @click="go('/')">
+      <span class="brand-mark">T</span>
+      <span>
+        <strong>Travel.AI</strong>
+        <small>个性化旅行系统</small>
+      </span>
     </button>
 
-    <button
-      class="search-pill"
-      type="button"
-      aria-label="搜索目的地"
-      @click="go('/destinations')"
-    >
-      <span>Anywhere</span>
-      <span>Any week</span>
-      <span>Add guests</span>
+    <button class="search-pill" type="button" aria-label="搜索目的地" @click="go('/destinations')">
+      <span>景区</span>
+      <span>高校</span>
+      <span>路线</span>
       <span class="search-btn">
         <el-icon><Search /></el-icon>
       </span>
     </button>
 
     <div class="user-actions">
-      <button class="host-link" type="button" @click="go('/itineraries')">Become a Host</button>
+      <button class="host-link" type="button" @click="go('/itineraries')">协作计划</button>
       <div class="user-chip">
         <span class="user-name">{{ appStore.user.name || '未登录' }}</span>
         <button class="logout-btn" type="button" @click="logout">退出</button>
@@ -91,14 +84,15 @@ const logout = () => {
   grid-template-columns: 1fr auto 1fr;
   gap: 18px;
   align-items: center;
-  border-bottom: 1px solid #ebebeb;
-  background: #ffffff;
+  border-bottom: 1px solid rgba(235, 235, 235, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(18px);
 }
 
 .brand {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
   border: none;
   background: transparent;
@@ -106,23 +100,34 @@ const logout = () => {
   text-align: left;
 }
 
-.brand:focus-visible,
-.search-pill:focus-visible {
-  outline: 2px solid #ff385c;
-  outline-offset: 2px;
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #ff385c;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: rgba(255, 56, 92, 0.25) 0 8px 20px;
+}
+
+.brand strong,
+.brand small {
+  display: block;
 }
 
 .brand strong {
-  color: #ff385c;
-  font-size: 22px;
+  color: #222222;
+  font-size: 18px;
   line-height: 1;
-  font-weight: 700;
+  font-weight: 800;
 }
 
-.brand span {
+.brand small {
+  margin-top: 3px;
   color: #6a6a6a;
   font-size: 12px;
-  font-weight: 500;
 }
 
 .search-pill {
@@ -132,8 +137,9 @@ const logout = () => {
   gap: 10px;
   border-radius: 999px;
   border: 1px solid #ebebeb;
+  background: #ffffff;
   padding: 8px 8px 8px 16px;
-  box-shadow: rgba(0, 0, 0, 0.08) 0px 1px 5px;
+  box-shadow: rgba(0, 0, 0, 0.08) 0 2px 10px;
   font-size: 14px;
   color: #222222;
   cursor: pointer;
@@ -148,7 +154,6 @@ const logout = () => {
 .search-pill span:last-of-type {
   border-right: none;
   padding-right: 0;
-  color: #6a6a6a;
 }
 
 .search-btn {
@@ -159,7 +164,6 @@ const logout = () => {
   color: #ffffff;
   display: grid;
   place-items: center;
-  font-weight: 700;
 }
 
 .user-actions {
@@ -173,8 +177,8 @@ const logout = () => {
   border: none;
   background: transparent;
   color: #222222;
-  font-weight: 500;
-  padding: 8px;
+  font-weight: 600;
+  padding: 8px 10px;
   border-radius: 999px;
   cursor: pointer;
 }
@@ -189,6 +193,7 @@ const logout = () => {
   gap: 8px;
   border: 1px solid #ebebeb;
   border-radius: 999px;
+  background: #ffffff;
   padding: 6px 6px 6px 12px;
 }
 
@@ -212,7 +217,7 @@ const logout = () => {
   margin: 0 auto;
   padding: 12px 24px 6px;
   display: flex;
-  gap: 14px;
+  gap: 18px;
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -223,7 +228,7 @@ const logout = () => {
   background: transparent;
   color: #6a6a6a;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 8px 2px;
   white-space: nowrap;
   cursor: pointer;

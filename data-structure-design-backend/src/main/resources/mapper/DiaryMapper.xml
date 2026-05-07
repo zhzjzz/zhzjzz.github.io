@@ -1,0 +1,151 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.DiaryMapper">
+
+    <resultMap id="diaryResultMap" type="com.travel.system.model.Diary">
+        <id column="id" property="id"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <result column="media_url" property="mediaUrl"/>
+        <result column="media_type" property="mediaType"/>
+        <result column="published_at" property="publishedAt"/>
+        <result column="score" property="score"/>
+        <result column="views" property="views"/>
+        <association property="destination" javaType="com.travel.system.model.Destination">
+            <id column="destination_ref_id" property="id"/>
+            <result column="destination_name" property="name"/>
+            <result column="destination_scene_type" property="sceneType"/>
+            <result column="destination_category" property="category"/>
+            <result column="destination_heat" property="heat"/>
+            <result column="destination_rating" property="rating"/>
+            <result column="destination_description" property="description"/>
+            <result column="destination_latitude" property="latitude"/>
+            <result column="destination_longitude" property="longitude"/>
+        </association>
+    </resultMap>
+
+    <!-- 鏌ヨ鍏ㄩ儴鏃ヨ -->
+    <select id="findAll" resultMap="diaryResultMap">
+        SELECT dr.id,
+               dr.title,
+               dr.content,
+               dr.media_url,
+               dr.media_type,
+               dr.published_at,
+               dr.score,
+               dr.views,
+               dr.destination_id,
+               d.id          AS destination_ref_id,
+               d.name        AS destination_name,
+               d.scene_type  AS destination_scene_type,
+               d.category    AS destination_category,
+               d.heat        AS destination_heat,
+               d.rating      AS destination_rating,
+               d.description AS destination_description,
+               d.latitude    AS destination_latitude,
+               d.longitude   AS destination_longitude
+        FROM diary dr
+                 LEFT JOIN destination d ON d.id = dr.destination_id
+    </select>
+
+    <!-- 鎸?ID 鏌ヨ鍗曟潯鏃ヨ -->
+    <select id="findById" parameterType="long" resultMap="diaryResultMap">
+        SELECT dr.id,
+               dr.title,
+               dr.content,
+               dr.media_url,
+               dr.media_type,
+               dr.published_at,
+               dr.score,
+               dr.views,
+               dr.destination_id,
+               d.id          AS destination_ref_id,
+               d.name        AS destination_name,
+               d.scene_type  AS destination_scene_type,
+               d.category    AS destination_category,
+               d.heat        AS destination_heat,
+               d.rating      AS destination_rating,
+               d.description AS destination_description,
+               d.latitude    AS destination_latitude,
+               d.longitude   AS destination_longitude
+        FROM diary dr
+                 LEFT JOIN destination d ON d.id = dr.destination_id
+        WHERE dr.id = #{id}
+    </select>
+
+    <!-- 鎸夋爣棰樿繘琛屼笉鍖哄垎澶у皬鍐欑殑妯＄硦鍖归厤 -->
+    <select id="findByTitleContainingIgnoreCase" resultMap="diaryResultMap">
+        SELECT dr.id,
+               dr.title,
+               dr.content,
+               dr.media_url,
+               dr.media_type,
+               dr.published_at,
+               dr.score,
+               dr.views,
+               dr.destination_id,
+               d.id          AS destination_ref_id,
+               d.name        AS destination_name,
+               d.scene_type  AS destination_scene_type,
+               d.category    AS destination_category,
+               d.heat        AS destination_heat,
+               d.rating      AS destination_rating,
+               d.description AS destination_description,
+               d.latitude    AS destination_latitude,
+               d.longitude   AS destination_longitude
+        FROM diary dr
+                 LEFT JOIN destination d ON d.id = dr.destination_id
+        WHERE LOWER(dr.title) LIKE '%' || LOWER(#{title}) || '%'
+    </select>
+
+    <!-- 鎸夋爣棰樻垨鍐呭杩涜涓嶅尯鍒嗗ぇ灏忓啓鐨勬ā绯婂尮閰?-->
+    <select id="findByTitleOrContentContainingIgnoreCase" resultMap="diaryResultMap">
+        SELECT dr.id,
+               dr.title,
+               dr.content,
+               dr.media_url,
+               dr.media_type,
+               dr.published_at,
+               dr.score,
+               dr.views,
+               dr.destination_id,
+               d.id          AS destination_ref_id,
+               d.name        AS destination_name,
+               d.scene_type  AS destination_scene_type,
+               d.category    AS destination_category,
+               d.heat        AS destination_heat,
+               d.rating      AS destination_rating,
+               d.description AS destination_description,
+               d.latitude    AS destination_latitude,
+               d.longitude   AS destination_longitude
+        FROM diary dr
+                 LEFT JOIN destination d ON d.id = dr.destination_id
+        WHERE LOWER(dr.title) LIKE '%' || LOWER(#{keyword}) || '%'
+           OR LOWER(dr.content) LIKE '%' || LOWER(#{keyword}) || '%'
+    </select>
+
+    <!-- 鎻掑叆鏂版棩璁拌褰?-->
+    <insert id="insert" parameterType="com.travel.system.model.Diary"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO diary(title, content, media_type, media_url, published_at, score, views, destination_id)
+        VALUES(#{title}, #{content}, #{mediaType}, #{mediaUrl}, #{publishedAt}, #{score}, #{views}, #{destination.id})
+    </insert>
+
+    <!-- 鏇存柊宸叉湁鏃ヨ璁板綍 -->
+    <update id="update" parameterType="com.travel.system.model.Diary">
+        UPDATE diary
+        SET title = #{title},
+            content = #{content},
+            media_type = #{mediaType},
+            media_url = #{mediaUrl},
+            published_at = #{publishedAt},
+            score = #{score},
+            views = #{views},
+            destination_id = #{destination.id}
+        WHERE id = #{id}
+    </update>
+
+</mapper>
+

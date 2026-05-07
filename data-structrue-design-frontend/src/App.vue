@@ -19,13 +19,15 @@ const isLoginPage = computed(() => route.name === 'login')
 <style scoped>
 .app-shell {
   min-height: 100vh;
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(255, 56, 92, 0.08), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #fff8f8 42%, #ffffff 100%);
 }
 
 .page-container {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 28px 24px 48px;
+  padding: 30px 24px 56px;
 }
 
 .login-shell {

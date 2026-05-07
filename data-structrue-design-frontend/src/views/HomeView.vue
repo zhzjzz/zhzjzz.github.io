@@ -53,18 +53,22 @@ onMounted(loadFoods)
 
 .hero-card {
   border-radius: 32px;
-  padding: 8px;
+  padding: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  background:
+    linear-gradient(135deg, rgba(255, 56, 92, 0.08), rgba(255, 255, 255, 0.96) 42%),
+    #ffffff;
+  border: 1px solid rgba(255, 56, 92, 0.12);
 }
 
 .hero-card h1 {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.43;
-  letter-spacing: -0.18px;
+  letter-spacing: 0;
   color: #222222;
 }
 
@@ -88,6 +92,12 @@ onMounted(loadFoods)
   box-shadow: rgba(0, 0, 0, 0.02) 0px 0px 0px 1px,
     rgba(0, 0, 0, 0.04) 0px 2px 6px,
     rgba(0, 0, 0, 0.1) 0px 4px 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.listing-card:hover {
+  transform: translateY(-3px);
+  box-shadow: rgba(0, 0, 0, 0.04) 0 0 0 1px, rgba(0, 0, 0, 0.12) 0 14px 32px;
 }
 
 .listing-media {

@@ -57,6 +57,8 @@ npm run dev
 - 开发模式也可设置 `VITE_DEV_API_TARGET`（默认 `http://localhost:8080`）以修改 Vite `/api` 代理目标
 - 路线页地图需配置高德 Key：`VITE_AMAP_KEY`（需在高德开放平台 https://lbs.amap.com/ 注册并创建应用获取，建议在控制台按域名限制 Key）
 
+数据库文件放在`data-structure-design-backend/data`目录下
+
 ### 已实现 API（示例）
 
 - `GET /api/destinations`

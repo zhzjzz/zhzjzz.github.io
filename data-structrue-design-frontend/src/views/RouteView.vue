@@ -2,10 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AMapLoader from '@amap/amap-jsapi-loader'
-import { getOsmRoute, searchRouteDestinations } from '../api/travel'
+import { getNavNodes, listNavBuildingsBySpot, listNavPoisBySpot, planCrossSpotRoute, searchNavSpots } from '../api/travel'
 import { wgs84ToGcj02, wgs84ToGcj02Batch } from '../utils/coordTransform'
 
-// 高德 JS API 2.0 安全密钥（必须在 AMapLoader.load 之前设置）
 const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
 if (amapSecret) {
   window._AMapSecurityConfig = { securityJsCode: amapSecret }
@@ -13,51 +12,75 @@ if (amapSecret) {
 
 const CHINA_CENTER = [104.1954, 35.8617]
 const DEFAULT_ZOOM = 4
-const AMAP_VERSION = '2.0'
-const AMAP_PLUGINS = ['AMap.Scale', 'AMap.ToolBar']
+const AMap_VERSION = '2.0'
+const AMap_PLUGINS = ['AMap.Scale', 'AMap.ToolBar', 'AMap.Driving']
 const MAP_FIT_PADDING = [70, 70, 70, 70]
 const MAP_MAX_ZOOM = 17
-const MARKER_TEXT_BG_COLOR = '#111827'
-const MARKER_TEXT_COLOR = '#f9fafb'
 
 const mapInstance = ref(null)
 const mapApi = ref(null)
-const routeLayer = ref(null)
+const drivingInstance = ref(null)
+const polylineLayers = ref([])
 const markerOverlays = ref([])
 const loading = ref(false)
+const nodeLoading = ref(false)
 const routeResult = ref(null)
-const form = ref({
-  mode: 'car',
-})
+
 const startInput = ref('')
 const startSelection = ref(null)
-const destinationStops = ref([
-  {
-    input: '',
-    selection: null,
-  },
-])
-const transportModes = [
-  { value: 'car', label: '汽车' },
-  { value: 'bike', label: '自行车' },
-  { value: 'walk', label: '徒步' },
-]
+const startNodes = ref([])
+const startPlaces = ref([])
+const startNodeId = ref(null)
 
-const selectedStops = computed(() =>
-  destinationStops.value.filter((stop) => stop.selection).map((stop) => stop.selection)
-)
+const destInput = ref('')
+const destSelection = ref(null)
+const destNodes = ref([])
+const destPlaces = ref([])
+const destNodeId = ref(null)
 
-const distanceKm = computed(() => ((routeResult.value?.distance || 0) / 1000).toFixed(2))
-const durationHours = computed(() => ((routeResult.value?.time || 0) / 1000 / 3600).toFixed(2))
-
-const clearRouteLayer = () => {
-  if (routeLayer.value && mapInstance.value) {
-    mapInstance.value.remove(routeLayer.value)
-  }
-  routeLayer.value = null
+const formatNode = (node) => {
+  const floor = node.floor == null ? '' : ` F${node.floor}`
+  return `${node.osmid}${floor}`
 }
 
-const clearMarkerLayers = () => {
+const nodeOptions = (places, nodes) => {
+  const placeOptions = places
+    .filter((place) => place.nearestNodeId != null)
+    .map((place) => ({
+      label: `${place.name || place.nearestNodeId} · ${place.type || '地点'}`,
+      value: place.nearestNodeId,
+      raw: place,
+    }))
+  const seen = new Set(placeOptions.map((item) => item.value))
+  const rawNodeOptions = nodes
+    .filter((node) => node.osmid != null && !seen.has(node.osmid))
+    .slice(0, 200)
+    .map((node) => ({
+      label: `路网节点 ${formatNode(node)}`,
+      value: node.osmid,
+      raw: node,
+    }))
+  return [...placeOptions, ...rawNodeOptions]
+}
+
+const startNodeOptions = computed(() => nodeOptions(startPlaces.value, startNodes.value))
+const destNodeOptions = computed(() => nodeOptions(destPlaces.value, destNodes.value))
+
+const distanceKm = computed(() => ((routeResult.value?.totalDistance || 0) / 1000).toFixed(2))
+const durationMin = computed(() => ((routeResult.value?.totalTime || 0) / 60).toFixed(1))
+
+const clearPolylines = () => {
+  if (polylineLayers.value.length && mapInstance.value) {
+    mapInstance.value.remove(polylineLayers.value)
+  }
+  polylineLayers.value = []
+  if (drivingInstance.value) {
+    drivingInstance.value.clear()
+    drivingInstance.value = null
+  }
+}
+
+const clearMarkers = () => {
   if (markerOverlays.value.length && mapInstance.value) {
     mapInstance.value.remove(markerOverlays.value)
   }
@@ -66,24 +89,15 @@ const clearMarkerLayers = () => {
 
 const initMap = async () => {
   const amapKey = (import.meta.env.VITE_AMAP_KEY || '').trim()
-  const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
   if (!amapKey) {
-    ElMessage.warning('未配置 VITE_AMAP_KEY，无法加载高德地图')
+    ElMessage.warning('未配置 VITE_AMAP_KEY，地图无法加载')
     return
   }
-
-  // 高德 JS API 2.0 需要设置安全密钥
-  if (amapSecret) {
-    window._AMapSecurityConfig = {
-      securityJsCode: amapSecret,
-    }
-  }
-
   try {
     const AMap = await AMapLoader.load({
       key: amapKey,
-      version: AMAP_VERSION,
-      plugins: AMAP_PLUGINS,
+      version: AMap_VERSION,
+      plugins: AMap_PLUGINS,
     })
     mapApi.value = AMap
     mapInstance.value = new AMap.Map('route-map', {
@@ -100,29 +114,7 @@ const initMap = async () => {
   }
 }
 
-const drawRoute = (path) => {
-  if (!mapInstance.value || !mapApi.value) return
-  clearRouteLayer()
-  if (!path?.length) return
-
-  const gcjPath = wgs84ToGcj02Batch(path)
-  // AMap 坐标顺序为 [lng, lat]，内部路径使用 [lat, lng]
-  const amapLngLatPath = gcjPath.map(([lat, lng]) => [lng, lat])
-  routeLayer.value = new mapApi.value.Polyline({
-    path: amapLngLatPath,
-    strokeColor: '#1677ff',
-    strokeWeight: 7,
-    strokeOpacity: 0.94,
-    isOutline: true,
-    outlineColor: '#ffffff',
-    lineJoin: 'round',
-    showDir: true,
-  })
-  mapInstance.value.add(routeLayer.value)
-  mapInstance.value.setFitView([routeLayer.value], false, MAP_FIT_PADDING, MAP_MAX_ZOOM)
-}
-
-const createMarkerWithLabel = ({ lng, lat, color, title }) => {
+const createMarker = ({ lng, lat, color, title }) => {
   const marker = new mapApi.value.CircleMarker({
     center: [lng, lat],
     radius: 9,
@@ -138,49 +130,79 @@ const createMarkerWithLabel = ({ lng, lat, color, title }) => {
     anchor: 'bottom-center',
     offset: [0, -16],
     style: {
-      background: MARKER_TEXT_BG_COLOR,
-      color: MARKER_TEXT_COLOR,
+      background: '#222222',
+      color: '#ffffff',
       border: 'none',
       borderRadius: '999px',
       padding: '4px 10px',
       fontSize: '12px',
       fontWeight: 600,
-      boxShadow: '0 6px 18px rgba(17,24,39,0.25)',
+      boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
     },
     zIndex: 130,
   })
   return [marker, text]
 }
 
+const drawMicroPath = (coords, color) => {
+  if (!mapInstance.value || !mapApi.value || !coords?.length) return null
+  const gcjPath = wgs84ToGcj02Batch(coords)
+  const amapPath = gcjPath.map(([lat, lng]) => [lng, lat])
+  const polyline = new mapApi.value.Polyline({
+    path: amapPath,
+    strokeColor: color,
+    strokeWeight: 7,
+    strokeOpacity: 0.94,
+    isOutline: true,
+    outlineColor: '#ffffff',
+    lineJoin: 'round',
+    showDir: true,
+  })
+  mapInstance.value.add(polyline)
+  return polyline
+}
+
+const drawCityRoute = (startCoord, endCoord) => {
+  if (!mapInstance.value || !mapApi.value || !startCoord || !endCoord) return
+  const [startLat, startLng] = startCoord
+  const [endLat, endLng] = endCoord
+  const [gcjStartLng, gcjStartLat] = wgs84ToGcj02(startLng, startLat)
+  const [gcjEndLng, gcjEndLat] = wgs84ToGcj02(endLng, endLat)
+
+  drivingInstance.value?.clear()
+  drivingInstance.value = new mapApi.value.Driving({
+    map: mapInstance.value,
+    hideMarkers: true,
+  })
+  drivingInstance.value.search(
+    new mapApi.value.LngLat(gcjStartLng, gcjStartLat),
+    new mapApi.value.LngLat(gcjEndLng, gcjEndLat)
+  )
+}
+
+const selectedStartNode = computed(() =>
+  startNodes.value.find((node) => node.osmid === startNodeId.value)
+)
+const selectedDestNode = computed(() =>
+  destNodes.value.find((node) => node.osmid === destNodeId.value)
+)
+
 const drawMarkers = () => {
   if (!mapInstance.value || !mapApi.value) return
-  clearMarkerLayers()
+  clearMarkers()
 
-  if (startSelection.value) {
-    const [gcjLng, gcjLat] = wgs84ToGcj02(startSelection.value.longitude, startSelection.value.latitude)
+  if (selectedStartNode.value) {
+    const [gcjLng, gcjLat] = wgs84ToGcj02(selectedStartNode.value.x, selectedStartNode.value.y)
     markerOverlays.value.push(
-      ...createMarkerWithLabel({
-        lng: gcjLng,
-        lat: gcjLat,
-        color: '#1677ff',
-        title: `起点：${startSelection.value.name}`,
-      })
+      ...createMarker({ lng: gcjLng, lat: gcjLat, color: '#ff385c', title: `起点 ${startSelection.value?.name || ''}` })
     )
   }
-
-  selectedStops.value.forEach((destination, index) => {
-    const isLast = index === selectedStops.value.length - 1
-    const [gcjLng, gcjLat] = wgs84ToGcj02(destination.longitude, destination.latitude)
+  if (selectedDestNode.value) {
+    const [gcjLng, gcjLat] = wgs84ToGcj02(selectedDestNode.value.x, selectedDestNode.value.y)
     markerOverlays.value.push(
-      ...createMarkerWithLabel({
-        lng: gcjLng,
-        lat: gcjLat,
-        color: isLast ? '#22c55e' : '#f59e0b',
-        title: `${isLast ? '终点' : `途经点${index + 1}`}：${destination.name}`,
-      })
+      ...createMarker({ lng: gcjLng, lat: gcjLat, color: '#222222', title: `终点 ${destSelection.value?.name || ''}` })
     )
-  })
-
+  }
   if (markerOverlays.value.length) {
     mapInstance.value.add(markerOverlays.value)
   }
@@ -188,7 +210,7 @@ const drawMarkers = () => {
 
 const refreshMapView = () => {
   if (!mapInstance.value) return
-  const overlays = [routeLayer.value, ...markerOverlays.value].filter(Boolean)
+  const overlays = [...polylineLayers.value, ...markerOverlays.value].filter(Boolean)
   if (overlays.length) {
     mapInstance.value.setFitView(overlays, false, MAP_FIT_PADDING, MAP_MAX_ZOOM)
   } else {
@@ -196,9 +218,34 @@ const refreshMapView = () => {
   }
 }
 
-const onStartSelect = (item) => {
+const loadNodesForSpot = async (spotName, targetNodes, targetPlaces, targetNodeId) => {
+  nodeLoading.value = true
+  try {
+    const [nodesRes, buildingsRes, poisRes] = await Promise.all([
+      getNavNodes(spotName),
+      listNavBuildingsBySpot(spotName),
+      listNavPoisBySpot(spotName),
+    ])
+    targetNodes.value = Array.isArray(nodesRes.data) ? nodesRes.data : []
+    targetPlaces.value = [
+      ...(Array.isArray(buildingsRes.data) ? buildingsRes.data : []),
+      ...(Array.isArray(poisRes.data) ? poisRes.data : []),
+    ]
+    targetNodeId.value = targetPlaces.value.find((item) => item.nearestNodeId != null)?.nearestNodeId
+      || targetNodes.value[0]?.osmid
+      || null
+  } finally {
+    nodeLoading.value = false
+  }
+}
+
+const onStartSelect = async (item) => {
   startSelection.value = item.raw
   startInput.value = item.value
+  startNodes.value = []
+  startPlaces.value = []
+  startNodeId.value = null
+  await loadNodesForSpot(item.raw.name, startNodes, startPlaces, startNodeId)
   drawMarkers()
   refreshMapView()
 }
@@ -206,119 +253,90 @@ const onStartSelect = (item) => {
 const onStartInput = (value) => {
   if (startSelection.value && value !== startSelection.value.name) {
     startSelection.value = null
+    startNodes.value = []
+    startPlaces.value = []
+    startNodeId.value = null
     drawMarkers()
-    refreshMapView()
   }
 }
 
-const onDestinationSelect = (index, item) => {
-  destinationStops.value[index].selection = item.raw
-  destinationStops.value[index].input = item.value
+const onDestSelect = async (item) => {
+  destSelection.value = item.raw
+  destInput.value = item.value
+  destNodes.value = []
+  destPlaces.value = []
+  destNodeId.value = null
+  await loadNodesForSpot(item.raw.name, destNodes, destPlaces, destNodeId)
   drawMarkers()
   refreshMapView()
 }
 
-const onDestinationInput = (index, value) => {
-  const current = destinationStops.value[index]
-  if (current.selection && value !== current.selection.name) {
-    current.selection = null
+const onDestInput = (value) => {
+  if (destSelection.value && value !== destSelection.value.name) {
+    destSelection.value = null
+    destNodes.value = []
+    destPlaces.value = []
+    destNodeId.value = null
     drawMarkers()
-    refreshMapView()
   }
 }
 
-const fetchDestinationSuggestions = async (queryString, callback) => {
+const fetchSpotSuggestions = async (queryString, callback) => {
   const keyword = (queryString || '').trim()
   if (!keyword) {
     callback([])
     return
   }
   try {
-    const { data } = await searchRouteDestinations(keyword, 10)
-    callback(
-      (data || [])
-        .filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
-        .map((item) => ({
-          value: item.name,
-          raw: item,
-        }))
-    )
+    const { data } = await searchNavSpots({ keyword, limit: 10 })
+    callback((data || []).map((item) => ({ value: item.name, raw: item })))
   } catch (error) {
     callback([])
   }
 }
 
-const addDestinationStop = () => {
-  destinationStops.value.push({
-    input: '',
-    selection: null,
-  })
-}
-
-const removeDestinationStop = (index) => {
-  if (destinationStops.value.length <= 1) return
-  destinationStops.value.splice(index, 1)
-  drawMarkers()
-  refreshMapView()
-}
-
 const submit = async () => {
   if (!startSelection.value) {
-    ElMessage.warning('请先搜索并选择起点')
+    ElMessage.warning('请先选择起点景区')
     return
   }
-  if (!destinationStops.value.length || destinationStops.value.some((stop) => !stop.selection)) {
-    ElMessage.warning('请搜索并选择所有目的地')
+  if (!destSelection.value) {
+    ElMessage.warning('请先选择终点景区')
     return
   }
 
   loading.value = true
   routeResult.value = null
+  clearPolylines()
+
   try {
-    let totalDistance = 0
-    let totalTime = 0
-    const mergedPath = []
-    let currentPoint = startSelection.value
+    const { data } = await planCrossSpotRoute({
+      fromSpotName: startSelection.value.name,
+      fromNodeId: startNodeId.value,
+      toSpotName: destSelection.value.name,
+      toNodeId: destNodeId.value,
+      strategy: 'SHORTEST_DISTANCE',
+      transportMode: 'walk',
+    })
+    routeResult.value = data
 
-    for (let index = 0; index < destinationStops.value.length; index += 1) {
-      const stop = destinationStops.value[index]
-      const destination = stop.selection
-      try {
-        const { data } = await getOsmRoute({
-          startLat: currentPoint.latitude,
-          startLon: currentPoint.longitude,
-          endLat: destination.latitude,
-          endLon: destination.longitude,
-          mode: form.value.mode,
-        })
-        totalDistance += Number(data?.distance ?? 0)
-        totalTime += Number(data?.time ?? 0)
-        const segmentPath = Array.isArray(data?.path) ? data.path : []
-        if (segmentPath.length) {
-          if (mergedPath.length) {
-            mergedPath.push(...segmentPath.slice(1))
-          } else {
-            mergedPath.push(...segmentPath)
-          }
-        }
-        currentPoint = destination
-      } catch (error) {
-        const segmentMessage = error?.response?.data?.message || error?.message || 'OSM 路线规划失败'
-        throw new Error(`第 ${index + 1} 段（${destination?.name || `目的地${index + 1}`})规划失败：${segmentMessage}`)
-      }
+    if (data.microPathStart?.length) {
+      const p1 = drawMicroPath(data.microPathStart, '#ff385c')
+      if (p1) polylineLayers.value.push(p1)
+    }
+    if (data.cityTransitStart && data.cityTransitEnd) {
+      drawCityRoute(data.cityTransitStart, data.cityTransitEnd)
+    }
+    if (data.microPathEnd?.length) {
+      const p3 = drawMicroPath(data.microPathEnd, '#222222')
+      if (p3) polylineLayers.value.push(p3)
     }
 
-    routeResult.value = {
-      distance: totalDistance,
-      time: totalTime,
-      path: mergedPath,
-    }
-    drawRoute(mergedPath)
     drawMarkers()
     refreshMapView()
-    ElMessage.success('路线规划成功')
+    ElMessage.success('跨景区路线规划完成')
   } catch (error) {
-    ElMessage.error(error?.message || error?.response?.data?.message || '路线规划失败，请检查后端 GraphHopper 数据文件配置')
+    ElMessage.error(error?.response?.data?.message || error?.message || '路线规划失败')
   } finally {
     loading.value = false
   }
@@ -331,8 +349,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  clearRouteLayer()
-  clearMarkerLayers()
+  clearPolylines()
+  clearMarkers()
   if (mapInstance.value) {
     mapInstance.value.destroy()
     mapInstance.value = null
@@ -346,73 +364,91 @@ onBeforeUnmount(() => {
     <el-card class="module-card route-card">
       <div class="module-header">
         <div>
-          <h2>OSM 路线规划</h2>
-          <p class="module-subtitle">支持搜索起点与多个目的地，按顺序进行分段路线规划并汇总总距离和时间。</p>
+          <h2>三段式跨景区导航</h2>
+          <p class="module-subtitle">景区内路径 + 城市交通 + 目标景区内路径</p>
         </div>
       </div>
 
-      <el-form :model="form" label-width="120px" class="route-form">
+      <el-form label-width="86px" class="route-form">
         <el-row :gutter="12">
           <el-col :md="8" :xs="24">
-            <el-form-item label="起点">
+            <el-form-item label="起点景区">
               <el-autocomplete
                 v-model="startInput"
                 class="full-width"
                 clearable
-                placeholder="输入关键词搜索起点"
-                :fetch-suggestions="fetchDestinationSuggestions"
+                placeholder="搜索景区/高校"
+                :fetch-suggestions="fetchSpotSuggestions"
                 @select="onStartSelect"
                 @input="onStartInput"
               />
             </el-form-item>
           </el-col>
-          <el-col :md="16" :xs="24">
-            <el-form-item label="多个目的地">
-              <div class="destination-list">
-                <div v-for="(stop, index) in destinationStops" :key="index" class="destination-item">
-                  <el-autocomplete
-                    v-model="stop.input"
-                    class="full-width"
-                    clearable
-                    :placeholder="`输入关键词搜索目的地 ${index + 1}`"
-                    :fetch-suggestions="fetchDestinationSuggestions"
-                    @select="(item) => onDestinationSelect(index, item)"
-                    @input="(value) => onDestinationInput(index, value)"
-                  />
-                  <el-button type="danger" plain :disabled="destinationStops.length <= 1" @click="removeDestinationStop(index)">删除</el-button>
-                  <el-button v-if="index === destinationStops.length - 1" type="primary" plain @click="addDestinationStop">添加</el-button>
-                </div>
-              </div>
-            </el-form-item>
-          </el-col>
-          <el-col :md="12" :xs="24">
-            <el-form-item label="出行方式">
-              <el-select v-model="form.mode" class="full-width" placeholder="请选择出行方式">
-                <el-option
-                  v-for="item in transportModes"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
+          <el-col :md="6" :xs="24">
+            <el-form-item label="起点节点">
+              <el-select
+                v-model="startNodeId"
+                class="full-width"
+                clearable
+                filterable
+                :loading="nodeLoading"
+                placeholder="默认入口节点"
+                @change="drawMarkers"
+              >
+                <el-option v-for="item in startNodeOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
           </el-col>
+          <el-col :md="8" :xs="24">
+            <el-form-item label="终点景区">
+              <el-autocomplete
+                v-model="destInput"
+                class="full-width"
+                clearable
+                placeholder="搜索景区/高校"
+                :fetch-suggestions="fetchSpotSuggestions"
+                @select="onDestSelect"
+                @input="onDestInput"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :md="6" :xs="24">
+            <el-form-item label="终点节点">
+              <el-select
+                v-model="destNodeId"
+                class="full-width"
+                clearable
+                filterable
+                :loading="nodeLoading"
+                placeholder="默认入口节点"
+                @change="drawMarkers"
+              >
+                <el-option v-for="item in destNodeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :md="4" :xs="24">
+            <el-button type="primary" :loading="loading" class="plan-btn" @click="submit">规划路线</el-button>
+          </el-col>
         </el-row>
-        <el-button type="primary" :loading="loading" @click="submit">规划路线</el-button>
       </el-form>
 
       <el-divider />
       <div class="map-title">
-        <span>高德官方 JS API 地图</span>
+        <span>高德地图 · 三段式导航</span>
       </div>
       <div id="route-map" class="route-map" />
 
       <el-divider />
-      <el-descriptions v-if="routeResult" :column="2" border>
+      <el-descriptions v-if="routeResult" :column="3" border>
         <el-descriptions-item label="总距离">{{ distanceKm }} km</el-descriptions-item>
-        <el-descriptions-item label="预计耗时">{{ durationHours }} h</el-descriptions-item>
+        <el-descriptions-item label="总耗时">{{ durationMin }} 分钟</el-descriptions-item>
+        <el-descriptions-item label="城市交通">{{ routeResult.transitType || '无，同景区内直达' }}</el-descriptions-item>
+        <el-descriptions-item label="第一段距离">{{ ((routeResult.segment1Distance || 0) / 1000).toFixed(2) }} km</el-descriptions-item>
+        <el-descriptions-item label="第二段距离">{{ ((routeResult.segment2Distance || 0) / 1000).toFixed(2) }} km</el-descriptions-item>
+        <el-descriptions-item label="第三段距离">{{ ((routeResult.segment3Distance || 0) / 1000).toFixed(2) }} km</el-descriptions-item>
       </el-descriptions>
-      <el-empty v-else description="请搜索起点和多个目的地后点击规划路线" />
+      <el-empty v-else description="选择起点和终点后规划路线" />
     </el-card>
   </section>
 </template>
@@ -423,22 +459,11 @@ onBeforeUnmount(() => {
 }
 
 .route-form {
-  max-width: 900px;
+  max-width: 1180px;
 }
 
-.destination-list {
+.plan-btn {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.destination-item {
-  width: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
-  align-items: center;
 }
 
 .route-map {
@@ -446,9 +471,9 @@ onBeforeUnmount(() => {
   height: 520px;
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(59, 130, 246, 0.22);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
-  background: linear-gradient(135deg, #e6f0ff 0%, #f8fbff 100%);
+  border: 1px solid rgba(255, 56, 92, 0.18);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #fff8f8 0%, #f7f7f7 100%);
 }
 
 .map-title {
@@ -457,8 +482,8 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  background: #fff1f4;
+  color: #ff385c;
   font-size: 13px;
   font-weight: 600;
 }

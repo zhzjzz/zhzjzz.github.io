@@ -6,10 +6,11 @@
   --palette-surface: #ffffff;
   --palette-surface-muted: #f7f7f7;
   --palette-border: #ebebeb;
+  --palette-wash: #fff8f8;
+  --palette-ring: rgba(255, 56, 92, 0.18);
   --palette-hover-shadow: rgba(0, 0, 0, 0.08) 0px 4px 12px;
-  --palette-card-shadow: rgba(0, 0, 0, 0.02) 0px 0px 0px 1px,
-    rgba(0, 0, 0, 0.04) 0px 2px 6px,
-    rgba(0, 0, 0, 0.1) 0px 4px 8px;
+  --palette-card-shadow: rgba(0, 0, 0, 0.03) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.05) 0px 8px 24px;
   --radius-button: 8px;
   --radius-badge: 14px;
   --radius-card: 20px;
@@ -38,7 +39,8 @@
 body {
   margin: 0;
   min-width: 360px;
-  background: var(--palette-surface);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fff8f8 36%, #ffffff 100%);
   color: var(--palette-text-primary);
 }
 
@@ -61,6 +63,10 @@ a {
   box-shadow: var(--palette-card-shadow);
 }
 
+.module-card .el-card__body {
+  padding: 24px;
+}
+
 .module-header {
   display: flex;
   align-items: flex-start;
@@ -70,10 +76,10 @@ a {
 
 .module-header h2 {
   color: var(--palette-text-primary);
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 800;
   line-height: 1.18;
-  letter-spacing: -0.44px;
+  letter-spacing: 0;
 }
 
 .module-subtitle {
@@ -85,11 +91,15 @@ a {
 
 .el-button {
   border-radius: var(--radius-button);
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .el-button--primary {
   box-shadow: var(--palette-hover-shadow);
+}
+
+.el-button--primary:hover {
+  filter: brightness(1.03);
 }
 
 .el-input__wrapper,
@@ -98,16 +108,25 @@ a {
 .el-input-number,
 .el-date-editor.el-input__wrapper {
   border-radius: var(--radius-button);
+  box-shadow: 0 0 0 1px var(--palette-border) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--palette-bg-primary-core) inset, 0 0 0 4px var(--palette-ring);
 }
 
 .el-table {
   border-radius: 14px;
   overflow: hidden;
+  box-shadow: 0 0 0 1px var(--palette-border);
 }
 
 .el-table th.el-table__cell {
   color: var(--palette-text-primary);
-  font-weight: 600;
+  background: #fff8f8;
+  font-weight: 800;
 }
 
 .el-table td.el-table__cell {

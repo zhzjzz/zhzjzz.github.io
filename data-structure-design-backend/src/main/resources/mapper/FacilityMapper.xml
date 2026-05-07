@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.FacilityMapper">
+
+    <!-- 缁撴灉鏄犲皠锛氬皢鑱旇〃鏌ヨ鐨勭粨鏋滄槧灏勫埌 Facility 鍙婂叾鍏宠仈鐨?Destination -->
+    <resultMap id="facilityResultMap" type="com.travel.system.model.Facility">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="facility_type" property="facilityType"/>
+        <result column="latitude" property="latitude"/>
+        <result column="longitude" property="longitude"/>
+        <association property="destination" javaType="com.travel.system.model.Destination">
+            <id column="destination_ref_id" property="id"/>
+            <result column="destination_name" property="name"/>
+            <result column="destination_scene_type" property="sceneType"/>
+            <result column="destination_category" property="category"/>
+            <result column="destination_rating" property="rating"/>
+            <result column="destination_description" property="description"/>
+            <result column="destination_latitude" property="latitude"/>
+            <result column="destination_longitude" property="longitude"/>
+        </association>
+    </resultMap>
+
+    <!-- 鏌ヨ鍏ㄩ儴璁炬柦锛堣仈琛ㄧ洰鐨勫湴锛?-->
+    <select id="findAll" resultMap="facilityResultMap">
+        SELECT b.building_id AS id,
+               b.name AS name,
+               b.type AS facility_type,
+               n.y AS latitude,
+               n.x AS longitude,
+               NULL AS destination_id,
+               NULL AS destination_ref_id,
+               b.spot_name AS destination_name,
+               'building' AS destination_scene_type,
+               b.type AS destination_category,
+               NULL AS destination_rating,
+               NULL AS destination_description,
+               n.y AS destination_latitude,
+               n.x AS destination_longitude
+        FROM buildings b
+        LEFT JOIN nodes n ON n.osmid = b.nearest_node_id
+        UNION ALL
+        SELECT (p.poi_id + 1000000000) AS id,
+               p.name AS name,
+               p.type AS facility_type,
+               n.y AS latitude,
+               n.x AS longitude,
+               NULL AS destination_id,
+               NULL AS destination_ref_id,
+               p.spot_name AS destination_name,
+               'poi' AS destination_scene_type,
+               p.type AS destination_category,
+               NULL AS destination_rating,
+               NULL AS destination_description,
+               n.y AS destination_latitude,
+               n.x AS destination_longitude
+        FROM pois p
+        LEFT JOIN nodes n ON n.osmid = p.nearest_node_id
+    </select>
+
+    <!-- 鎸夎鏂界被鍨嬫ā绯婂尮閰?-->
+    <select id="findByFacilityTypeContainingIgnoreCase" resultMap="facilityResultMap">
+        SELECT *
+        FROM (
+            SELECT b.building_id AS id,
+                   b.name AS name,
+                   b.type AS facility_type,
+                   n.y AS latitude,
+                   n.x AS longitude,
+                   NULL AS destination_id,
+                   NULL AS destination_ref_id,
+                   b.spot_name AS destination_name,
+                   'building' AS destination_scene_type,
+                   b.type AS destination_category,
+                   NULL AS destination_rating,
+                   NULL AS destination_description,
+                   n.y AS destination_latitude,
+                   n.x AS destination_longitude
+            FROM buildings b
+            LEFT JOIN nodes n ON n.osmid = b.nearest_node_id
+            UNION ALL
+            SELECT (p.poi_id + 1000000000) AS id,
+                   p.name AS name,
+                   p.type AS facility_type,
+                   n.y AS latitude,
+                   n.x AS longitude,
+                   NULL AS destination_id,
+                   NULL AS destination_ref_id,
+                   p.spot_name AS destination_name,
+                   'poi' AS destination_scene_type,
+                   p.type AS destination_category,
+                   NULL AS destination_rating,
+                   NULL AS destination_description,
+                   n.y AS destination_latitude,
+                   n.x AS destination_longitude
+            FROM pois p
+            LEFT JOIN nodes n ON n.osmid = p.nearest_node_id
+        ) f
+        WHERE LOWER(f.facility_type) LIKE '%' || LOWER(#{type}) || '%'
+           OR LOWER(f.name) LIKE '%' || LOWER(#{type}) || '%'
+           OR LOWER(f.destination_name) LIKE '%' || LOWER(#{type}) || '%'
+    </select>
+
+    <!-- 鎸?ID 鍒楄〃鏌ヨ璁炬柦 -->
+    <select id="findByIds" resultMap="facilityResultMap">
+        SELECT f.id,
+               f.name,
+               f.facility_type,
+               f.latitude,
+               f.longitude,
+               f.destination_id,
+               d.id          AS destination_ref_id,
+               d.name        AS destination_name,
+               d.scene_type  AS destination_scene_type,
+               d.category    AS destination_category,
+               d.rating      AS destination_rating,
+               d.description AS destination_description,
+               d.latitude    AS destination_latitude,
+               d.longitude   AS destination_longitude
+        FROM facility f
+                 LEFT JOIN destination d ON d.id = f.destination_id
+        WHERE f.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 鎻掑叆鏂拌鏂?-->
+    <insert id="insert" parameterType="com.travel.system.model.Facility"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO facility (name, facility_type, latitude, longitude, destination_id)
+        VALUES (#{name}, #{facilityType}, #{latitude}, #{longitude}, #{destination.id})
+    </insert>
+
+    <!-- 鏇存柊璁炬柦 -->
+    <update id="update" parameterType="com.travel.system.model.Facility">
+        UPDATE facility
+        SET name          = #{name},
+            facility_type = #{facilityType},
+            latitude      = #{latitude},
+            longitude     = #{longitude},
+            destination_id = #{destination.id}
+        WHERE id = #{id}
+    </update>
+
+</mapper>
+
