@@ -31,7 +31,7 @@ const logout = () => {
 
 <template>
   <header class="nav-shell">
-    <button class="brand" type="button" aria-label="返回首页" @click="go('/')">
+    <button class="brand" type="button" aria-label="返回总览" @click="go('/')">
       <span class="brand-mark">T</span>
       <span>
         <strong>Travel.AI</strong>
@@ -39,9 +39,9 @@ const logout = () => {
       </span>
     </button>
 
-    <button class="search-pill" type="button" aria-label="搜索目的地" @click="go('/destinations')">
+    <button class="search-pill" type="button" aria-label="进入目的地推荐" @click="go('/destinations')">
       <span>景区</span>
-      <span>高校</span>
+      <span>校园</span>
       <span>路线</span>
       <span class="search-btn">
         <el-icon><Search /></el-icon>
@@ -49,7 +49,7 @@ const logout = () => {
     </button>
 
     <div class="user-actions">
-      <button class="host-link" type="button" @click="go('/itineraries')">协作计划</button>
+      <button class="host-link" type="button" @click="go('/routes')">演示路线</button>
       <div class="user-chip">
         <span class="user-name">{{ appStore.user.name || '未登录' }}</span>
         <button class="logout-btn" type="button" @click="logout">退出</button>
@@ -106,10 +106,10 @@ const logout = () => {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: #ff385c;
+  background: linear-gradient(135deg, #ff385c, #d90f3f);
   color: #ffffff;
-  font-weight: 800;
-  box-shadow: rgba(255, 56, 92, 0.25) 0 8px 20px;
+  font-weight: 900;
+  box-shadow: rgba(255, 56, 92, 0.26) 0 12px 28px;
 }
 
 .brand strong,
@@ -235,8 +235,8 @@ const logout = () => {
 }
 
 .category-pill.active {
-  color: #222222;
-  border-bottom-color: #222222;
+  color: #111827;
+  border-bottom-color: #ff385c;
 }
 
 @media (max-width: 1128px) {
