@@ -2,8 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AMapLoader from '@amap/amap-jsapi-loader'
+import { Delete, MapDistance, MapRoad, Plus, PreviewOpen, Ranking, Timer } from '@icon-park/vue-next'
 import { getNavNodes, listNavBuildingsBySpot, listNavPoisBySpot, planMultiSpotRoute, searchNavSpots } from '../api/travel'
 import { wgs84ToGcj02, wgs84ToGcj02Batch } from '../utils/coordTransform'
+import routeDefaultImage from '../assets/defaults/route-default.png'
 
 const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
 if (amapSecret) {
@@ -24,11 +26,13 @@ const polylineLayers = ref([])
 const drivingLayers = ref([])
 const markerOverlays = ref([])
 const loading = ref(false)
+const demoLoading = ref(false)
 const nodeLoading = ref(false)
 const routeResult = ref(null)
 const strategy = ref('SHORTEST_TIME')
 const optimizeVisitOrder = ref(false)
 const visits = ref([])
+const demoSpotKeywords = ['西湖', '故宫', '公园', '大学']
 
 const newVisit = () => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -274,6 +278,59 @@ const onSpotInput = (visit, value) => {
   }
 }
 
+const findDemoSpots = async () => {
+  const selected = []
+  for (const keyword of demoSpotKeywords) {
+    const { data } = await searchNavSpots({ keyword, limit: 4 })
+    for (const spot of data || []) {
+      if (spot?.name && !selected.some((item) => item.name === spot.name)) {
+        selected.push(spot)
+      }
+      if (selected.length >= 2) return selected
+    }
+  }
+  return selected
+}
+
+const chooseDemoNodeIds = (visit) => {
+  const options = nodeOptions(visit)
+  return options.slice(0, 2).map((item) => item.value).filter((value) => value != null)
+}
+
+const applyDemoScenario = async () => {
+  demoLoading.value = true
+  routeResult.value = null
+  clearPolylines()
+  clearMarkers()
+  try {
+    const spots = await findDemoSpots()
+    if (spots.length < 1) {
+      ElMessage.warning('没有找到可用于演示的景区数据，请手动搜索景区')
+      return
+    }
+    visits.value = spots.slice(0, 2).map((spot, index) => ({
+      ...newVisit(),
+      spotInput: spot.name,
+      spot,
+      transportMode: index === 0 ? 'walk' : 'bike',
+    }))
+    for (const visit of visits.value) {
+      await loadVisitData(visit)
+      visit.nodeIds = chooseDemoNodeIds(visit)
+    }
+    strategy.value = 'SHORTEST_TIME'
+    optimizeVisitOrder.value = true
+    drawSelectedMarkers()
+    refreshMapView()
+    ElMessage.success('演示路线参数已填充，可以直接点击规划路线')
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('演示数据填充失败，请检查后端服务和数据库')
+  } finally {
+    demoLoading.value = false
+  }
+}
+
 const addVisit = () => {
   visits.value.push(newVisit())
 }
@@ -376,6 +433,7 @@ onBeforeUnmount(() => {
           <h2>多景区多地点路线规划</h2>
           <p class="module-subtitle">按访问顺序串联多个景区；同一景区内可选多个地点，并支持步行/电动车、最短时间/最短距离。</p>
         </div>
+        <img class="route-hero-image" :src="routeDefaultImage" alt="路线规划默认图" />
         <div class="summary-pill" v-if="routeResult">
           <strong>{{ totalDistanceKm }} km</strong>
           <span>{{ totalDurationMin }} 分钟</span>
@@ -393,8 +451,18 @@ onBeforeUnmount(() => {
           inactive-text="按选择顺序访问"
         />
         <div class="toolbar-actions">
-          <el-button @click="addVisit">添加景区</el-button>
-          <el-button type="primary" :loading="loading" @click="submit">规划路线</el-button>
+          <el-button :loading="demoLoading" @click="applyDemoScenario">
+            <PreviewOpen theme="outline" size="16" fill="currentColor" />
+            演示模式
+          </el-button>
+          <el-button @click="addVisit">
+            <Plus theme="outline" size="16" fill="currentColor" />
+            添加景区
+          </el-button>
+          <el-button type="primary" :loading="loading" @click="submit">
+            <MapRoad theme="outline" size="16" fill="currentColor" />
+            规划路线
+          </el-button>
         </div>
       </div>
 
@@ -449,7 +517,10 @@ onBeforeUnmount(() => {
                   <el-button @click="moveVisit(index, -1)" :disabled="index === 0">上移</el-button>
                   <el-button @click="moveVisit(index, 1)" :disabled="index === visits.length - 1">下移</el-button>
                 </el-button-group>
-                <el-button link type="danger" @click="removeVisit(index)">删除</el-button>
+                <el-button link type="danger" @click="removeVisit(index)">
+                  <Delete theme="outline" size="15" fill="currentColor" />
+                  删除
+                </el-button>
               </el-col>
             </el-row>
           </div>
@@ -463,11 +534,20 @@ onBeforeUnmount(() => {
       <div id="route-map" class="route-map" />
 
       <el-divider />
-      <el-descriptions v-if="routeResult" :column="3" border>
-        <el-descriptions-item label="总距离">{{ totalDistanceKm }} km</el-descriptions-item>
-        <el-descriptions-item label="总耗时">{{ totalDurationMin }} 分钟</el-descriptions-item>
-        <el-descriptions-item label="路线段数">{{ routeResult.segments?.length || 0 }}</el-descriptions-item>
-      </el-descriptions>
+      <section v-if="routeResult" class="route-summary-grid reveal-in">
+        <article class="metric-card">
+          <span><MapDistance theme="outline" size="15" fill="currentColor" /> 总距离</span>
+          <strong>{{ totalDistanceKm }} km</strong>
+        </article>
+        <article class="metric-card">
+          <span><Timer theme="outline" size="15" fill="currentColor" /> 总耗时</span>
+          <strong>{{ totalDurationMin }} 分钟</strong>
+        </article>
+        <article class="metric-card">
+          <span><Ranking theme="outline" size="15" fill="currentColor" /> 路线段数</span>
+          <strong>{{ routeResult.segments?.length || 0 }}</strong>
+        </article>
+      </section>
 
       <div v-if="routeResult" class="segment-list">
         <div v-for="segment in segmentStats" :key="segment.index" class="segment-item">
@@ -490,6 +570,15 @@ onBeforeUnmount(() => {
 .route-hero {
   align-items: flex-start;
   gap: 18px;
+}
+
+.route-hero-image {
+  width: min(260px, 26vw);
+  aspect-ratio: 16 / 10;
+  border-radius: 18px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
 
 .eyebrow {
@@ -605,7 +694,16 @@ onBeforeUnmount(() => {
   margin-top: 16px;
 }
 
+.route-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
 .segment-item {
+  position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: minmax(220px, 1fr) 110px 90px 90px;
   gap: 12px;
@@ -613,6 +711,16 @@ onBeforeUnmount(() => {
   border-radius: 16px;
   background: #f8fafc;
   color: #334155;
+}
+
+.segment-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #ff385c, #0f766e);
 }
 
 .segment-item strong {
@@ -629,6 +737,10 @@ onBeforeUnmount(() => {
   }
 
   .segment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .route-summary-grid {
     grid-template-columns: 1fr;
   }
 

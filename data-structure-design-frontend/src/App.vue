@@ -11,7 +11,11 @@ const isLoginPage = computed(() => route.name === 'login')
   <main :class="['app-shell', { 'login-shell': isLoginPage }]">
     <AppNav v-if="!isLoginPage" />
     <section :class="['page-container', { 'login-container': isLoginPage }]">
-      <RouterView />
+      <RouterView v-slot="{ Component, route }">
+        <Transition name="route-fade" mode="out-in">
+          <component :is="Component" :key="route.fullPath" />
+        </Transition>
+      </RouterView>
     </section>
   </main>
 </template>
@@ -19,9 +23,7 @@ const isLoginPage = computed(() => route.name === 'login')
 <style scoped>
 .app-shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 14% 0%, rgba(255, 56, 92, 0.08), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #fff8f8 42%, #ffffff 100%);
+  background: #0d0f12;
 }
 
 .page-container {

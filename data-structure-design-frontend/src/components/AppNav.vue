@@ -1,26 +1,54 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import {
+  Bowl,
+  Calendar,
+  Compass,
+  Home,
+  MapDraw,
+  MapRoad,
+  Navigation,
+  NotebookAndPen,
+  Search,
+  Shop,
+} from '@icon-park/vue-next'
 import { useAppStore } from '../stores/app'
-import { Search } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 
 const navItems = [
-  { label: '总览', path: '/' },
-  { label: '目的地推荐', path: '/destinations' },
-  { label: '路线规划', path: '/routes' },
-  { label: '场所查询', path: '/facilities' },
-  { label: '旅行日记', path: '/diaries' },
-  { label: '协作行程', path: '/itineraries' },
+  { label: '首页', path: '/' },
+  { label: '目的地', path: '/destinations' },
+  { label: '路线', path: '/routes' },
+  { label: '设施', path: '/facilities' },
+  { label: '日记', path: '/diaries' },
+  { label: '行程', path: '/itineraries' },
+]
+
+const searchActions = [
+  { label: '去哪儿', aria: '打开目的地综合推荐', target: '/destinations' },
+  { label: '怎么玩', aria: '打开游玩景点设施推荐', target: '/facilities' },
+  { label: '吃什么', aria: '打开美食推荐', target: { path: '/', query: { section: 'foods' } } },
 ]
 
 const activePath = computed(() => route.path)
 
-const go = (path) => {
-  router.push(path)
+const navIcons = {
+  '/': Home,
+  '/destinations': MapDraw,
+  '/routes': MapRoad,
+  '/facilities': Shop,
+  '/diaries': NotebookAndPen,
+  '/itineraries': Calendar,
+}
+
+const searchIcons = [Compass, Navigation, Bowl]
+
+const go = (target) => {
+  router.push(target)
 }
 
 const logout = () => {
@@ -33,31 +61,39 @@ const logout = () => {
   <header class="nav-shell">
     <button class="brand" type="button" aria-label="返回首页" @click="go('/')">
       <span class="brand-mark">T</span>
-      <span>
+      <span class="brand-copy">
         <strong>Travel.AI</strong>
-        <small>个性化旅行系统</small>
+        <small>智能旅行助手</small>
       </span>
     </button>
 
-    <button class="search-pill" type="button" aria-label="搜索目的地" @click="go('/destinations')">
-      <span>景区</span>
-      <span>高校</span>
-      <span>路线</span>
-      <span class="search-btn">
-        <el-icon><Search /></el-icon>
-      </span>
-    </button>
+    <div class="search-pill" role="group" aria-label="旅行快捷入口">
+      <button
+        v-for="(item, index) in searchActions"
+        :key="item.label"
+        class="search-option"
+        type="button"
+        :aria-label="item.aria"
+        @click="go(item.target)"
+      >
+        <component :is="searchIcons[index]" theme="outline" size="16" fill="currentColor" />
+        {{ item.label }}
+      </button>
+      <button class="search-btn" type="button" aria-label="打开目的地综合推荐" @click="go('/destinations')">
+        <Search theme="outline" size="17" fill="currentColor" />
+      </button>
+    </div>
 
     <div class="user-actions">
-      <button class="host-link" type="button" @click="go('/itineraries')">协作计划</button>
+      <button class="route-link" type="button" @click="go('/routes')">路线规划</button>
       <div class="user-chip">
-        <span class="user-name">{{ appStore.user.name || '未登录' }}</span>
+        <span class="user-name">{{ appStore.user.name || '访客' }}</span>
         <button class="logout-btn" type="button" @click="logout">退出</button>
       </div>
     </div>
   </header>
 
-  <nav class="category-bar" aria-label="主功能导航">
+  <nav class="category-bar" aria-label="主导航">
     <button
       v-for="item in navItems"
       :key="item.path"
@@ -67,6 +103,7 @@ const logout = () => {
       :aria-current="activePath === item.path ? 'page' : undefined"
       @click="go(item.path)"
     >
+      <component :is="navIcons[item.path]" theme="outline" size="16" fill="currentColor" />
       {{ item.label }}
     </button>
   </nav>
@@ -84,86 +121,112 @@ const logout = () => {
   grid-template-columns: 1fr auto 1fr;
   gap: 18px;
   align-items: center;
-  border-bottom: 1px solid rgba(235, 235, 235, 0.9);
-  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(13, 15, 18, 0.92);
   backdrop-filter: blur(18px);
 }
 
 .brand {
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  border: none;
+  border: 0;
   background: transparent;
   padding: 0;
   text-align: left;
 }
 
 .brand-mark {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  background: #ff385c;
-  color: #ffffff;
-  font-weight: 800;
-  box-shadow: rgba(255, 56, 92, 0.25) 0 8px 20px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #111214;
+  font-size: 18px;
+  font-weight: 900;
 }
 
-.brand strong,
-.brand small {
+.brand-copy strong,
+.brand-copy small {
   display: block;
 }
 
-.brand strong {
-  color: #222222;
+.brand-copy strong {
+  color: #f8fafc;
   font-size: 18px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 900;
 }
 
-.brand small {
-  margin-top: 3px;
-  color: #6a6a6a;
+.brand-copy small {
+  margin-top: 4px;
+  color: #a7b0bf;
   font-size: 12px;
+  font-weight: 600;
 }
 
 .search-pill {
   justify-self: center;
+  min-height: 48px;
   display: flex;
   align-items: center;
   gap: 10px;
   border-radius: 999px;
-  border: 1px solid #ebebeb;
-  background: #ffffff;
-  padding: 8px 8px 8px 16px;
-  box-shadow: rgba(0, 0, 0, 0.08) 0 2px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 8px 8px 8px 18px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
   font-size: 14px;
-  color: #222222;
-  cursor: pointer;
+  color: #f8fafc;
 }
 
-.search-pill span {
+.search-option {
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-option :deep(.i-icon),
+.category-pill :deep(.i-icon) {
+  transform: translateY(1.5px);
+}
+
+.search-option {
   padding-right: 10px;
-  border-right: 1px solid #ebebeb;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
   white-space: nowrap;
 }
 
-.search-pill span:last-of-type {
-  border-right: none;
+.search-option:hover,
+.search-option:focus-visible {
+  color: #ffffff;
+}
+
+.search-option:last-of-type {
+  border-right: 0;
   padding-right: 0;
 }
 
 .search-btn {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  background: #ff385c;
-  color: #ffffff;
   display: grid;
   place-items: center;
+  border-radius: 50%;
+  border: 0;
+  background: #ff385c;
+  color: #ffffff;
+  cursor: pointer;
 }
 
 .user-actions {
@@ -173,43 +236,52 @@ const logout = () => {
   gap: 12px;
 }
 
-.host-link {
-  border: none;
-  background: transparent;
-  color: #222222;
-  font-weight: 600;
-  padding: 8px 10px;
-  border-radius: 999px;
+.route-link,
+.logout-btn,
+.category-pill {
+  min-height: 44px;
   cursor: pointer;
 }
 
-.host-link:hover {
-  background: #f7f7f7;
+.route-link {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #f8fafc;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.route-link:hover,
+.route-link:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .user-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #ebebeb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  background: #ffffff;
-  padding: 6px 6px 6px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 6px 6px 6px 14px;
 }
 
 .user-name {
+  color: #a7b0bf;
   font-size: 13px;
-  color: #6a6a6a;
+  font-weight: 700;
 }
 
 .logout-btn {
-  border: none;
-  background: #222222;
-  color: #ffffff;
+  border: 0;
   border-radius: 999px;
-  padding: 6px 12px;
+  background: #f8fafc;
+  color: #111214;
+  padding: 0 14px;
   font-size: 12px;
-  cursor: pointer;
+  font-weight: 800;
 }
 
 .category-bar {
@@ -217,26 +289,33 @@ const logout = () => {
   margin: 0 auto;
   padding: 12px 24px 6px;
   display: flex;
-  gap: 18px;
+  gap: 20px;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 
 .category-pill {
-  border: none;
+  border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #6a6a6a;
+  color: #a7b0bf;
   font-size: 14px;
-  font-weight: 700;
-  padding: 8px 2px;
+  font-weight: 800;
+  padding: 0 2px;
   white-space: nowrap;
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .category-pill.active {
-  color: #222222;
-  border-bottom-color: #222222;
+  color: #f8fafc;
+  border-bottom-color: #ff385c;
+}
+
+button:focus-visible {
+  outline: 3px solid rgba(255, 56, 92, 0.22);
+  outline-offset: 3px;
 }
 
 @media (max-width: 1128px) {
@@ -257,13 +336,23 @@ const logout = () => {
     padding-right: 16px;
   }
 
+  .brand-copy small,
+  .route-link {
+    display: none;
+  }
+
   .search-pill {
     width: 100%;
     justify-content: space-between;
   }
 
-  .host-link {
-    display: none;
+  .user-actions {
+    width: 100%;
+  }
+
+  .user-chip {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>

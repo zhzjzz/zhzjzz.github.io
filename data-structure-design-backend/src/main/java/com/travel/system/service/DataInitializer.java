@@ -3,9 +3,13 @@ package com.travel.system.service;
 import com.travel.system.model.*;
 import com.travel.system.mapper.*;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -15,17 +19,20 @@ public class DataInitializer implements CommandLineRunner {
     private final FacilityMapper facilityMapper;
     private final DiaryMapper diaryMapper;
     private final AuthService authService;
+    private final JdbcTemplate jdbcTemplate;
 
     public DataInitializer(DestinationMapper destinationMapper,
                            FoodMapper foodMapper,
                            FacilityMapper facilityMapper,
                            DiaryMapper diaryMapper,
-                           AuthService authService) {
+                           AuthService authService,
+                           JdbcTemplate jdbcTemplate) {
         this.destinationMapper = destinationMapper;
         this.foodMapper = foodMapper;
         this.facilityMapper = facilityMapper;
         this.diaryMapper = diaryMapper;
         this.authService = authService;
+        this.jdbcTemplate = jdbcTemplate;
     }
     /**
      * 应用启动后执行数据初始化流程，确保演示所需的基础目的地、设施、美食和游记数据存在。
@@ -33,6 +40,7 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        ensureDiaryEnhancementSchema();
         Destination bupt = ensureBuptDestination();
         authService.ensureSeedUsers();
         ensureFacilities(bupt);
@@ -170,6 +178,18 @@ public class DataInitializer implements CommandLineRunner {
         diary.setTitle("北邮春日打卡");
         diary.setContent("主楼、图书馆、银杏大道都很值得拍照。");
         diary.setMediaType("image");
+        diary.setCompressionStatus("none");
+        diary.setOriginalSizeBytes(0L);
+        diary.setCompressedSizeBytes(0L);
+        diary.setAigcAnimationUrl("/demo/aigc/diary-bupt-spring.mp4");
+        diary.setAigcStatus("generated");
+        diary.setHeatScore(134.0);
+        diary.setLikeCount(8L);
+        diary.setFavoriteCount(5L);
+        diary.setCommentCount(0L);
+        diary.setShareCount(2L);
+        diary.setIsPublic(true);
+        diary.setShareToken(UUID.randomUUID().toString().replace("-", ""));
         diary.setScore(4.7);
         diary.setViews(120L);
         diary.setPublishedAt(LocalDateTime.now());

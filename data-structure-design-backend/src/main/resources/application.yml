@@ -2,10 +2,10 @@ spring:
   application:
     name: personalized-travel-system
   datasource:
-    url: ${SQLITE_URL:jdbc:sqlite:data/tourism_system.gpkg}
+    url: ${SQLITE_URL:jdbc:sqlite:D:/codex-deps/zhzjzz.github.io/data/tourism_system.gpkg}
     driver-class-name: org.sqlite.JDBC
     hikari:
-      jdbc-url: ${SQLITE_URL:jdbc:sqlite:data/tourism_system.gpkg}
+      jdbc-url: ${SQLITE_URL:jdbc:sqlite:D:/codex-deps/zhzjzz.github.io/data/tourism_system.gpkg}
   jpa:
     hibernate:
       ddl-auto: none

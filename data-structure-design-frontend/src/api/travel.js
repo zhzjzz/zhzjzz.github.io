@@ -15,6 +15,11 @@ export const getTopFoods = (k = 10) => http.get('/foods/top', { params: { k } })
 export const listDiaries = () => http.get('/diaries')
 export const createDiary = (payload) => http.post('/diaries', payload)
 export const searchDiaryFullText = (keyword) => http.get('/diaries/search', { params: { keyword } })
+export const listHotDiaries = (limit = 6) => http.get('/diaries/hot', { params: { limit } })
+export const getSharedDiary = (token) => http.get(`/diaries/share/${token}`)
+export const interactDiary = (id, type) => http.post(`/diaries/${id}/interactions/${type}`)
+export const listDiaryComments = (id) => http.get(`/diaries/${id}/comments`)
+export const createDiaryComment = (id, payload) => http.post(`/diaries/${id}/comments`, payload)
 
 // 行程协作接口。
 export const listItineraries = () => http.get('/itineraries')

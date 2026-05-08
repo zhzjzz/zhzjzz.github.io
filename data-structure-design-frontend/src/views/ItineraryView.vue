@@ -1,7 +1,9 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Calendar, Copy, Edit, Info, ListAdd, People, Plus, Refresh, Search, Timer } from '@icon-park/vue-next'
 import { createItinerary, listItineraries, updateItinerary } from '../api/travel'
+import itineraryDefaultImage from '../assets/defaults/itinerary-default.png'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -34,6 +36,18 @@ const resetForm = () => {
 
 const normalize = (value) => (value || '').toString().trim().toLowerCase()
 
+const formatDateTime = (value) => {
+  if (!value) return '-'
+  const text = String(value)
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/)
+  if (match) return `${match[1]} ${match[2]}`
+
+  const date = new Date(text)
+  if (Number.isNaN(date.getTime())) return text
+  const pad = (number) => String(number).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 const filteredRows = computed(() => {
   const q = normalize(keyword.value)
   if (!q) return rows.value
@@ -53,7 +67,7 @@ const stats = computed(() => ({
   total: rows.value.length,
   collaborators: rows.value.filter((item) => (item.collaborators || '').trim()).length,
   strategies: new Set(rows.value.map((item) => item.strategy).filter(Boolean)).size,
-  latest: rows.value[0]?.updatedAt || '-',
+  latest: formatDateTime(rows.value[0]?.updatedAt),
 }))
 
 const loadRows = async () => {
@@ -145,33 +159,40 @@ onMounted(loadRows)
         <p>支持快速检索、查看详情、复制摘要和在线编辑。</p>
       </div>
       <div class="hero-actions">
-        <el-button type="primary" size="large" @click="openCreate">新建行程</el-button>
-        <el-button size="large" @click="refresh">刷新</el-button>
+        <el-button type="primary" size="large" @click="openCreate">
+          <Plus theme="outline" size="17" fill="currentColor" />
+          新建行程
+        </el-button>
+        <el-button size="large" @click="refresh">
+          <Refresh theme="outline" size="17" fill="currentColor" />
+          刷新
+        </el-button>
       </div>
+      <img class="itinerary-hero-image" :src="itineraryDefaultImage" alt="行程默认封面" />
     </el-card>
 
     <el-row :gutter="16" class="stats-row">
       <el-col :md="6" :xs="12">
         <div class="stat-card stat-coral">
-          <span>总行程</span>
+          <span><ListAdd theme="outline" size="15" fill="currentColor" /> 总行程</span>
           <strong>{{ stats.total }}</strong>
         </div>
       </el-col>
       <el-col :md="6" :xs="12">
         <div class="stat-card stat-rose">
-          <span>有协作者</span>
+          <span><People theme="outline" size="15" fill="currentColor" /> 有协作者</span>
           <strong>{{ stats.collaborators }}</strong>
         </div>
       </el-col>
       <el-col :md="6" :xs="12">
         <div class="stat-card stat-sand">
-          <span>策略数</span>
+          <span><Calendar theme="outline" size="15" fill="currentColor" /> 策略数</span>
           <strong>{{ stats.strategies }}</strong>
         </div>
       </el-col>
       <el-col :md="6" :xs="12">
         <div class="stat-card stat-ink">
-          <span>最近更新</span>
+          <span><Timer theme="outline" size="15" fill="currentColor" /> 最近更新</span>
           <strong class="truncate">{{ stats.latest }}</strong>
         </div>
       </el-col>
@@ -189,25 +210,40 @@ onMounted(loadRows)
         </el-col>
         <el-col :md="8" :xs="24" class="toolbar-actions">
           <el-button @click="keyword = ''">清空</el-button>
-          <el-button type="primary" @click="refresh">重新加载</el-button>
+          <el-button type="primary" @click="refresh">
+            <Search theme="outline" size="16" fill="currentColor" />
+            重新加载
+          </el-button>
         </el-col>
       </el-row>
 
-      <el-table :data="filteredRows" stripe border v-loading="loading">
-        <el-table-column prop="name" label="名称" min-width="160" />
-        <el-table-column prop="owner" label="创建者" width="140" />
-        <el-table-column prop="collaborators" label="协作者" min-width="160" />
-        <el-table-column prop="strategy" label="策略" width="140" />
-        <el-table-column prop="transportMode" label="交通" width="120" />
-        <el-table-column prop="updatedAt" label="更新时间" width="180" />
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-            <el-button link type="primary" @click="confirmEdit(row)">编辑</el-button>
-            <el-button link @click="copySummary(row)">复制</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="itinerary-results" v-loading="loading">
+        <div class="itinerary-row itinerary-row-head">
+          <span>名称</span>
+          <span>创建者</span>
+          <span>协作者</span>
+          <span>策略</span>
+          <span>交通</span>
+          <span>更新时间</span>
+          <span>操作</span>
+        </div>
+        <article v-for="row in filteredRows" :key="row.id || row.name" class="itinerary-row">
+          <div class="itinerary-name">
+            <strong>{{ row.name || '-' }}</strong>
+            <small>{{ row.notes || '暂无备注' }}</small>
+          </div>
+          <span>{{ row.owner || '-' }}</span>
+          <span>{{ row.collaborators || '-' }}</span>
+          <span class="itinerary-chip">{{ row.strategy || '未设置' }}</span>
+          <span>{{ row.transportMode || '-' }}</span>
+          <strong class="itinerary-time">{{ formatDateTime(row.updatedAt) }}</strong>
+          <div class="itinerary-actions">
+            <button type="button" @click="openDetail(row)"><Info theme="outline" size="14" fill="currentColor" /> 详情</button>
+            <button type="button" @click="confirmEdit(row)"><Edit theme="outline" size="14" fill="currentColor" /> 编辑</button>
+            <button type="button" @click="copySummary(row)"><Copy theme="outline" size="14" fill="currentColor" /> 复制</button>
+          </div>
+        </article>
+      </div>
     </el-card>
 
     <el-drawer v-model="detailOpen" title="行程详情" size="420px">
@@ -218,7 +254,7 @@ onMounted(loadRows)
           <el-descriptions-item label="协作者">{{ selectedRow.collaborators || '-' }}</el-descriptions-item>
           <el-descriptions-item label="策略">{{ selectedRow.strategy || '-' }}</el-descriptions-item>
           <el-descriptions-item label="交通方式">{{ selectedRow.transportMode || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ selectedRow.updatedAt || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ formatDateTime(selectedRow.updatedAt) }}</el-descriptions-item>
           <el-descriptions-item label="备注">{{ selectedRow.notes || '-' }}</el-descriptions-item>
         </el-descriptions>
       </template>
@@ -260,30 +296,67 @@ onMounted(loadRows)
 }
 
 .hero-card {
-  border-radius: 32px;
-  padding: 8px;
-  display: flex;
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 82% 26%, rgba(255, 56, 92, 0.16), transparent 27%),
+    radial-gradient(circle at 71% 74%, rgba(243, 208, 138, 0.12), transparent 24%),
+    linear-gradient(135deg, #11151c 0%, #16283b 48%, #17191d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+}
+
+.hero-card :deep(.el-card__body) {
+  display: grid;
+  grid-template-areas:
+    'copy image'
+    'actions image';
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 430px);
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  background: #ffffff;
-  border: 1px solid #f0f0f0;
-  box-shadow: rgba(0, 0, 0, 0.02) 0 0 0 1px, rgba(0, 0, 0, 0.05) 0 8px 20px;
+  column-gap: 34px;
+  row-gap: 18px;
+  width: 100%;
+  padding: 34px 36px;
+}
+
+.hero-copy,
+.hero-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-copy {
+  grid-area: copy;
+}
+
+.itinerary-hero-image {
+  grid-area: image;
+  align-self: center;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 20px;
+  object-fit: cover;
+  background: #11151c;
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.24);
 }
 
 .hero-copy h2 {
   margin-top: 8px;
-  color: #222222;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.43;
-  letter-spacing: -0.18px;
+  max-width: 760px;
+  color: #f8fafc;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1.24;
+  letter-spacing: 0;
 }
 
 .hero-copy p {
-  margin-top: 8px;
-  color: #6a6a6a;
-  font-size: 14px;
+  margin-top: 12px;
+  max-width: 620px;
+  color: #a7b0bf;
+  font-size: 15px;
+  line-height: 1.7;
 }
 
 .eyebrow {
@@ -302,6 +375,23 @@ onMounted(loadRows)
   background: #ff385c;
 }
 
+.hero-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hero-actions :deep(.el-button) {
+  margin-left: 0;
+  min-width: 112px;
+  height: 46px;
+}
+
 .hero-actions :deep(.el-button--primary:hover) {
   border-color: #ff5475;
   background: #ff5475;
@@ -309,14 +399,24 @@ onMounted(loadRows)
 
 .stats-row {
   margin-top: 2px;
+  align-items: stretch;
+}
+
+.stats-row :deep(.el-col) {
+  display: flex;
 }
 
 .stat-card {
+  width: 100%;
+  min-height: 116px;
   padding: 16px;
   border-radius: 18px;
   background: #ffffff;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
   border: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-card span {
@@ -370,15 +470,139 @@ onMounted(loadRows)
   gap: 10px;
 }
 
+.itinerary-results {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: #17191d;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.2);
+}
+
+.itinerary-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(86px, 0.5fr) minmax(110px, 0.68fr) minmax(96px, 0.62fr) minmax(80px, 0.48fr) 150px 220px;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #d7dce5;
+}
+
+.itinerary-row:nth-child(odd):not(.itinerary-row-head) {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.itinerary-row:hover:not(.itinerary-row-head) {
+  background: rgba(255, 56, 92, 0.08);
+}
+
+.itinerary-row-head {
+  border-top: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.itinerary-name strong,
+.itinerary-name small {
+  display: block;
+}
+
+.itinerary-name strong {
+  color: #f8fafc;
+  line-height: 1.4;
+}
+
+.itinerary-name small {
+  margin-top: 4px;
+  color: #a7b0bf;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itinerary-chip {
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(243, 208, 138, 0.12);
+  color: #f3d08a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.itinerary-time {
+  color: #f8fafc;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.itinerary-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.itinerary-actions button {
+  min-height: 32px;
+  min-width: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 95, 123, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 95, 123, 0.07);
+  color: #ff5f7b;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.itinerary-actions button:hover,
+.itinerary-actions button:focus-visible {
+  color: #ff8ba0;
+}
+
 @media (max-width: 900px) {
   .hero-card {
-    flex-direction: column;
-    align-items: flex-start;
+    background: #17191d;
+  }
+
+  .hero-card :deep(.el-card__body) {
+    grid-template-areas:
+      'copy'
+      'actions'
+      'image';
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+
+  .hero-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
 
   .toolbar-actions {
     justify-content: flex-start;
     margin-top: 8px;
+  }
+
+  .itinerary-row,
+  .itinerary-row-head {
+    grid-template-columns: 1fr;
+  }
+
+  .itinerary-row-head {
+    display: none;
+  }
+
+  .itinerary-actions {
+    justify-content: flex-start;
   }
 }
 </style>

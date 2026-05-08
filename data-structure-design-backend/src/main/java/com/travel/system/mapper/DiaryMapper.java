@@ -1,6 +1,7 @@
 package com.travel.system.mapper;
 
 import com.travel.system.model.Diary;
+import com.travel.system.model.DiaryComment;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
