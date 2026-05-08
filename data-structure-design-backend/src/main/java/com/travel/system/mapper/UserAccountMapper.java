@@ -8,70 +8,34 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * MyBatis Mapper for {@link UserAccount}.
- * Replaces JPA UserAccountRepository.
+ * UserAccount 的 MyBatis Mapper。
+ * SQL 定义在 resources/mapper/UserAccountMapper.xml 中。
  */
 @Mapper
 public interface UserAccountMapper {
 
-    /**
-     * 查询用户总数。
-     *
-     * @return 用户数量
-     */
+    /** 查询用户总数。 */
     long count();
 
-    /**
-     * 查询全部用户。
-     *
-     * @return 用户列表
-     */
+    /** 查询全部用户。 */
     List<UserAccount> findAll();
 
-    /**
-     * 根据用户名查找用户。
-     *
-     * @param username 用户名
-     * @return 用户Optional
-     */
+    /** 按用户名查询用户。 */
     Optional<UserAccount> findByUsername(@Param("username") String username);
 
-    /**
-     * 检查用户名是否存在。
-     *
-     * @param username 用户名
-     * @return true if exists
-     */
+    /** 判断用户名是否存在。 */
     boolean existsByUsername(@Param("username") String username);
 
-    /**
-     * 根据ID查找用户。
-     *
-     * @param id 用户ID
-     * @return 用户Optional
-     */
+    /** 按主键查询用户。 */
     Optional<UserAccount> findById(@Param("id") Long id);
 
-    /**
-     * 插入新用户。
-     *
-     * @param userAccount 用户实体
-     */
+    /** 插入用户记录。 */
     void insert(UserAccount userAccount);
 
-    /**
-     * 更新用户信息。
-     *
-     * @param userAccount 用户实体
-     */
+    /** 更新用户记录。 */
     void update(UserAccount userAccount);
 
-    /**
-     * 保存用户（新增或更新）。
-     *
-     * @param userAccount 用户实体
-     * @return 保存后的用户
-     */
+    /** 保存用户：无 id 时插入，有 id 时更新。 */
     default UserAccount save(UserAccount userAccount) {
         if (userAccount.getId() == null) {
             insert(userAccount);

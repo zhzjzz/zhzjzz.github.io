@@ -7,67 +7,28 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * MyBatis Mapper 接口，用于操作 {@link Facility} 实体。
- *
- * <p>复杂的 SQL 查询（联表查询、模糊匹配等）已迁移到对应的 XML 映射文件
- * {@code resources/mapper/FacilityMapper.xml}，保持 Java 接口简洁。
- *
- * <p>主要功能：
- *
- * <ul>
- *   <li>查询全部设施（联表目的地）；</li>
- *   <li>按设施类型模糊搜索；</li>
- *   <li>插入、更新设施记录。</li>
- * </ul>
- *
- * @author 自动生成
+ * Facility 的 MyBatis Mapper。
+ * SQL 定义在 resources/mapper/FacilityMapper.xml 中。
  */
 @Mapper
 public interface FacilityMapper {
 
-    /**
-     * 查询全部设施，并左联目的地表获取关联信息。
-     *
-     * @return {@link Facility} 列表（含关联的目的地信息）
-     */
+    /** 查询全部设施，包含关联目的地信息。 */
     List<Facility> findAll();
 
-    /**
-     * 根据设施类型进行模糊匹配（不区分大小写）。
-     *
-     * @param type 设施类型关键字
-     * @return 匹配的 {@link Facility} 列表
-     */
-List<Facility> findByFacilityTypeContainingIgnoreCase(@Param("type") String type);
+    /** 按设施类型、名称或所属地点进行模糊查询。 */
+    List<Facility> findByFacilityTypeContainingIgnoreCase(@Param("type") String type);
 
-    /**
-     * 根据 ID 列表查询设施，并左联目的地表获取关联信息。
-     *
-     * @param ids 设施 ID 列表
-     * @return 匹配的设施列表
-     */
+    /** 按 ID 列表查询设施。 */
     List<Facility> findByIds(@Param("ids") List<Long> ids);
 
-    /**
-     * 插入新设施记录。
-     *
-     * @param facility 设施实体
-     */
+    /** 插入设施记录。 */
     void insert(Facility facility);
 
-    /**
-     * 更新已有设施记录。
-     *
-     * @param facility 设施实体
-     */
+    /** 更新设施记录。 */
     void update(Facility facility);
 
-    /**
-     * 保存设施（新增或更新）。
-     *
-     * @param facility 设施实体
-     * @return 保存后的实体
-     */
+    /** 保存设施：无 id 时插入，有 id 时更新。 */
     default Facility save(Facility facility) {
         if (facility.getId() == null) {
             insert(facility);

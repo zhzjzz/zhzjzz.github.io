@@ -8,61 +8,29 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * MyBatis Mapper for {@link Itinerary} entity.
- *
- * Provides basic CRUD operations. SQL statements are defined in
- * {@code resources/mapper/ItineraryMapper.xml}.
- *
- * @author 自动生成
+ * Itinerary 的 MyBatis Mapper。
+ * SQL 定义在 resources/mapper/ItineraryMapper.xml 中。
  */
 @Mapper
 public interface ItineraryMapper {
 
-    /**
-     * Retrieve all itineraries.
-     *
-     * @return list of {@link Itinerary}
-     */
+    /** 查询全部行程。 */
     List<Itinerary> findAll();
 
-    /**
-     * Find itinerary by primary key.
-     *
-     * @param id itinerary id
-     * @return itinerary or {@code null}
-     */
+    /** 按主键查询行程。 */
     Itinerary findById(Long id);
 
-    /**
-     * Insert a new itinerary.
-     *
-     * @param itinerary itinerary entity
-     */
+    /** 插入行程记录。 */
     void insert(Itinerary itinerary);
 
-    /**
-     * Update an existing itinerary.
-     *
-     * @param itinerary itinerary entity
-     */
+    /** 更新行程记录。 */
     void update(Itinerary itinerary);
 
-    /**
-     * 带乐观锁条件更新：仅当更新时间匹配时更新。
-     *
-     * @param itinerary        行程实体
-     * @param expectedUpdatedAt 客户端期望的更新时间
-     * @return 受影响行数
-     */
+    /** 乐观锁更新：仅当更新时间与客户端期望值一致时更新。 */
     int updateIfUnchanged(@Param("itinerary") Itinerary itinerary,
                           @Param("expectedUpdatedAt") LocalDateTime expectedUpdatedAt);
 
-    /**
-     * Save (insert or update) an itinerary.
-     *
-     * @param itinerary itinerary to persist
-     * @return persisted itinerary
-     */
+    /** 保存行程：无 id 时插入，有 id 时更新。 */
     default Itinerary save(Itinerary itinerary) {
         if (itinerary.getId() == null) {
             insert(itinerary);

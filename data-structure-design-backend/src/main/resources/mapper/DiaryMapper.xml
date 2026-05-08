@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
@@ -26,7 +26,7 @@
         </association>
     </resultMap>
 
-    <!-- 鏌ヨ鍏ㄩ儴鏃ヨ -->
+    <!-- 查询全部日记 -->
     <select id="findAll" resultMap="diaryResultMap">
         SELECT dr.id,
                dr.title,
@@ -50,7 +50,7 @@
                  LEFT JOIN destination d ON d.id = dr.destination_id
     </select>
 
-    <!-- 鎸?ID 鏌ヨ鍗曟潯鏃ヨ -->
+    <!-- 按 ID 查询单条日记 -->
     <select id="findById" parameterType="long" resultMap="diaryResultMap">
         SELECT dr.id,
                dr.title,
@@ -75,7 +75,7 @@
         WHERE dr.id = #{id}
     </select>
 
-    <!-- 鎸夋爣棰樿繘琛屼笉鍖哄垎澶у皬鍐欑殑妯＄硦鍖归厤 -->
+    <!-- 按标题进行不区分大小写的模糊匹配 -->
     <select id="findByTitleContainingIgnoreCase" resultMap="diaryResultMap">
         SELECT dr.id,
                dr.title,
@@ -100,7 +100,7 @@
         WHERE LOWER(dr.title) LIKE '%' || LOWER(#{title}) || '%'
     </select>
 
-    <!-- 鎸夋爣棰樻垨鍐呭杩涜涓嶅尯鍒嗗ぇ灏忓啓鐨勬ā绯婂尮閰?-->
+    <!-- 按标题或内容进行不区分大小写的模糊匹配-->
     <select id="findByTitleOrContentContainingIgnoreCase" resultMap="diaryResultMap">
         SELECT dr.id,
                dr.title,
@@ -126,14 +126,14 @@
            OR LOWER(dr.content) LIKE '%' || LOWER(#{keyword}) || '%'
     </select>
 
-    <!-- 鎻掑叆鏂版棩璁拌褰?-->
+    <!-- 插入日记记录-->
     <insert id="insert" parameterType="com.travel.system.model.Diary"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO diary(title, content, media_type, media_url, published_at, score, views, destination_id)
         VALUES(#{title}, #{content}, #{mediaType}, #{mediaUrl}, #{publishedAt}, #{score}, #{views}, #{destination.id})
     </insert>
 
-    <!-- 鏇存柊宸叉湁鏃ヨ璁板綍 -->
+    <!-- 更新日记记录 -->
     <update id="update" parameterType="com.travel.system.model.Diary">
         UPDATE diary
         SET title = #{title},
@@ -148,4 +148,5 @@
     </update>
 
 </mapper>
+
 

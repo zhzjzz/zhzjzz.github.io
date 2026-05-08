@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
@@ -22,7 +22,7 @@
         </association>
     </resultMap>
 
-    <!-- 鏌ヨ鍏ㄩ儴缇庨锛堣仈琛ㄧ洰鐨勫湴锛?-->
+    <!-- 查询全部美食，包含关联目的地信息-->
     <select id="findAll" resultMap="foodResultMap">
         SELECT f.id,
                f.name,
@@ -42,7 +42,7 @@
                  LEFT JOIN destination d ON d.id = f.destination_id
     </select>
 
-    <!-- 澶氬瓧娈靛叧閿瓧妯＄硦鎼滅储 -->
+    <!-- 多字段关键词模糊搜索 -->
     <select id="findByKeyword" resultMap="foodResultMap">
         SELECT f.id,
                f.name,
@@ -65,14 +65,14 @@
            OR LOWER(f.store_name) LIKE '%' || LOWER(#{keyword}) || '%'
     </select>
 
-    <!-- 鎻掑叆缇庨 -->
+    <!-- 插入美食记录 -->
     <insert id="insert" parameterType="com.travel.system.model.Food"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO food (name, cuisine, store_name, rating, destination_id)
         VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{destination.id})
     </insert>
 
-    <!-- 鏇存柊缇庨 -->
+    <!-- 更新美食记录 -->
     <update id="update" parameterType="com.travel.system.model.Food">
         UPDATE food
         SET name = #{name},
@@ -84,4 +84,5 @@
     </update>
 
 </mapper>
+
 
