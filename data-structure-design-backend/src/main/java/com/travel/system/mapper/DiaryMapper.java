@@ -8,77 +8,31 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * MyBatis Mapper for {@link Diary} entity.
- *
- * Provides CRUD operations. The actual SQL statements are defined in
- * {@code resources/mapper/DiaryMapper.xml}.
- *
- * @author 自动生成
+ * Diary 的 MyBatis Mapper。
+ * SQL 定义在 resources/mapper/DiaryMapper.xml 中。
  */
 @Mapper
 public interface DiaryMapper {
 
-    /**
-     * Retrieve all diary entries.
-     *
-     * @return list of {@link Diary}
-     */
+    /** 查询全部日记。 */
     List<Diary> findAll();
 
-    /**
-     * Find diaries by title (case‑insensitive fuzzy match).
-     *
-     * @param title title keyword
-     * @return matching diaries
-     */
+    /** 按标题进行不区分大小写的模糊查询。 */
     List<Diary> findByTitleContainingIgnoreCase(@Param("title") String title);
 
-    /**
-     * Find diaries by title or content (case‑insensitive fuzzy match).
-     *
-     * @param keyword search keyword
-     * @return matching diaries
-     */
+    /** 按标题或内容进行不区分大小写的模糊查询。 */
     List<Diary> findByTitleOrContentContainingIgnoreCase(@Param("keyword") String keyword);
 
-    List<Diary> findHotPublic(@Param("limit") int limit);
-
-    Diary findByShareToken(@Param("shareToken") String shareToken);
-
-    /**
-     * Find diary by primary key.
-     *
-     * @param id diary id
-     * @return diary or {@code null}
-     */
+    /** 按主键查询日记。 */
     Diary findById(Long id);
 
-    /**
-     * Insert a new diary record.
-     *
-     * @param diary diary entity
-     */
+    /** 插入日记记录。 */
     void insert(Diary diary);
 
-    /**
-     * Update an existing diary record.
-     *
-     * @param diary diary entity
-     */
+    /** 更新日记记录。 */
     void update(Diary diary);
 
-    void updateCounters(Diary diary);
-
-    void insertComment(DiaryComment comment);
-
-    List<DiaryComment> findCommentsByDiaryId(@Param("diaryId") Long diaryId);
-
-    /**
-     * Save (insert or update) a diary entity.
-     *
-     * @param diary diary to persist
-     * @return persisted diary
-     */
+    /** 保存日记：无 id 时插入，有 id 时更新。 */
     default Diary save(Diary diary) {
         if (diary.getId() == null) {
             insert(diary);

@@ -25,14 +25,29 @@ public class ItineraryService {
         this.messagingTemplate = messagingTemplate;
     }
 
+    /**
+
+     * 查询全部数据记录，具体 SQL 由 XML mapper 或 mapper 接口维护。
+
+     */
     public List<Itinerary> findAll() {
         return itineraryMapper.findAll();
     }
 
+    /**
+
+     * 根据 ID 查询单条记录，供详情、编辑和协同更新流程使用。
+
+     */
     public Itinerary findById(Long id) {
         return itineraryMapper.findById(id);
     }
 
+    /**
+
+     * 处理新增资源请求，将前端提交的数据交给 service 保存，并返回保存后的对象。
+
+     */
     public Itinerary create(Itinerary itinerary) {
         itinerary.setUpdatedAt(LocalDateTime.now());
         return itineraryMapper.save(itinerary);
@@ -89,6 +104,11 @@ public class ItineraryService {
         broadcastUpdated(id, msg.getUsername(), updated);
     }
 
+    /**
+
+     * 在行程保存成功后向订阅该行程的客户端广播最新数据。
+
+     */
     private void broadcastUpdated(Long itineraryId, String username, Itinerary itinerary) {
         messagingTemplate.convertAndSend("/topic/itinerary/" + itineraryId,
                 new ItineraryBroadcastMessage(
@@ -96,6 +116,11 @@ public class ItineraryService {
                         username, itinerary, null, LocalDateTime.now()));
     }
 
+    /**
+
+     * 在协同编辑版本冲突或保存失败时向客户端广播冲突消息。
+
+     */
     private void broadcastConflict(Long itineraryId, String username, String errorMessage) {
         messagingTemplate.convertAndSend("/topic/itinerary/" + itineraryId,
                 new ItineraryBroadcastMessage(

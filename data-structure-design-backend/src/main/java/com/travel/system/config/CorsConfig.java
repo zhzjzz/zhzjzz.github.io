@@ -10,6 +10,9 @@ import java.util.List;
 
 @Configuration
 public class CorsConfig {
+    /**
+     * 说明该方法的业务职责、主要输入和返回结果，便于维护时快速理解调用边界。
+     */
 
     @Bean
     public CorsFilter corsFilter() {

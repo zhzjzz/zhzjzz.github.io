@@ -1,15 +1,15 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.travel.system.mapper.DestinationMapper">
 
-    <!-- 鏌ヨ璁板綍鎬绘暟 -->
+    <!-- 查询记录总数 -->
     <select id="count" resultType="long">
         SELECT COUNT(1) FROM spots
     </select>
 
-    <!-- 鏌ヨ鍏ㄩ儴鐩殑鍦?-->
+    <!-- 查询全部目的地-->
     <select id="findAll" resultType="com.travel.system.model.Destination">
         SELECT s.spot_id AS id,
                s.name AS name,
@@ -30,7 +30,7 @@
         ORDER BY COALESCE(s.hotness, 0) DESC, COALESCE(s.rating, 0) DESC
     </select>
 
-    <!-- 鎸夊悕绉版垨绫诲埆鍏抽敭瀛楄繘琛屾ā绯婃悳绱紙涓嶅尯鍒嗗ぇ灏忓啓锛?-->
+    <!-- 按名称、分类或关键词进行模糊搜索-->
     <select id="findByKeyword" resultType="com.travel.system.model.Destination">
         SELECT s.spot_id AS id,
                s.name AS name,
@@ -54,14 +54,14 @@
         ORDER BY COALESCE(s.hotness, 0) DESC, COALESCE(s.rating, 0) DESC
     </select>
 
-    <!-- 鎻掑叆鏂扮洰鐨勫湴璁板綍 -->
+    <!-- 插入目的地记录 -->
     <insert id="insert" parameterType="com.travel.system.model.Destination"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO destination(name, scene_type, category, heat, rating, description, latitude, longitude)
         VALUES(#{name}, #{sceneType}, #{category}, #{heat}, #{rating}, #{description}, #{latitude}, #{longitude})
     </insert>
 
-    <!-- 鏇存柊宸叉湁鐩殑鍦拌褰?-->
+    <!-- 更新目的地记录-->
     <update id="update" parameterType="com.travel.system.model.Destination">
         UPDATE destination
         SET name = #{name},
@@ -76,4 +76,5 @@
     </update>
 
 </mapper>
+
 

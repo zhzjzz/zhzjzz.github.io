@@ -28,6 +28,11 @@ public class NavigationDataService {
         this.spotMapper = spotMapper;
     }
 
+    /**
+
+     * 按景区名称加载路网节点；会处理景区名称模糊匹配，降低前端名称差异导致查不到数据的概率。
+
+     */
     public List<RoadNode> loadNodes(String spotName) {
         if (spotName == null || spotName.isBlank()) {
             return roadNodeMapper.findAll();
@@ -35,6 +40,11 @@ public class NavigationDataService {
         return roadNodeMapper.findBySpotName(resolveNodeSpotName(spotName.trim()));
     }
 
+    /**
+
+     * 按景区名称加载路网边；会处理景区名称模糊匹配，并返回可用于构建邻接表的道路数据。
+
+     */
     public List<RoadEdge> loadEdges(String spotName) {
         if (spotName == null || spotName.isBlank()) {
             return roadEdgeMapper.findAll();
@@ -42,6 +52,11 @@ public class NavigationDataService {
         return roadEdgeMapper.findBySpotName(resolveEdgeSpotName(spotName.trim()));
     }
 
+    /**
+
+     * 按 OSM 节点 ID 查询路网节点，供路径节点转坐标和起终点定位使用。
+
+     */
     public RoadNode getNodeByOsmid(Long osmid) {
         return roadNodeMapper.findByOsmid(osmid);
     }
@@ -100,6 +115,11 @@ public class NavigationDataService {
         return adj;
     }
 
+    /**
+
+     * 根据用户传入的景区名解析 nodes 表中最接近的实际 spot_name。
+
+     */
     private String resolveNodeSpotName(String spotName) {
         List<RoadNode> exact = roadNodeMapper.findBySpotName(spotName);
         if (!exact.isEmpty()) {
@@ -113,6 +133,11 @@ public class NavigationDataService {
         );
     }
 
+    /**
+
+     * 根据用户传入的景区名解析 edges 表中最接近的实际 spot_name。
+
+     */
     private String resolveEdgeSpotName(String spotName) {
         List<RoadEdge> exact = roadEdgeMapper.findBySpotName(spotName);
         if (!exact.isEmpty()) {
@@ -126,6 +151,11 @@ public class NavigationDataService {
         );
     }
 
+    /**
+
+     * 在候选景区名中寻找与输入最接近的一项，优先精确匹配，其次包含匹配。
+
+     */
     private String bestMatchingSpotName(List<String> candidates, String spotName) {
         return candidates.stream()
                 .filter(name -> name != null && !name.isBlank())

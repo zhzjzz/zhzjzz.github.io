@@ -14,6 +14,9 @@ public class ItineraryWebSocketController {
     public ItineraryWebSocketController(ItineraryService itineraryService) {
         this.itineraryService = itineraryService;
     }
+    /**
+     * 说明该方法的业务职责、主要输入和返回结果，便于维护时快速理解调用边界。
+     */
 
     @MessageMapping("/itinerary/{id}/edit")
     public void editItinerary(@DestinationVariable Long id, ItineraryEditMessage message) {

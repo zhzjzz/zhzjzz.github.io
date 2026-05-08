@@ -53,6 +53,9 @@ public class AuthController {
         @ApiResponse(responseCode = "200", description = "登录成功"),
         @ApiResponse(responseCode = "400", description = "用户名或密码错误")
     })
+    /**
+     * 处理用户登录请求，校验账号密码并返回登录结果；控制器只负责 HTTP 入参与出参，具体校验交给 AuthService。
+     */
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         // 委托 AuthService 完成认证并返回结果
@@ -70,6 +73,9 @@ public class AuthController {
         @ApiResponse(responseCode = "200", description = "注册成功"),
         @ApiResponse(responseCode = "400", description = "用户名已存在或参数不合法")
     })
+    /**
+     * 处理用户注册请求，创建新账号并返回注册结果；用户名唯一性和密码处理由 AuthService 完成。
+     */
     @PostMapping("/register")
     public LoginResponse register(@Valid @RequestBody RegisterRequest request) {
         // 直接走业务层的注册流程，返回与登录相同的响应结构

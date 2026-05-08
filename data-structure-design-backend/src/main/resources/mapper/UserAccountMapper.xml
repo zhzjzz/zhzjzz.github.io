@@ -14,7 +14,7 @@
         SELECT * FROM user_account
     </select>
 
-    <!-- 根据用户名查找用户 -->
+    <!-- 按用户名查询用户-->
     <select id="findByUsername" resultType="com.travel.system.model.UserAccount">
         SELECT * FROM user_account WHERE username = #{username}
     </select>
@@ -24,12 +24,12 @@
         SELECT EXISTS(SELECT 1 FROM user_account WHERE username = #{username})
     </select>
 
-    <!-- 根据ID查找用户 -->
+    <!-- 按 ID 查询用户 -->
     <select id="findById" resultType="com.travel.system.model.UserAccount">
         SELECT * FROM user_account WHERE id = #{id}
     </select>
 
-    <!-- 插入新用户 -->
+    <!-- 插入用户记录-->
     <insert id="insert" parameterType="com.travel.system.model.UserAccount"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user_account(username, password_hash, display_name, interests)
@@ -47,3 +47,4 @@
     </update>
 
 </mapper>
+

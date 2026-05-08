@@ -34,6 +34,9 @@ public class DataInitializer implements CommandLineRunner {
         this.authService = authService;
         this.jdbcTemplate = jdbcTemplate;
     }
+    /**
+     * 应用启动后执行数据初始化流程，确保演示所需的基础目的地、设施、美食和游记数据存在。
+     */
 
     @Override
     public void run(String... args) {
@@ -45,45 +48,11 @@ public class DataInitializer implements CommandLineRunner {
         ensureDiary(bupt);
     }
 
-    private void ensureDiaryEnhancementSchema() {
-        Set<String> columns = jdbcTemplate.queryForList("PRAGMA table_info(diary)").stream()
-                .map(row -> String.valueOf(row.get("name")))
-                .collect(Collectors.toSet());
-        addDiaryColumnIfMissing(columns, "compressed_media_url", "TEXT");
-        addDiaryColumnIfMissing(columns, "original_size_bytes", "INTEGER DEFAULT 0");
-        addDiaryColumnIfMissing(columns, "compressed_size_bytes", "INTEGER DEFAULT 0");
-        addDiaryColumnIfMissing(columns, "compression_status", "TEXT DEFAULT 'pending'");
-        addDiaryColumnIfMissing(columns, "aigc_animation_url", "TEXT");
-        addDiaryColumnIfMissing(columns, "aigc_status", "TEXT DEFAULT 'pending'");
-        addDiaryColumnIfMissing(columns, "heat_score", "REAL DEFAULT 0");
-        addDiaryColumnIfMissing(columns, "like_count", "INTEGER DEFAULT 0");
-        addDiaryColumnIfMissing(columns, "favorite_count", "INTEGER DEFAULT 0");
-        addDiaryColumnIfMissing(columns, "comment_count", "INTEGER DEFAULT 0");
-        addDiaryColumnIfMissing(columns, "share_count", "INTEGER DEFAULT 0");
-        addDiaryColumnIfMissing(columns, "is_public", "INTEGER DEFAULT 1");
-        addDiaryColumnIfMissing(columns, "share_token", "TEXT");
-        jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS diary_comment (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    diary_id INTEGER NOT NULL,
-                    author_name TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                )
-                """);
-        jdbcTemplate.update("UPDATE diary SET share_token = lower(hex(randomblob(16))) WHERE share_token IS NULL OR share_token = ''");
-        jdbcTemplate.update("UPDATE diary SET compression_status = 'none' WHERE compression_status IS NULL");
-        jdbcTemplate.update("UPDATE diary SET aigc_status = 'generated' WHERE aigc_status IS NULL");
-    }
+    /**
 
-    private void addDiaryColumnIfMissing(Set<String> columns, String column, String definition) {
-        if (columns.contains(column)) {
-            return;
-        }
-        jdbcTemplate.execute("ALTER TABLE diary ADD COLUMN " + column + " " + definition);
-        columns.add(column);
-    }
+     * 检查并补齐北京邮电大学相关目的地数据，避免空库启动后首页和推荐接口没有基础数据。
 
+     */
     private Destination ensureBuptDestination() {
         if (destinationMapper.findAll().size() > 0) {
             return destinationMapper.findAll().stream()
@@ -117,6 +86,11 @@ public class DataInitializer implements CommandLineRunner {
         return destination;
     }
 
+    /**
+
+     * 检查并补齐博物馆示例目的地数据，用于推荐和搜索功能的基础展示。
+
+     */
     private Destination ensureMuseumDestination() {
         return destinationMapper.findAll().stream()
                 .filter(destination -> "国家博物馆".equals(destination.getName()))
@@ -136,6 +110,11 @@ public class DataInitializer implements CommandLineRunner {
                 });
     }
 
+    /**
+
+     * 为指定目的地补齐基础设施数据；已有数据时跳过，避免重复插入。
+
+     */
     private void ensureFacilities(Destination bupt) {
         if (!facilityMapper.findAll().isEmpty()) {
             return;
@@ -166,6 +145,11 @@ public class DataInitializer implements CommandLineRunner {
         facilityMapper.insert(canteen);
     }
 
+    /**
+
+     * 为指定目的地补齐美食数据；已有数据时跳过，保持初始化过程幂等。
+
+     */
     private void ensureFood(Destination bupt) {
         if (!foodMapper.findAll().isEmpty()) {
             return;
@@ -180,6 +164,11 @@ public class DataInitializer implements CommandLineRunner {
         foodMapper.insert(food);
     }
 
+    /**
+
+     * 为指定目的地补齐游记数据；已有数据时跳过，保证重复启动不会产生重复记录。
+
+     */
     private void ensureDiary(Destination bupt) {
         if (!diaryMapper.findAll().isEmpty()) {
             return;

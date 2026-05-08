@@ -41,6 +41,11 @@ public class RecommendationService {
         return topKDestinations(data, k, DestinationRankingMode.COMPOSITE);
     }
 
+    /**
+
+     * 按照评分、热度或综合评分计算目的地排序分数，并返回前 k 个推荐结果。
+
+     */
     public List<Destination> topKDestinations(List<Destination> data, int k, DestinationRankingMode mode) {
         DestinationRankingMode rankingMode = mode == null ? DestinationRankingMode.COMPOSITE : mode;
         ScoreContext context = ScoreContext.from(data);
@@ -91,6 +96,11 @@ public class RecommendationService {
         return safe(d.getHeat()) * 0.6 + safe(d.getRating()) * 0.4;
     }
 
+    /**
+
+     * 根据推荐模式计算单个目的地的排序分数；综合模式会同时考虑归一化评分和热度。
+
+     */
     private double destinationScore(Destination d, DestinationRankingMode mode, ScoreContext context) {
         return switch (mode) {
             case RATING -> safe(d.getRating());
@@ -121,6 +131,11 @@ public class RecommendationService {
         return v == null ? 0 : v;
     }
 
+    /**
+
+     * 将数值按最小值和最大值归一化到 0 到 1 区间；当区间无差异时返回 1。
+
+     */
     private double normalized(double value, double min, double max) {
         if (Double.compare(max, min) == 0) {
             return 0;
@@ -128,6 +143,11 @@ public class RecommendationService {
         return (value - min) / (max - min);
     }
 
+    /**
+
+     * 保存推荐算法使用的评分和热度范围，避免为每个目的地重复扫描全量数据。
+
+     */
     private record ScoreContext(double minHeat, double maxHeat, double minRating, double maxRating) {
         static ScoreContext from(List<Destination> data) {
             double minHeat = data.stream().mapToDouble(d -> d.getHeat() == null ? 0 : d.getHeat()).min().orElse(0);

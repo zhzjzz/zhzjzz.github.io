@@ -17,6 +17,11 @@ public class SpotService {
         this.spotMapper = spotMapper;
     }
 
+    /**
+
+     * 按关键词、分类、排序字段和数量限制查询景区数据，供景区检索和推荐页面使用。
+
+     */
     public List<Spot> search(String keyword, String category, String sortBy, Integer limit) {
         List<Spot> spots;
         if (keyword != null && !keyword.isBlank()) {
@@ -37,10 +42,20 @@ public class SpotService {
         return spots;
     }
 
+    /**
+
+     * 根据主键 ID 查询单条数据，找不到时返回空结果，供详情页或关联查询使用。
+
+     */
     public Spot getById(Long spotId) {
         return spotMapper.findBySpotId(spotId);
     }
 
+    /**
+
+     * 查询全部记录，主要用于前端初始化下拉列表和无条件浏览。
+
+     */
     public List<Spot> listAll() {
         return spotMapper.findAll();
     }

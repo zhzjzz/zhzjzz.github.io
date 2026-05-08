@@ -19,6 +19,9 @@ public class FacilitySearchService {
     public FacilitySearchService(FacilityMapper facilityMapper) {
         this.facilityMapper = facilityMapper;
     }
+    /**
+     * 按用户当前位置搜索附近设施。fromLat/fromLon 是当前位置，facilityType 和 keyword 是过滤条件，maxDistanceMeters 是最大距离限制；返回结果按距离升序排列。
+     */
 
     public List<FacilityQueryResult> searchNearby(Double fromLat,
                                                   Double fromLon,
@@ -37,6 +40,11 @@ public class FacilitySearchService {
                 .toList();
     }
 
+    /**
+
+     * 将 Facility 实体转换为前端查询结果 DTO，并在传入用户位置时计算距离。
+
+     */
     private FacilityQueryResult toResult(Facility facility, Double fromLat, Double fromLon) {
         if (fromLat == null || fromLon == null) {
             return null;
@@ -49,6 +57,11 @@ public class FacilitySearchService {
         return new FacilityQueryResult(facility, distanceMeters);
     }
 
+    /**
+
+     * 判断设施类型是否满足筛选条件；筛选条件为空时视为全部匹配。
+
+     */
     private boolean matchesFacilityType(Facility facility, String facilityType) {
         if (facilityType == null || facilityType.isBlank()) {
             return true;
@@ -56,6 +69,11 @@ public class FacilitySearchService {
         return containsIgnoreCase(facility.getFacilityType(), facilityType);
     }
 
+    /**
+
+     * 判断设施名称、类型或所属目的地等文本字段是否包含查询关键词。
+
+     */
     private boolean matchesKeyword(Facility facility, String keyword) {
         if (keyword == null || keyword.isBlank()) {
             return true;
@@ -65,6 +83,11 @@ public class FacilitySearchService {
                 || (facility.getDestination() != null && containsIgnoreCase(facility.getDestination().getName(), keyword));
     }
 
+    /**
+
+     * 解析设施坐标；当设施自身坐标缺失时尝试使用所属目的地坐标兜底。
+
+     */
     private LatLng resolveFacilityLocation(Facility facility) {
         Double lat = facility.getLatitude();
         Double lng = facility.getLongitude();
@@ -80,6 +103,11 @@ public class FacilitySearchService {
         return new LatLng(lat, lng);
     }
 
+    /**
+
+     * 使用 Haversine 公式计算两个经纬度点之间的球面距离，结果单位为米。
+
+     */
     private double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
@@ -90,6 +118,11 @@ public class FacilitySearchService {
         return EARTH_RADIUS_METERS * c;
     }
 
+    /**
+
+     * 执行忽略大小写的包含判断，并安全处理空字符串。
+
+     */
     private boolean containsIgnoreCase(String source, String keyword) {
         if (source == null || keyword == null) {
             return false;
@@ -97,6 +130,11 @@ public class FacilitySearchService {
         return source.toLowerCase(Locale.ROOT).contains(keyword.toLowerCase(Locale.ROOT));
     }
 
+    /**
+
+     * 保存经纬度坐标的轻量值对象，用于距离计算和位置兜底。
+
+     */
     private record LatLng(double lat, double lon) {
     }
 }

@@ -1,10 +1,10 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.travel.system.mapper.FacilityMapper">
 
-    <!-- 缁撴灉鏄犲皠锛氬皢鑱旇〃鏌ヨ鐨勭粨鏋滄槧灏勫埌 Facility 鍙婂叾鍏宠仈鐨?Destination -->
+    <!-- 结果映射：将查询结果映射到 Facility 及其关联 Destination -->
     <resultMap id="facilityResultMap" type="com.travel.system.model.Facility">
         <id column="id" property="id"/>
         <result column="name" property="name"/>
@@ -23,7 +23,7 @@
         </association>
     </resultMap>
 
-    <!-- 鏌ヨ鍏ㄩ儴璁炬柦锛堣仈琛ㄧ洰鐨勫湴锛?-->
+    <!-- 查询全部设施，包含关联目的地信息-->
     <select id="findAll" resultMap="facilityResultMap">
         SELECT b.building_id AS id,
                b.name AS name,
@@ -60,7 +60,7 @@
         LEFT JOIN nodes n ON n.osmid = p.nearest_node_id
     </select>
 
-    <!-- 鎸夎鏂界被鍨嬫ā绯婂尮閰?-->
+    <!-- 按设施类型、名称或所属地点模糊匹配-->
     <select id="findByFacilityTypeContainingIgnoreCase" resultMap="facilityResultMap">
         SELECT *
         FROM (
@@ -103,7 +103,7 @@
            OR LOWER(f.destination_name) LIKE '%' || LOWER(#{type}) || '%'
     </select>
 
-    <!-- 鎸?ID 鍒楄〃鏌ヨ璁炬柦 -->
+    <!-- 按 ID 列表查询设施 -->
     <select id="findByIds" resultMap="facilityResultMap">
         SELECT f.id,
                f.name,
@@ -127,14 +127,14 @@
         </foreach>
     </select>
 
-    <!-- 鎻掑叆鏂拌鏂?-->
+    <!-- 插入设施记录-->
     <insert id="insert" parameterType="com.travel.system.model.Facility"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO facility (name, facility_type, latitude, longitude, destination_id)
         VALUES (#{name}, #{facilityType}, #{latitude}, #{longitude}, #{destination.id})
     </insert>
 
-    <!-- 鏇存柊璁炬柦 -->
+    <!-- 更新设施记录 -->
     <update id="update" parameterType="com.travel.system.model.Facility">
         UPDATE facility
         SET name          = #{name},
@@ -146,4 +146,5 @@
     </update>
 
 </mapper>
+
 

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
     <data-source source="LOCAL" name="travel_system@localhost" uuid="2e685b42-ddab-4622-9194-511009659ffc">
@@ -29,13 +29,13 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="vscode" uuid="032a2292-9afb-4369-aacc-1eb10cbfbe89">
+    <data-source source="LOCAL" name="SQLite" uuid="032a2292-9afb-4369-aacc-1eb10cbfbe89">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <imported>true</imported>
       <remarks>$PROJECT_DIR$/data-structure-design-backend/src/main/resources/application.yml</remarks>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/../../vscode</jdbc-url>
+      <jdbc-url>jdbc:sqlite:D:\gitCode\zhzjzz\data-structure-design-backend\data\tourism_system.gpkg</jdbc-url>
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
       </jdbc-additional-properties>

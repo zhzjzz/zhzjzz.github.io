@@ -14,14 +14,14 @@
         SELECT * FROM itinerary WHERE id = #{id}
     </select>
 
-    <!-- 插入新行程记录 -->
+    <!-- 插入行程记录-->
     <insert id="insert" parameterType="com.travel.system.model.Itinerary"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO itinerary(name, owner, collaborators, strategy, transport_mode, notes, updated_at)
         VALUES(#{name}, #{owner}, #{collaborators}, #{strategy}, #{transportMode}, #{notes}, #{updatedAt})
     </insert>
 
-    <!-- 更新已有行程记录 -->
+    <!-- 更新行程记录 -->
     <update id="update" parameterType="com.travel.system.model.Itinerary">
         UPDATE itinerary
         SET name = #{name},
@@ -51,3 +51,4 @@
     </update>
 
 </mapper>
+

@@ -39,40 +39,7 @@
         </association>
     </resultMap>
 
-    <sql id="diaryColumns">
-        dr.id,
-        dr.title,
-        dr.content,
-        dr.media_url,
-        dr.media_type,
-        dr.compressed_media_url,
-        dr.original_size_bytes,
-        dr.compressed_size_bytes,
-        dr.compression_status,
-        dr.aigc_animation_url,
-        dr.aigc_status,
-        dr.heat_score,
-        dr.like_count,
-        dr.favorite_count,
-        dr.comment_count,
-        dr.share_count,
-        dr.is_public,
-        dr.share_token,
-        dr.published_at,
-        dr.score,
-        dr.views,
-        dr.destination_id,
-        d.id AS destination_ref_id,
-        d.name AS destination_name,
-        d.scene_type AS destination_scene_type,
-        d.category AS destination_category,
-        d.heat AS destination_heat,
-        d.rating AS destination_rating,
-        d.description AS destination_description,
-        d.latitude AS destination_latitude,
-        d.longitude AS destination_longitude
-    </sql>
-
+    <!-- 查询全部日记 -->
     <select id="findAll" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
         FROM diary dr
@@ -80,6 +47,7 @@
         ORDER BY dr.published_at DESC, dr.id DESC
     </select>
 
+    <!-- 按 ID 查询单条日记 -->
     <select id="findById" parameterType="long" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
         FROM diary dr
@@ -87,6 +55,7 @@
         WHERE dr.id = #{id}
     </select>
 
+    <!-- 按标题进行不区分大小写的模糊匹配 -->
     <select id="findByTitleContainingIgnoreCase" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
         FROM diary dr
@@ -95,6 +64,7 @@
         ORDER BY dr.published_at DESC, dr.id DESC
     </select>
 
+    <!-- 按标题或内容进行不区分大小写的模糊匹配-->
     <select id="findByTitleOrContentContainingIgnoreCase" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
         FROM diary dr
@@ -120,6 +90,7 @@
         WHERE dr.share_token = #{shareToken}
     </select>
 
+    <!-- 插入日记记录-->
     <insert id="insert" parameterType="com.travel.system.model.Diary"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO diary(title, content, media_type, media_url, compressed_media_url,
@@ -134,6 +105,7 @@
                #{shareToken}, #{publishedAt}, #{score}, #{views}, #{destination.id})
     </insert>
 
+    <!-- 更新日记记录 -->
     <update id="update" parameterType="com.travel.system.model.Diary">
         UPDATE diary
         SET title = #{title},
@@ -188,4 +160,4 @@
         ORDER BY created_at DESC
     </select>
 
-</mapper>
+
