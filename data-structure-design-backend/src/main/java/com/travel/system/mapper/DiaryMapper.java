@@ -1,6 +1,7 @@
 package com.travel.system.mapper;
 
 import com.travel.system.model.Diary;
+import com.travel.system.model.DiaryComment;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -40,6 +41,10 @@ public interface DiaryMapper {
      */
     List<Diary> findByTitleOrContentContainingIgnoreCase(@Param("keyword") String keyword);
 
+    List<Diary> findHotPublic(@Param("limit") int limit);
+
+    Diary findByShareToken(@Param("shareToken") String shareToken);
+
     /**
      * Find diary by primary key.
      *
@@ -61,6 +66,12 @@ public interface DiaryMapper {
      * @param diary diary entity
      */
     void update(Diary diary);
+
+    void updateCounters(Diary diary);
+
+    void insertComment(DiaryComment comment);
+
+    List<DiaryComment> findCommentsByDiaryId(@Param("diaryId") Long diaryId);
 
     /**
      * Save (insert or update) a diary entity.

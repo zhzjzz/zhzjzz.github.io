@@ -3,9 +3,13 @@ package com.travel.system.service;
 import com.travel.system.model.*;
 import com.travel.system.mapper.*;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -15,26 +19,69 @@ public class DataInitializer implements CommandLineRunner {
     private final FacilityMapper facilityMapper;
     private final DiaryMapper diaryMapper;
     private final AuthService authService;
+    private final JdbcTemplate jdbcTemplate;
 
     public DataInitializer(DestinationMapper destinationMapper,
                            FoodMapper foodMapper,
                            FacilityMapper facilityMapper,
                            DiaryMapper diaryMapper,
-                           AuthService authService) {
+                           AuthService authService,
+                           JdbcTemplate jdbcTemplate) {
         this.destinationMapper = destinationMapper;
         this.foodMapper = foodMapper;
         this.facilityMapper = facilityMapper;
         this.diaryMapper = diaryMapper;
         this.authService = authService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     public void run(String... args) {
+        ensureDiaryEnhancementSchema();
         Destination bupt = ensureBuptDestination();
         authService.ensureSeedUsers();
         ensureFacilities(bupt);
         ensureFood(bupt);
         ensureDiary(bupt);
+    }
+
+    private void ensureDiaryEnhancementSchema() {
+        Set<String> columns = jdbcTemplate.queryForList("PRAGMA table_info(diary)").stream()
+                .map(row -> String.valueOf(row.get("name")))
+                .collect(Collectors.toSet());
+        addDiaryColumnIfMissing(columns, "compressed_media_url", "TEXT");
+        addDiaryColumnIfMissing(columns, "original_size_bytes", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "compressed_size_bytes", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "compression_status", "TEXT DEFAULT 'pending'");
+        addDiaryColumnIfMissing(columns, "aigc_animation_url", "TEXT");
+        addDiaryColumnIfMissing(columns, "aigc_status", "TEXT DEFAULT 'pending'");
+        addDiaryColumnIfMissing(columns, "heat_score", "REAL DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "like_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "favorite_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "comment_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "share_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "is_public", "INTEGER DEFAULT 1");
+        addDiaryColumnIfMissing(columns, "share_token", "TEXT");
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS diary_comment (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    diary_id INTEGER NOT NULL,
+                    author_name TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """);
+        jdbcTemplate.update("UPDATE diary SET share_token = lower(hex(randomblob(16))) WHERE share_token IS NULL OR share_token = ''");
+        jdbcTemplate.update("UPDATE diary SET compression_status = 'none' WHERE compression_status IS NULL");
+        jdbcTemplate.update("UPDATE diary SET aigc_status = 'generated' WHERE aigc_status IS NULL");
+    }
+
+    private void addDiaryColumnIfMissing(Set<String> columns, String column, String definition) {
+        if (columns.contains(column)) {
+            return;
+        }
+        jdbcTemplate.execute("ALTER TABLE diary ADD COLUMN " + column + " " + definition);
+        columns.add(column);
     }
 
     private Destination ensureBuptDestination() {
@@ -142,6 +189,18 @@ public class DataInitializer implements CommandLineRunner {
         diary.setTitle("北邮春日打卡");
         diary.setContent("主楼、图书馆、银杏大道都很值得拍照。");
         diary.setMediaType("image");
+        diary.setCompressionStatus("none");
+        diary.setOriginalSizeBytes(0L);
+        diary.setCompressedSizeBytes(0L);
+        diary.setAigcAnimationUrl("/demo/aigc/diary-bupt-spring.mp4");
+        diary.setAigcStatus("generated");
+        diary.setHeatScore(134.0);
+        diary.setLikeCount(8L);
+        diary.setFavoriteCount(5L);
+        diary.setCommentCount(0L);
+        diary.setShareCount(2L);
+        diary.setIsPublic(true);
+        diary.setShareToken(UUID.randomUUID().toString().replace("-", ""));
         diary.setScore(4.7);
         diary.setViews(120L);
         diary.setPublishedAt(LocalDateTime.now());

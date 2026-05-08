@@ -1,6 +1,7 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Diary;
+import com.travel.system.model.DiaryComment;
 import com.travel.system.service.DiaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,7 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/diaries")
-@Tag(name = "旅游日记", description = "日记查询、创建、全文搜索等相关接口")
+@Tag(name = "旅游日记", description = "日记查询、创建、全文搜索、热度评分和交流分享接口")
 public class DiaryController {
 
     private final DiaryService diaryService;
@@ -32,8 +33,8 @@ public class DiaryController {
 
     @Operation(summary = "创建日记")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "创建成功"),
-        @ApiResponse(responseCode = "400", description = "请求参数错误")
+            @ApiResponse(responseCode = "200", description = "创建成功"),
+            @ApiResponse(responseCode = "400", description = "请求参数错误")
     })
     @PostMapping
     public Diary create(@RequestBody Diary diary) {
@@ -46,5 +47,35 @@ public class DiaryController {
     public List<Diary> search(
             @Parameter(description = "搜索关键字") @RequestParam String keyword) {
         return diaryService.fullTextSearch(keyword);
+    }
+
+    @Operation(summary = "热门公开游记", description = "按热度评分和浏览量返回公开日记")
+    @GetMapping("/hot")
+    public List<Diary> hot(@RequestParam(defaultValue = "6") int limit) {
+        return diaryService.hot(limit);
+    }
+
+    @Operation(summary = "分享链接查询", description = "通过分享 token 获取公开日记")
+    @GetMapping("/share/{token}")
+    public Diary shared(@PathVariable String token) {
+        return diaryService.shared(token);
+    }
+
+    @Operation(summary = "记录日记互动", description = "支持 like、favorite、share 三类互动")
+    @PostMapping("/{id}/interactions/{type}")
+    public Diary interact(@PathVariable Long id, @PathVariable String type) {
+        return diaryService.interact(id, type);
+    }
+
+    @Operation(summary = "查询日记评论")
+    @GetMapping("/{id}/comments")
+    public List<DiaryComment> comments(@PathVariable Long id) {
+        return diaryService.comments(id);
+    }
+
+    @Operation(summary = "发布日记评论")
+    @PostMapping("/{id}/comments")
+    public DiaryComment comment(@PathVariable Long id, @RequestBody DiaryComment comment) {
+        return diaryService.comment(id, comment);
     }
 }

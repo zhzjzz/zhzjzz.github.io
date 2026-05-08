@@ -1,7 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Fire, Ranking, Search, Star } from '@icon-park/vue-next'
 import { getTopDestinations, searchDestinations } from '../api/travel'
+import destinationDefaultImage from '../assets/defaults/destination-default.png'
+import destinationCampusImage from '../assets/defaults/destination-campus-default.png'
 
 const keyword = ref('')
 const rows = ref([])
@@ -23,6 +26,10 @@ const modeLabel = computed(() => {
 
 const heatPercent = (item) => Math.round(((Number(item.heat) || 0) / maxHeat.value) * 100)
 const ratingPercent = (item) => Math.min(100, Math.round(((Number(item.rating) || 0) / 5) * 100))
+const destinationImage = (item) => {
+  const text = `${item?.sceneType || ''} ${item?.category || ''} ${item?.name || ''}`
+  return /校园|大学|学院|校区/.test(text) ? destinationCampusImage : destinationDefaultImage
+}
 
 const loadTop = async () => {
   loading.value = true
@@ -81,26 +88,36 @@ onMounted(loadTop)
           </el-select>
         </el-col>
         <el-col :md="6" :xs="24" class="btn-group">
-          <el-button type="primary" size="large" @click="doSearch">检索</el-button>
-          <el-button size="large" @click="loadTop">Top10</el-button>
+          <el-button type="primary" size="large" @click="doSearch">
+            <Search theme="outline" size="17" fill="currentColor" />
+            检索
+          </el-button>
+          <el-button size="large" @click="loadTop">
+            <Ranking theme="outline" size="17" fill="currentColor" />
+            Top10
+          </el-button>
         </el-col>
       </el-row>
 
       <section v-if="featured" class="leaderboard-layout reveal-in">
         <article class="featured-destination">
+          <img :src="destinationImage(featured)" alt="" aria-hidden="true" />
           <span class="rank-badge">Top 1</span>
           <h3>{{ featured.name }}</h3>
           <p>{{ featured.sceneType || '旅行目的地' }} · {{ featured.category || '综合推荐' }}</p>
           <div class="score-row">
-            <span>热度 {{ featured.heat || 0 }}</span>
-            <span>评分 {{ featured.rating || '-' }}</span>
+            <span><Fire theme="outline" size="14" fill="currentColor" /> 热度 {{ featured.heat || 0 }}</span>
+            <span><Star theme="outline" size="14" fill="currentColor" /> 评分 {{ featured.rating || '-' }}</span>
             <span>{{ modeLabel }}</span>
           </div>
         </article>
 
         <div class="ranking-list">
           <article v-for="(item, index) in topRows" :key="item.id || item.name" class="ranking-item">
-            <div class="ranking-index">{{ index + 1 }}</div>
+            <div class="ranking-index">
+              <Ranking theme="outline" size="18" fill="currentColor" />
+              {{ index + 1 }}
+            </div>
             <div class="ranking-main">
               <strong>{{ item.name }}</strong>
               <span>{{ item.sceneType || '目的地' }} · {{ item.category || '未分类' }}</span>
@@ -109,8 +126,8 @@ onMounted(loadTop)
               </div>
             </div>
             <div class="ranking-score">
-              <span>热度 {{ item.heat || 0 }}</span>
-              <span>评分 {{ item.rating || '-' }} · {{ ratingPercent(item) }}%</span>
+              <span><Fire theme="outline" size="14" fill="currentColor" /> 热度 {{ item.heat || 0 }}</span>
+              <span><Star theme="outline" size="14" fill="currentColor" /> 评分 {{ item.rating || '-' }} · {{ ratingPercent(item) }}%</span>
             </div>
           </article>
         </div>
@@ -118,13 +135,27 @@ onMounted(loadTop)
 
       <el-empty v-else-if="!loading" description="暂无推荐数据，请检查后端服务或搜索条件" />
 
-      <el-table :data="rows" stripe border v-loading="loading" class="detail-table">
-        <el-table-column prop="name" label="名称" min-width="180" />
-        <el-table-column prop="sceneType" label="场景" width="120" />
-        <el-table-column prop="category" label="类别" width="160" />
-        <el-table-column prop="heat" label="热度" width="120" />
-        <el-table-column prop="rating" label="评分" width="120" />
-      </el-table>
+        <div class="destination-results" v-loading="loading">
+        <div class="destination-row destination-row-head">
+          <span></span>
+          <span>名称</span>
+          <span>场景</span>
+          <span>类别</span>
+          <span>热度</span>
+          <span>评分</span>
+        </div>
+        <article v-for="(item, index) in rows" :key="item.id || `${item.name}-${index}`" class="destination-row">
+          <img class="destination-thumb" :src="destinationImage(item)" :alt="`${item.name || '目的地'}默认图`" loading="lazy" />
+          <div class="destination-name">
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.sceneType || '目的地' }} · {{ item.category || '未分类' }}</small>
+          </div>
+          <span class="destination-chip">{{ item.sceneType || '目的地' }}</span>
+          <span class="destination-category">{{ item.category || '-' }}</span>
+          <strong class="destination-heat">{{ item.heat || 0 }}</strong>
+          <strong class="destination-rating">{{ item.rating || '-' }}</strong>
+        </article>
+      </div>
     </el-card>
   </section>
 </template>
@@ -152,12 +183,35 @@ onMounted(loadTop)
 }
 
 .featured-destination {
+  position: relative;
+  overflow: hidden;
   min-height: 260px;
   padding: 24px;
   border-radius: 22px;
   color: #ffffff;
-  background: linear-gradient(135deg, #111827 0%, #ff385c 100%);
+  background: #111827;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+}
+
+.featured-destination::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(255, 56, 92, 0.6));
+}
+
+.featured-destination > *:not(img) {
+  position: relative;
+  z-index: 2;
+}
+
+.featured-destination img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .rank-badge {
@@ -255,8 +309,79 @@ onMounted(loadTop)
   background: linear-gradient(90deg, #ff385c, #d97706);
 }
 
-.detail-table {
+.destination-results {
   margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: #17191d;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.2);
+}
+
+.destination-row {
+  display: grid;
+  grid-template-columns: 74px minmax(220px, 1.7fr) minmax(110px, 0.55fr) minmax(130px, 0.7fr) 100px 90px;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #d7dce5;
+}
+
+.destination-thumb {
+  width: 74px;
+  height: 54px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.destination-row:nth-child(odd):not(.destination-row-head) {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.destination-row:hover:not(.destination-row-head) {
+  background: rgba(255, 56, 92, 0.08);
+}
+
+.destination-row-head {
+  border-top: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.destination-name strong,
+.destination-name small {
+  display: block;
+}
+
+.destination-name strong {
+  color: #f8fafc;
+  line-height: 1.4;
+}
+
+.destination-name small,
+.destination-category {
+  color: #a7b0bf;
+}
+
+.destination-chip {
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(243, 208, 138, 0.12);
+  color: #f3d08a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.destination-heat,
+.destination-rating {
+  justify-self: end;
+  color: #f8fafc;
+  font-size: 16px;
 }
 
 @media (max-width: 900px) {
@@ -273,6 +398,20 @@ onMounted(loadTop)
   .ranking-score {
     display: flex;
     gap: 12px;
+  }
+
+  .destination-row,
+  .destination-row-head {
+    grid-template-columns: 1fr;
+  }
+
+  .destination-row-head {
+    display: none;
+  }
+
+  .destination-heat,
+  .destination-rating {
+    justify-self: start;
   }
 }
 </style>

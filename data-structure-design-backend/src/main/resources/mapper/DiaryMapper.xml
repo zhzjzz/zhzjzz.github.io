@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
@@ -10,6 +10,19 @@
         <result column="content" property="content"/>
         <result column="media_url" property="mediaUrl"/>
         <result column="media_type" property="mediaType"/>
+        <result column="compressed_media_url" property="compressedMediaUrl"/>
+        <result column="original_size_bytes" property="originalSizeBytes"/>
+        <result column="compressed_size_bytes" property="compressedSizeBytes"/>
+        <result column="compression_status" property="compressionStatus"/>
+        <result column="aigc_animation_url" property="aigcAnimationUrl"/>
+        <result column="aigc_status" property="aigcStatus"/>
+        <result column="heat_score" property="heatScore"/>
+        <result column="like_count" property="likeCount"/>
+        <result column="favorite_count" property="favoriteCount"/>
+        <result column="comment_count" property="commentCount"/>
+        <result column="share_count" property="shareCount"/>
+        <result column="is_public" property="isPublic"/>
+        <result column="share_token" property="shareToken"/>
         <result column="published_at" property="publishedAt"/>
         <result column="score" property="score"/>
         <result column="views" property="views"/>
@@ -26,120 +39,120 @@
         </association>
     </resultMap>
 
-    <!-- 鏌ヨ鍏ㄩ儴鏃ヨ -->
+    <sql id="diaryColumns">
+        dr.id,
+        dr.title,
+        dr.content,
+        dr.media_url,
+        dr.media_type,
+        dr.compressed_media_url,
+        dr.original_size_bytes,
+        dr.compressed_size_bytes,
+        dr.compression_status,
+        dr.aigc_animation_url,
+        dr.aigc_status,
+        dr.heat_score,
+        dr.like_count,
+        dr.favorite_count,
+        dr.comment_count,
+        dr.share_count,
+        dr.is_public,
+        dr.share_token,
+        dr.published_at,
+        dr.score,
+        dr.views,
+        dr.destination_id,
+        d.id AS destination_ref_id,
+        d.name AS destination_name,
+        d.scene_type AS destination_scene_type,
+        d.category AS destination_category,
+        d.heat AS destination_heat,
+        d.rating AS destination_rating,
+        d.description AS destination_description,
+        d.latitude AS destination_latitude,
+        d.longitude AS destination_longitude
+    </sql>
+
     <select id="findAll" resultMap="diaryResultMap">
-        SELECT dr.id,
-               dr.title,
-               dr.content,
-               dr.media_url,
-               dr.media_type,
-               dr.published_at,
-               dr.score,
-               dr.views,
-               dr.destination_id,
-               d.id          AS destination_ref_id,
-               d.name        AS destination_name,
-               d.scene_type  AS destination_scene_type,
-               d.category    AS destination_category,
-               d.heat        AS destination_heat,
-               d.rating      AS destination_rating,
-               d.description AS destination_description,
-               d.latitude    AS destination_latitude,
-               d.longitude   AS destination_longitude
+        SELECT <include refid="diaryColumns"/>
         FROM diary dr
-                 LEFT JOIN destination d ON d.id = dr.destination_id
+        LEFT JOIN destination d ON d.id = dr.destination_id
+        ORDER BY dr.published_at DESC, dr.id DESC
     </select>
 
-    <!-- 鎸?ID 鏌ヨ鍗曟潯鏃ヨ -->
     <select id="findById" parameterType="long" resultMap="diaryResultMap">
-        SELECT dr.id,
-               dr.title,
-               dr.content,
-               dr.media_url,
-               dr.media_type,
-               dr.published_at,
-               dr.score,
-               dr.views,
-               dr.destination_id,
-               d.id          AS destination_ref_id,
-               d.name        AS destination_name,
-               d.scene_type  AS destination_scene_type,
-               d.category    AS destination_category,
-               d.heat        AS destination_heat,
-               d.rating      AS destination_rating,
-               d.description AS destination_description,
-               d.latitude    AS destination_latitude,
-               d.longitude   AS destination_longitude
+        SELECT <include refid="diaryColumns"/>
         FROM diary dr
-                 LEFT JOIN destination d ON d.id = dr.destination_id
+        LEFT JOIN destination d ON d.id = dr.destination_id
         WHERE dr.id = #{id}
     </select>
 
-    <!-- 鎸夋爣棰樿繘琛屼笉鍖哄垎澶у皬鍐欑殑妯＄硦鍖归厤 -->
     <select id="findByTitleContainingIgnoreCase" resultMap="diaryResultMap">
-        SELECT dr.id,
-               dr.title,
-               dr.content,
-               dr.media_url,
-               dr.media_type,
-               dr.published_at,
-               dr.score,
-               dr.views,
-               dr.destination_id,
-               d.id          AS destination_ref_id,
-               d.name        AS destination_name,
-               d.scene_type  AS destination_scene_type,
-               d.category    AS destination_category,
-               d.heat        AS destination_heat,
-               d.rating      AS destination_rating,
-               d.description AS destination_description,
-               d.latitude    AS destination_latitude,
-               d.longitude   AS destination_longitude
+        SELECT <include refid="diaryColumns"/>
         FROM diary dr
-                 LEFT JOIN destination d ON d.id = dr.destination_id
+        LEFT JOIN destination d ON d.id = dr.destination_id
         WHERE LOWER(dr.title) LIKE '%' || LOWER(#{title}) || '%'
+        ORDER BY dr.published_at DESC, dr.id DESC
     </select>
 
-    <!-- 鎸夋爣棰樻垨鍐呭杩涜涓嶅尯鍒嗗ぇ灏忓啓鐨勬ā绯婂尮閰?-->
     <select id="findByTitleOrContentContainingIgnoreCase" resultMap="diaryResultMap">
-        SELECT dr.id,
-               dr.title,
-               dr.content,
-               dr.media_url,
-               dr.media_type,
-               dr.published_at,
-               dr.score,
-               dr.views,
-               dr.destination_id,
-               d.id          AS destination_ref_id,
-               d.name        AS destination_name,
-               d.scene_type  AS destination_scene_type,
-               d.category    AS destination_category,
-               d.heat        AS destination_heat,
-               d.rating      AS destination_rating,
-               d.description AS destination_description,
-               d.latitude    AS destination_latitude,
-               d.longitude   AS destination_longitude
+        SELECT <include refid="diaryColumns"/>
         FROM diary dr
-                 LEFT JOIN destination d ON d.id = dr.destination_id
+        LEFT JOIN destination d ON d.id = dr.destination_id
         WHERE LOWER(dr.title) LIKE '%' || LOWER(#{keyword}) || '%'
            OR LOWER(dr.content) LIKE '%' || LOWER(#{keyword}) || '%'
+        ORDER BY dr.published_at DESC, dr.id DESC
     </select>
 
-    <!-- 鎻掑叆鏂版棩璁拌褰?-->
+    <select id="findHotPublic" resultMap="diaryResultMap">
+        SELECT <include refid="diaryColumns"/>
+        FROM diary dr
+        LEFT JOIN destination d ON d.id = dr.destination_id
+        WHERE dr.is_public = 1
+        ORDER BY dr.heat_score DESC, dr.views DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByShareToken" resultMap="diaryResultMap">
+        SELECT <include refid="diaryColumns"/>
+        FROM diary dr
+        LEFT JOIN destination d ON d.id = dr.destination_id
+        WHERE dr.share_token = #{shareToken}
+    </select>
+
     <insert id="insert" parameterType="com.travel.system.model.Diary"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO diary(title, content, media_type, media_url, published_at, score, views, destination_id)
-        VALUES(#{title}, #{content}, #{mediaType}, #{mediaUrl}, #{publishedAt}, #{score}, #{views}, #{destination.id})
+        INSERT INTO diary(title, content, media_type, media_url, compressed_media_url,
+                          original_size_bytes, compressed_size_bytes, compression_status,
+                          aigc_animation_url, aigc_status, heat_score, like_count,
+                          favorite_count, comment_count, share_count, is_public,
+                          share_token, published_at, score, views, destination_id)
+        VALUES(#{title}, #{content}, #{mediaType}, #{mediaUrl}, #{compressedMediaUrl},
+               #{originalSizeBytes}, #{compressedSizeBytes}, #{compressionStatus},
+               #{aigcAnimationUrl}, #{aigcStatus}, #{heatScore}, #{likeCount},
+               #{favoriteCount}, #{commentCount}, #{shareCount}, #{isPublic},
+               #{shareToken}, #{publishedAt}, #{score}, #{views}, #{destination.id})
     </insert>
 
-    <!-- 鏇存柊宸叉湁鏃ヨ璁板綍 -->
     <update id="update" parameterType="com.travel.system.model.Diary">
         UPDATE diary
         SET title = #{title},
             content = #{content},
             media_type = #{mediaType},
             media_url = #{mediaUrl},
+            compressed_media_url = #{compressedMediaUrl},
+            original_size_bytes = #{originalSizeBytes},
+            compressed_size_bytes = #{compressedSizeBytes},
+            compression_status = #{compressionStatus},
+            aigc_animation_url = #{aigcAnimationUrl},
+            aigc_status = #{aigcStatus},
+            heat_score = #{heatScore},
+            like_count = #{likeCount},
+            favorite_count = #{favoriteCount},
+            comment_count = #{commentCount},
+            share_count = #{shareCount},
+            is_public = #{isPublic},
+            share_token = #{shareToken},
             published_at = #{publishedAt},
             score = #{score},
             views = #{views},
@@ -147,5 +160,32 @@
         WHERE id = #{id}
     </update>
 
-</mapper>
+    <update id="updateCounters" parameterType="com.travel.system.model.Diary">
+        UPDATE diary
+        SET views = #{views},
+            like_count = #{likeCount},
+            favorite_count = #{favoriteCount},
+            comment_count = #{commentCount},
+            share_count = #{shareCount},
+            heat_score = #{heatScore}
+        WHERE id = #{id}
+    </update>
 
+    <insert id="insertComment" parameterType="com.travel.system.model.DiaryComment"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO diary_comment(diary_id, author_name, content, created_at)
+        VALUES(#{diaryId}, #{authorName}, #{content}, #{createdAt})
+    </insert>
+
+    <select id="findCommentsByDiaryId" resultType="com.travel.system.model.DiaryComment">
+        SELECT id,
+               diary_id AS diaryId,
+               author_name AS authorName,
+               content,
+               created_at AS createdAt
+        FROM diary_comment
+        WHERE diary_id = #{diaryId}
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

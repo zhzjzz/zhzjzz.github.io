@@ -2,8 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AMapLoader from '@amap/amap-jsapi-loader'
+import { Delete, MapDistance, MapRoad, Plus, PreviewOpen, Ranking, Timer } from '@icon-park/vue-next'
 import { getNavNodes, listNavBuildingsBySpot, listNavPoisBySpot, planMultiSpotRoute, searchNavSpots } from '../api/travel'
 import { wgs84ToGcj02, wgs84ToGcj02Batch } from '../utils/coordTransform'
+import routeDefaultImage from '../assets/defaults/route-default.png'
 
 const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
 if (amapSecret) {
@@ -431,6 +433,7 @@ onBeforeUnmount(() => {
           <h2>多景区多地点路线规划</h2>
           <p class="module-subtitle">按访问顺序串联多个景区；同一景区内可选多个地点，并支持步行/电动车、最短时间/最短距离。</p>
         </div>
+        <img class="route-hero-image" :src="routeDefaultImage" alt="路线规划默认图" />
         <div class="summary-pill" v-if="routeResult">
           <strong>{{ totalDistanceKm }} km</strong>
           <span>{{ totalDurationMin }} 分钟</span>
@@ -448,9 +451,18 @@ onBeforeUnmount(() => {
           inactive-text="按选择顺序访问"
         />
         <div class="toolbar-actions">
-          <el-button :loading="demoLoading" @click="applyDemoScenario">演示模式</el-button>
-          <el-button @click="addVisit">添加景区</el-button>
-          <el-button type="primary" :loading="loading" @click="submit">规划路线</el-button>
+          <el-button :loading="demoLoading" @click="applyDemoScenario">
+            <PreviewOpen theme="outline" size="16" fill="currentColor" />
+            演示模式
+          </el-button>
+          <el-button @click="addVisit">
+            <Plus theme="outline" size="16" fill="currentColor" />
+            添加景区
+          </el-button>
+          <el-button type="primary" :loading="loading" @click="submit">
+            <MapRoad theme="outline" size="16" fill="currentColor" />
+            规划路线
+          </el-button>
         </div>
       </div>
 
@@ -505,7 +517,10 @@ onBeforeUnmount(() => {
                   <el-button @click="moveVisit(index, -1)" :disabled="index === 0">上移</el-button>
                   <el-button @click="moveVisit(index, 1)" :disabled="index === visits.length - 1">下移</el-button>
                 </el-button-group>
-                <el-button link type="danger" @click="removeVisit(index)">删除</el-button>
+                <el-button link type="danger" @click="removeVisit(index)">
+                  <Delete theme="outline" size="15" fill="currentColor" />
+                  删除
+                </el-button>
               </el-col>
             </el-row>
           </div>
@@ -521,15 +536,15 @@ onBeforeUnmount(() => {
       <el-divider />
       <section v-if="routeResult" class="route-summary-grid reveal-in">
         <article class="metric-card">
-          <span>总距离</span>
+          <span><MapDistance theme="outline" size="15" fill="currentColor" /> 总距离</span>
           <strong>{{ totalDistanceKm }} km</strong>
         </article>
         <article class="metric-card">
-          <span>总耗时</span>
+          <span><Timer theme="outline" size="15" fill="currentColor" /> 总耗时</span>
           <strong>{{ totalDurationMin }} 分钟</strong>
         </article>
         <article class="metric-card">
-          <span>路线段数</span>
+          <span><Ranking theme="outline" size="15" fill="currentColor" /> 路线段数</span>
           <strong>{{ routeResult.segments?.length || 0 }}</strong>
         </article>
       </section>
@@ -555,6 +570,15 @@ onBeforeUnmount(() => {
 .route-hero {
   align-items: flex-start;
   gap: 18px;
+}
+
+.route-hero-image {
+  width: min(260px, 26vw);
+  aspect-ratio: 16 / 10;
+  border-radius: 18px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
 
 .eyebrow {
