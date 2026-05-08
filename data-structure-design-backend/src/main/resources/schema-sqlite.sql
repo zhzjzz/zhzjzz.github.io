@@ -24,10 +24,31 @@ CREATE TABLE IF NOT EXISTS diary (
     content TEXT,
     media_url TEXT,
     media_type TEXT,
+    compressed_media_url TEXT,
+    original_size_bytes INTEGER DEFAULT 0,
+    compressed_size_bytes INTEGER DEFAULT 0,
+    compression_status TEXT DEFAULT 'pending',
+    aigc_animation_url TEXT,
+    aigc_status TEXT DEFAULT 'pending',
+    heat_score REAL DEFAULT 0,
+    like_count INTEGER DEFAULT 0,
+    favorite_count INTEGER DEFAULT 0,
+    comment_count INTEGER DEFAULT 0,
+    share_count INTEGER DEFAULT 0,
+    is_public INTEGER DEFAULT 1,
+    share_token TEXT,
     published_at TEXT,
     score REAL,
     views INTEGER,
     destination_id INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS diary_comment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    diary_id INTEGER NOT NULL,
+    author_name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS facility (
