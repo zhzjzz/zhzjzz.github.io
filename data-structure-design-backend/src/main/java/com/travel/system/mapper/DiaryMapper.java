@@ -23,6 +23,12 @@ public interface DiaryMapper {
     /** 按标题或内容进行不区分大小写的模糊查询。 */
     List<Diary> findByTitleOrContentContainingIgnoreCase(@Param("keyword") String keyword);
 
+    /** 查询公开热门日记。 */
+    List<Diary> findHotPublic(@Param("limit") int limit);
+
+    /** 按分享令牌查询日记。 */
+    Diary findByShareToken(@Param("shareToken") String shareToken);
+
     /** 按主键查询日记。 */
     Diary findById(Long id);
 
@@ -31,6 +37,15 @@ public interface DiaryMapper {
 
     /** 更新日记记录。 */
     void update(Diary diary);
+
+    /** 更新浏览、互动计数和热度。 */
+    void updateCounters(Diary diary);
+
+    /** 插入日记评论。 */
+    void insertComment(DiaryComment comment);
+
+    /** 查询指定日记的评论。 */
+    List<DiaryComment> findCommentsByDiaryId(@Param("diaryId") Long diaryId);
 
     /** 保存日记：无 id 时插入，有 id 时更新。 */
     default Diary save(Diary diary) {

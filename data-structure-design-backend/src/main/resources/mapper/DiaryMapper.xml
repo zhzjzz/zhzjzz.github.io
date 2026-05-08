@@ -39,6 +39,39 @@
         </association>
     </resultMap>
 
+    <sql id="diaryColumns">
+        dr.id,
+        dr.title,
+        dr.content,
+        dr.media_url,
+        dr.media_type,
+        dr.compressed_media_url,
+        dr.original_size_bytes,
+        dr.compressed_size_bytes,
+        dr.compression_status,
+        dr.aigc_animation_url,
+        dr.aigc_status,
+        dr.heat_score,
+        dr.like_count,
+        dr.favorite_count,
+        dr.comment_count,
+        dr.share_count,
+        dr.is_public,
+        dr.share_token,
+        dr.published_at,
+        dr.score,
+        dr.views,
+        d.id AS destination_ref_id,
+        d.name AS destination_name,
+        d.scene_type AS destination_scene_type,
+        d.category AS destination_category,
+        d.heat AS destination_heat,
+        d.rating AS destination_rating,
+        d.description AS destination_description,
+        d.latitude AS destination_latitude,
+        d.longitude AS destination_longitude
+    </sql>
+
     <!-- 查询全部日记 -->
     <select id="findAll" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
@@ -161,3 +194,4 @@
     </select>
 
 
+</mapper>

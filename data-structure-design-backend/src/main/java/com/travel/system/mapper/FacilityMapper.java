@@ -19,6 +19,9 @@ public interface FacilityMapper {
     /** 按设施类型、名称或所属地点进行模糊查询。 */
     List<Facility> findByFacilityTypeContainingIgnoreCase(@Param("type") String type);
 
+    /** 查询设施类别候选项。 */
+    List<String> findDistinctFacilityTypes(@Param("keyword") String keyword, @Param("limit") int limit);
+
     /** 按 ID 列表查询设施。 */
     List<Facility> findByIds(@Param("ids") List<Long> ids);
 

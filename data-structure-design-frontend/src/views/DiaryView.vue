@@ -69,7 +69,15 @@ const submit = async () => {
     ElMessage.warning('标题和内容不能为空')
     return
   }
-  const { data } = await createDiary({ ...form.value, publishedAt: new Date().toISOString() })
+  const payload = {
+    ...form.value,
+    title: form.value.title.trim(),
+    content: form.value.content.trim(),
+  }
+  if (payload.mediaUrl?.startsWith('data:')) {
+    payload.mediaUrl = ''
+  }
+  const { data } = await createDiary(payload)
   resetForm()
   const compressionSummary = data?.originalSizeBytes
     ? `旅游日记已发布，媒体优化完成：${formatSize(data.originalSizeBytes)} -> ${formatSize(data.compressedSizeBytes)}，${compressionText(data)}`

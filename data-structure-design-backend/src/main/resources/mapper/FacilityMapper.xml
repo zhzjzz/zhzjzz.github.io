@@ -103,6 +103,27 @@
            OR LOWER(f.destination_name) LIKE '%' || LOWER(#{type}) || '%'
     </select>
 
+    <!-- 查询设施类别候选项，避免前端为了下拉框加载全量设施。 -->
+    <select id="findDistinctFacilityTypes" resultType="string">
+        SELECT facility_type
+        FROM (
+            SELECT DISTINCT b.type AS facility_type
+            FROM buildings b
+            WHERE b.type IS NOT NULL AND b.type != ''
+            UNION
+            SELECT DISTINCT p.type AS facility_type
+            FROM pois p
+            WHERE p.type IS NOT NULL AND p.type != ''
+        ) t
+        <where>
+            <if test="keyword != null and keyword != ''">
+                LOWER(t.facility_type) LIKE '%' || LOWER(#{keyword}) || '%'
+            </if>
+        </where>
+        ORDER BY facility_type
+        LIMIT #{limit}
+    </select>
+
     <!-- 按 ID 列表查询设施 -->
     <select id="findByIds" resultMap="facilityResultMap">
         SELECT f.id,

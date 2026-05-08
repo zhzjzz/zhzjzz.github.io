@@ -49,6 +49,49 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     /**
+     * 补齐老版本 SQLite 数据库中缺失的游记增强字段。
+     */
+    private void ensureDiaryEnhancementSchema() {
+        Set<String> columns = jdbcTemplate.queryForList("PRAGMA table_info(diary)")
+                .stream()
+                .map(column -> String.valueOf(column.get("name")))
+                .collect(Collectors.toSet());
+
+        addDiaryColumnIfMissing(columns, "media_url", "TEXT");
+        addDiaryColumnIfMissing(columns, "media_type", "TEXT");
+        addDiaryColumnIfMissing(columns, "compressed_media_url", "TEXT");
+        addDiaryColumnIfMissing(columns, "original_size_bytes", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "compressed_size_bytes", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "compression_status", "TEXT DEFAULT 'pending'");
+        addDiaryColumnIfMissing(columns, "aigc_animation_url", "TEXT");
+        addDiaryColumnIfMissing(columns, "aigc_status", "TEXT DEFAULT 'pending'");
+        addDiaryColumnIfMissing(columns, "heat_score", "REAL DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "like_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "favorite_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "comment_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "share_count", "INTEGER DEFAULT 0");
+        addDiaryColumnIfMissing(columns, "is_public", "INTEGER DEFAULT 1");
+        addDiaryColumnIfMissing(columns, "share_token", "TEXT");
+        addDiaryColumnIfMissing(columns, "published_at", "TEXT");
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS diary_comment (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    diary_id INTEGER NOT NULL,
+                    author_name TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """);
+    }
+
+    private void addDiaryColumnIfMissing(Set<String> columns, String columnName, String definition) {
+        if (columns.add(columnName)) {
+            jdbcTemplate.execute("ALTER TABLE diary ADD COLUMN " + columnName + " " + definition);
+        }
+    }
+
+    /**
 
      * 检查并补齐北京邮电大学相关目的地数据，避免空库启动后首页和推荐接口没有基础数据。
 

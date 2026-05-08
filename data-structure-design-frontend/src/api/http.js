@@ -7,7 +7,7 @@ const baseURL = resolvedBase.startsWith('http') && !resolvedBase.endsWith('/api'
 
 const http = axios.create({
   baseURL,
-  timeout: 8000,
+  timeout: 20000,
 })
 
 /**

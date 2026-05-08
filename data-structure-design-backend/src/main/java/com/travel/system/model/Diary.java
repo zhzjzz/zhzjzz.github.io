@@ -2,6 +2,8 @@ package com.travel.system.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.travel.system.config.FlexibleLocalDateTimeDeserializer;
 
 import java.time.LocalDateTime;
 
@@ -32,6 +34,7 @@ public class Diary {
     private String shareToken;
     private Double score;
     private Long views;
+    @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)
     private LocalDateTime publishedAt;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "destination_id")

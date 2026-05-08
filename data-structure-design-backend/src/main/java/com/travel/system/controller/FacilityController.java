@@ -73,6 +73,17 @@ public class FacilityController {
         return facilityMapper.findByFacilityTypeContainingIgnoreCase(type);
     }
 
+    @Operation(summary = "查询设施类别候选项", description = "返回去重后的设施类别，用于前端下拉搜索")
+    @ApiResponse(responseCode = "200", description = "查询成功")
+    @GetMapping("/types")
+    public List<String> types(
+            @Parameter(description = "类别关键字") @RequestParam(required = false) String keyword,
+            @Parameter(description = "最大返回数量，默认50，最大200") @RequestParam(defaultValue = "50") int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 200));
+        String normalizedKeyword = keyword == null ? null : keyword.trim();
+        return facilityMapper.findDistinctFacilityTypes(normalizedKeyword, safeLimit);
+    }
+
     /**
      * 附近设施搜索接口。
      *

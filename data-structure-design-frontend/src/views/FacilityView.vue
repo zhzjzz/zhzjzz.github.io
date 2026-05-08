@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MapDistance, Refresh, Search, Shop } from '@icon-park/vue-next'
-import { listDestinations, listFacilities, searchNearbyFacilities } from '../api/travel'
+import { listDestinations, listFacilityTypes, searchNearbyFacilities } from '../api/travel'
 import facilityDefaultImage from '../assets/defaults/facility-default.png'
 import facilityFoodImage from '../assets/defaults/facility-food-default.png'
 import facilityShopImage from '../assets/defaults/facility-shop-default.png'
@@ -52,9 +52,8 @@ const facilityImage = (type = '') => {
 const loadFacilityTypeOptions = async (keyword = '') => {
   loadingTypeOptions.value = true
   try {
-    const type = keyword.trim()
-    const { data } = await listFacilities(type)
-    facilityTypeOptions.value = [...new Set(data.map((item) => item.facilityType).filter(Boolean))]
+    const { data } = await listFacilityTypes(keyword.trim(), 80)
+    facilityTypeOptions.value = Array.isArray(data) ? data.filter(Boolean) : []
   } catch (error) {
     console.error(error)
     ElMessage.error('加载设施类别失败，请稍后重试')

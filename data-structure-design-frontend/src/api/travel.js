@@ -47,4 +47,6 @@ export const getNavEdges = (spotName) => http.get('/nav/route/edges', { params: 
 // 设施查询接口。
 // 查询场所列表；不传 type 时返回全部，用于前端动态提取可选类别。
 export const listFacilities = (type) => http.get('/facilities', { params: type ? { type } : {} })
+export const listFacilityTypes = (keyword = '', limit = 50) =>
+  http.get('/facilities/types', { params: { keyword, limit } })
 export const searchNearbyFacilities = (params) => http.get('/facilities/nearby', { params })
