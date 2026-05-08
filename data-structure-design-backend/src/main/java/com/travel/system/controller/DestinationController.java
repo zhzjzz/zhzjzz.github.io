@@ -66,6 +66,9 @@ public class DestinationController {
         // 通过 Service 层处理搜索逻辑，优先使用 ES
         return destinationService.list(keyword, 1, Integer.MAX_VALUE);
     }
+    /**
+     * 为路线规划输入框搜索目的地。keyword 是用户输入的地点关键词，limit 控制最多返回数量；返回值只包含可作为路线规划候选的目的地。
+     */
 
     @Operation(summary = "路线规划地点搜索", description = "用于路线规划输入框的地点搜索，优先 Elasticsearch，支持限制返回数量")
     @ApiResponse(responseCode = "200", description = "查询成功")
@@ -103,6 +106,9 @@ public class DestinationController {
         @ApiResponse(responseCode = "200", description = "创建成功"),
         @ApiResponse(responseCode = "400", description = "请求参数错误")
     })
+    /**
+     * 处理新增资源请求，将前端提交的数据交给 service 保存，并返回保存后的对象。
+     */
     @PostMapping
     public Destination create(@RequestBody Destination destination) {
         // 通过 Service 层保存，确保同步到 Elasticsearch

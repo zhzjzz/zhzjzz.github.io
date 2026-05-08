@@ -14,6 +14,11 @@ public class TransportModeService {
     public static final double SPEED_WALK = 1.2;
     public static final double SPEED_BIKE = 4.0;
 
+    /**
+
+     * 根据交通方式返回理想速度，作为时间估算的基础速度；电动车在后端统一使用 bike 表示。
+
+     */
     public double getIdealSpeed(String transportMode) {
         return switch (transportMode != null ? transportMode.toLowerCase() : "walk") {
             case "bike" -> SPEED_BIKE;
@@ -74,6 +79,11 @@ public class TransportModeService {
                 .toList();
     }
 
+    /**
+
+     * 标准化交通方式字符串；空值默认步行，并将旧的 cart 参数兼容转换为数据库使用的 bike。
+
+     */
     private String normalizeMode(String transportMode) {
         if (transportMode == null || transportMode.isBlank()) {
             return "walk";

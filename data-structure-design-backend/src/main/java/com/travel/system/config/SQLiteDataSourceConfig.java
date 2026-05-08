@@ -15,6 +15,9 @@ import javax.sql.DataSource;
 @Configuration
 @MapperScan(basePackages = "com.travel.system.mapper", sqlSessionFactoryRef = "sqliteSqlSessionFactory")
 public class SQLiteDataSourceConfig {
+    /**
+     * 创建 MyBatis 使用的 SqlSessionFactory，并加载 XML mapper，使 MyBatis 能通过 SQLite 数据源执行 SQL。
+     */
 
     @Bean(name = "sqliteSqlSessionFactory")
     public SqlSessionFactory sqliteSqlSessionFactory(DataSource dataSource) throws Exception {
@@ -26,11 +29,17 @@ public class SQLiteDataSourceConfig {
         bean.setConfiguration(configuration);
         return bean.getObject();
     }
+    /**
+     * 创建 SQLite 数据源对应的事务管理器，保证涉及数据库写入的方法可以按事务提交或回滚。
+     */
 
     @Bean(name = "sqliteTransactionManager")
     public DataSourceTransactionManager sqliteTransactionManager(DataSource dataSource) {
         return new DataSourceTransactionManager(dataSource);
     }
+    /**
+     * 创建线程安全的 SqlSessionTemplate，供 MyBatis mapper 在运行时执行具体 SQL。
+     */
 
     @Bean(name = "sqliteSqlSessionTemplate")
     public SqlSessionTemplate sqliteSqlSessionTemplate(@Qualifier("sqliteSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {

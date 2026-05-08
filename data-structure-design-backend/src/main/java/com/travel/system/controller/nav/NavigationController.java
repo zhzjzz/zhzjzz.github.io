@@ -38,6 +38,9 @@ public class NavigationController {
         this.transportModeService = transportModeService;
         this.cityRouteService = cityRouteService;
     }
+    /**
+     * 规划单个景区内部的路线。根据请求策略选择最短距离、最短时间或混合交通算法，并返回节点路径、分段步骤、总距离和总时间。
+     */
 
     @Operation(summary = "单景区路线规划")
     @PostMapping("/plan")
@@ -162,6 +165,9 @@ public class NavigationController {
         resp.setTotalTime(totalTime);
         return resp;
     }
+    /**
+     * 规划多个景区、多个地点的连续路线。每个景区内部先按访问点顺序规划，跨景区时补充出口段、城市交通段和入口段。
+     */
 
     @Operation(summary = "多景区多地点路线规划")
     @PostMapping("/multi-spot")
@@ -299,12 +305,18 @@ public class NavigationController {
         resp.setTotalTime(totalTime);
         return resp;
     }
+    /**
+     * 返回指定景区的全部路网节点，供前端地图标点、起终点选择和调试使用。
+     */
 
     @Operation(summary = "获取某景区全部节点")
     @GetMapping("/nodes")
     public List<RoadNode> getNodes(@RequestParam(required = false) String spotName) {
         return navigationDataService.loadNodes(spotName);
     }
+    /**
+     * 返回指定景区的全部路网边，供前端展示道路数据或排查路径规划问题。
+     */
 
     @Operation(summary = "获取某景区全部边")
     @GetMapping("/edges")
@@ -318,10 +330,20 @@ public class NavigationController {
     // start: 起点节点ID
     // end: 终点节点ID
 
+    /**
+
+     * 使用 Dijkstra 算法计算最短距离路径。边权重取道路长度；带交通方式参数时会过滤该方式不可通行的道路。
+
+     */
     private NavigationResponse shortestDistancePath(Map<Long, List<RoadEdge>> adj, Long start, Long end) {
         return dijkstra(adj, start, end, edge -> edgeLength(edge), edge -> DEFAULT_MODE);
     }
 
+    /**
+
+     * 使用 Dijkstra 算法计算最短距离路径。边权重取道路长度；带交通方式参数时会过滤该方式不可通行的道路。
+
+     */
     private NavigationResponse shortestDistancePath(Map<Long, List<RoadEdge>> adj, Long start, Long end, String mode) {
         String transportMode = normalizeMode(mode);
         return dijkstra(
@@ -335,6 +357,11 @@ public class NavigationController {
         );
     }
 
+    /**
+
+     * 使用 Dijkstra 算法计算最短时间路径。边权重取指定交通方式下的通行时间，不可通行道路会被跳过。
+
+     */
     private NavigationResponse shortestTimePath(Map<Long, List<RoadEdge>> adj, Long start, Long end, String mode) {
         String transportMode = normalizeMode(mode);
         return dijkstra(
@@ -348,6 +375,11 @@ public class NavigationController {
         );
     }
 
+    /**
+
+     * 使用 Dijkstra 算法计算混合交通路径。每条边会在允许的交通方式中选择耗时最短的一种作为该边的权重和步骤方式。
+
+     */
     private NavigationResponse mixedTransportPath(Map<Long, List<RoadEdge>> adj, Long start, Long end, List<String> modes) {
         List<String> transportModes = normalizeModes(modes);
         return dijkstra(
@@ -358,6 +390,9 @@ public class NavigationController {
                 edge -> bestMixedMode(edge, transportModes).mode
         );
     }
+    /**
+     * 通用 Dijkstra 最短路实现。adj 是邻接表，start/end 是起终点节点 ID，weight 用来计算边权重，modeSelector 用来决定每条边在返回步骤中显示的交通方式。
+     */
 
     private NavigationResponse dijkstra(Map<Long, List<RoadEdge>> adj,
                                         Long start,
@@ -452,10 +487,20 @@ public class NavigationController {
         return resp;
     }
 
+    /**
+
+     * 安全读取道路长度；当数据库长度为空时返回 0，避免路径汇总出现空指针。
+
+     */
     private double edgeLength(RoadEdge edge) {
         return edge.getLength() != null ? edge.getLength() : 0.0;
     }
 
+    /**
+
+     * 标准化交通方式字符串；空值默认步行，并将旧的 cart 参数兼容转换为数据库使用的 bike。
+
+     */
     private String normalizeMode(String mode) {
         if (mode == null || mode.isBlank()) {
             return DEFAULT_MODE;
@@ -464,6 +509,11 @@ public class NavigationController {
         return "cart".equals(normalized) ? "bike" : normalized;
     }
 
+    /**
+
+     * 标准化混合交通方式列表，去掉空值和重复项；如果列表为空则默认只使用步行。
+
+     */
     private List<String> normalizeModes(List<String> modes) {
         if (modes == null || modes.isEmpty()) {
             return List.of(DEFAULT_MODE);
@@ -477,6 +527,9 @@ public class NavigationController {
                 .toList();
         return normalized.isEmpty() ? List.of(DEFAULT_MODE) : normalized;
     }
+    /**
+     * 根据策略字符串选择具体路径算法。SHORTEST_TIME 使用时间作为边权重，其余情况默认使用距离作为边权重。
+     */
 
     private NavigationResponse planByStrategy(Map<Long, List<RoadEdge>> adj,
                                               Long start,
@@ -490,6 +543,11 @@ public class NavigationController {
         };
     }
 
+    /**
+
+     * 解析一次景区访问中的节点列表；如果前端没有选择节点，则使用该景区出入口节点作为兜底。
+
+     */
     private List<Long> resolveVisitNodes(MultiSpotNavigationRequest.SpotVisit visit) {
         if (visit == null || visit.getNodeIds() == null) {
             RoadNode gate = navigationDataService.getGateNode(visit != null ? visit.getSpotName() : null);
@@ -505,6 +563,9 @@ public class NavigationController {
         RoadNode gate = navigationDataService.getGateNode(visit.getSpotName());
         return gate == null ? List.of() : List.of(gate.getOsmid());
     }
+    /**
+     * 决定同一景区内多个访问点的访问顺序。不开启优化时保持前端顺序；点数不超过阈值时精确求最优，超过阈值时使用近似优化。
+     */
 
     private List<Long> orderVisitNodes(List<Long> nodeIds,
                                        Map<Long, List<RoadEdge>> adj,
@@ -521,6 +582,9 @@ public class NavigationController {
         }
         return approximateBestOrder(nodeIds, adj, strategy, transportMode, entryNode, exitNode);
     }
+    /**
+     * 使用动态规划精确求解访问点顺序。适合 10 个以内访问点，代价矩阵来自点到点最短路，并可叠加入口和出口成本。
+     */
 
     private List<Long> exactBestOrder(List<Long> nodeIds,
                                       Map<Long, List<RoadEdge>> adj,
@@ -589,6 +653,9 @@ public class NavigationController {
         }
         return ordered;
     }
+    /**
+     * 使用最近邻加 2-opt 生成近似最优访问顺序。适合访问点较多时降低计算量，避免大量 Dijkstra 组合导致响应过慢。
+     */
 
     private List<Long> approximateBestOrder(List<Long> nodeIds,
                                             Map<Long, List<RoadEdge>> adj,
@@ -603,6 +670,9 @@ public class NavigationController {
         improveWithTwoOpt(order, cost, entryCost, exitCost);
         return order.stream().map(nodeIds::get).toList();
     }
+    /**
+     * 构建访问点之间的代价矩阵。矩阵元素表示从 nodeIds[i] 到 nodeIds[j] 的最短距离或最短时间，不可达时记为无穷大。
+     */
 
     private double[][] buildCostMatrix(List<Long> nodeIds,
                                        Map<Long, List<RoadEdge>> adj,
@@ -623,6 +693,9 @@ public class NavigationController {
         }
         return cost;
     }
+    /**
+     * 计算入口或出口锚点与每个访问点之间的代价。anchorToNode 为 true 表示入口到点，为 false 表示点到出口。
+     */
 
     private double[] buildAnchorCost(Long anchorNode,
                                      List<Long> nodeIds,
@@ -645,6 +718,11 @@ public class NavigationController {
         return cost;
     }
 
+    /**
+
+     * 使用最近邻策略生成多访问点的近似访问顺序，作为大规模路径优化的初始解。
+
+     */
     private List<Integer> nearestNeighborOrder(double[][] cost, double[] entryCost) {
         int n = cost.length;
         List<Integer> order = new ArrayList<>();
@@ -684,6 +762,11 @@ public class NavigationController {
         return order;
     }
 
+    /**
+
+     * 使用 2-opt 对访问顺序做局部优化，通过反转区间降低总路径代价。
+
+     */
     private void improveWithTwoOpt(List<Integer> order, double[][] cost, double[] entryCost, double[] exitCost) {
         boolean improved = true;
         while (improved) {
@@ -704,6 +787,11 @@ public class NavigationController {
         }
     }
 
+    /**
+
+     * 计算一个访问顺序的总代价，包括入口到首点、点到点以及末点到出口的成本。
+
+     */
     private double orderCost(List<Integer> order, double[][] cost, double[] entryCost, double[] exitCost) {
         if (order.isEmpty()) {
             return 0.0;
@@ -715,6 +803,9 @@ public class NavigationController {
         total += exitCost[order.get(order.size() - 1)];
         return total;
     }
+    /**
+     * 把景区内部 NavigationResponse 转换为多景区响应中的路线段，补充景区名、起终点、交通方式、坐标路径、距离和时间。
+     */
 
     private MultiSpotNavigationResponse.RouteSegment createInnerSegment(String spotName,
                                                                         Long fromNodeId,
@@ -733,6 +824,9 @@ public class NavigationController {
         segment.setTime(route.getTotalTime());
         return segment;
     }
+    /**
+     * 创建跨景区城市交通段。起终点使用两个景区出入口坐标，距离和耗时优先读取 city_routes 表，缺失时返回可供前端画线的空成本段。
+     */
 
     private MultiSpotNavigationResponse.RouteSegment createCitySegment(String fromSpot,
                                                                        String toSpot,
@@ -763,10 +857,20 @@ public class NavigationController {
         return segment;
     }
 
+    /**
+
+     * 将空值或非有限浮点值转换为 0，避免距离和时间累加时出现异常值。
+
+     */
     private double safe(Double value) {
         return value == null || !Double.isFinite(value) ? 0.0 : value;
     }
 
+    /**
+
+     * 为单条道路在多个交通方式中选择耗时最短且允许通行的方式。
+
+     */
     private MixedChoice bestMixedMode(RoadEdge edge, List<String> modes) {
         String bestMode = DEFAULT_MODE;
         double bestTime = Double.POSITIVE_INFINITY;
@@ -783,10 +887,20 @@ public class NavigationController {
         return new MixedChoice(bestMode, bestTime);
     }
 
+    /**
+
+     * 判断两个景区名称是否表示同一个景区，比较前会统一做空值和大小写处理。
+
+     */
     private boolean sameSpot(String fromSpot, String toSpot) {
         return normalizeSpotName(fromSpot).equals(normalizeSpotName(toSpot));
     }
 
+    /**
+
+     * 标准化景区名称，用于景区名称比较，避免空格和大小写差异影响判断。
+
+     */
     private String normalizeSpotName(String spotName) {
         return spotName == null ? "" : spotName.trim().toLowerCase();
     }
@@ -801,9 +915,19 @@ public class NavigationController {
         String mode(RoadEdge edge);
     }
 
+    /**
+
+     * Dijkstra 优先队列中的节点状态，保存节点 ID 和从起点到该节点的当前最小代价。
+
+     */
     private record NodeState(Long nodeId, double distance) {
     }
 
+    /**
+
+     * 混合交通选择结果，保存某条边最终采用的交通方式及对应耗时。
+
+     */
     private record MixedChoice(String mode, double time) {
     }
 }

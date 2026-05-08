@@ -21,6 +21,9 @@ public class DiaryController {
     public DiaryController(DiaryService diaryService) {
         this.diaryService = diaryService;
     }
+    /**
+     * 查询列表数据。keyword 为空时返回全部记录，不为空时按标题、名称或内容等字段做模糊过滤，返回给前端列表页。
+     */
 
     @Operation(summary = "查询日记列表", description = "支持标题/内容模糊搜索，无关键字则返回所有日记")
     @ApiResponse(responseCode = "200", description = "查询成功")
@@ -35,10 +38,16 @@ public class DiaryController {
         @ApiResponse(responseCode = "200", description = "创建成功"),
         @ApiResponse(responseCode = "400", description = "请求参数错误")
     })
+    /**
+     * 处理新增资源请求，将前端提交的数据交给 service 保存，并返回保存后的对象。
+     */
     @PostMapping
     public Diary create(@RequestBody Diary diary) {
         return diaryService.save(diary);
     }
+    /**
+     * 按前端传入的关键词、类型、分类或排序条件检索数据，返回可直接展示的候选列表。
+     */
 
     @Operation(summary = "日记全文搜索", description = "对日记标题和内容进行全文检索")
     @ApiResponse(responseCode = "200", description = "搜索成功")
