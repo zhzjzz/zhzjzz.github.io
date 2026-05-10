@@ -36,6 +36,9 @@ const form = ref({
   isPublic: true,
 })
 
+const DIARY_IMAGE_MAX_EDGE = 1600
+const DIARY_IMAGE_QUALITY = 0.86
+
 const selectedDiary = computed(() => diaries.value.find((item) => item.id === selectedDiaryId.value) || diaries.value[0])
 
 const resetForm = () => {
@@ -85,7 +88,38 @@ const submit = async () => {
   await load()
 }
 
-const handleMediaFileChange = (uploadFile) => {
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error('Failed to read image'))
+    reader.readAsDataURL(file)
+  })
+
+const loadImage = (src) =>
+  new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('Failed to decode image'))
+    image.src = src
+  })
+
+const normalizeImageForSharing = async (file) => {
+  const originalDataUrl = await readFileAsDataUrl(file)
+  const image = await loadImage(originalDataUrl)
+  const scale = Math.min(1, DIARY_IMAGE_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight))
+  const width = Math.max(1, Math.round(image.naturalWidth * scale))
+  const height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) return originalDataUrl
+  context.drawImage(image, 0, 0, width, height)
+  return canvas.toDataURL('image/jpeg', DIARY_IMAGE_QUALITY)
+}
+
+const handleMediaFileChange = async (uploadFile) => {
   const file = uploadFile.raw
   if (!file) return
   if (!file.type.startsWith('image/')) {
@@ -95,7 +129,21 @@ const handleMediaFileChange = (uploadFile) => {
 
   selectedMediaName.value = file.name
   form.value.mediaType = 'image'
-  form.value.originalSizeBytes = file.size
+  try {
+    const normalizedDataUrl = await normalizeImageForSharing(file)
+    form.value.mediaUrl = normalizedDataUrl
+    form.value.originalSizeBytes = Math.round((normalizedDataUrl.length * 3) / 4)
+    mediaPreview.value = normalizedDataUrl
+    return
+  } catch (error) {
+    console.error(error)
+    selectedMediaName.value = ''
+    form.value.mediaUrl = ''
+    form.value.originalSizeBytes = null
+    mediaPreview.value = ''
+    ElMessage.error('鍥剧墖鏍煎紡鏃犳硶鍏煎棰勮锛岃鎹㈢敤 JPG/PNG 鍥剧墖')
+    return
+  }
 
   const reader = new FileReader()
   reader.onload = () => {
@@ -190,13 +238,26 @@ const submitComment = async (diary) => {
 
 const formatSize = (bytes) => {
   if (!bytes) return '0 MB'
-  return `${(Number(bytes) / 1024 / 1024).toFixed(1)} MB`
+  const size = Number(bytes)
+  if (!Number.isFinite(size) || size <= 0) return '0 MB'
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
 const compressionText = (diary) => {
+  if (diary?.compressionStatus === 'lossless_optimized') return '旧版模拟结果'
   if (!diary?.originalSizeBytes || !diary?.compressedSizeBytes) return '未上传媒体'
   const saved = 100 - (Number(diary.compressedSizeBytes) / Number(diary.originalSizeBytes)) * 100
   return `节省 ${Math.max(0, saved).toFixed(0)}%`
+}
+
+const compressionStatusText = (status) => {
+  if (status === 'lossless_deflate') return 'DEFLATE 无损压缩'
+  if (status === 'already_optimal') return '已是压缩格式'
+  if (status === 'lossless_optimized') return '旧版模拟优化'
+  return status || 'none'
 }
 
 const shareLink = (diary) => {
@@ -371,7 +432,7 @@ onMounted(load)
             <div class="metadata-grid">
               <article>
                 <span><Star theme="outline" size="15" fill="currentColor" /> 媒体优化</span>
-                <strong>{{ selectedDiary.compressionStatus || 'none' }}</strong>
+                <strong>{{ compressionStatusText(selectedDiary.compressionStatus) }}</strong>
                 <small>{{ formatSize(selectedDiary.originalSizeBytes) }} -> {{ formatSize(selectedDiary.compressedSizeBytes) }} · {{ compressionText(selectedDiary) }}</small>
               </article>
               <article>
