@@ -158,7 +158,7 @@ const usePrompt = (prompt) => {
           placeholder="例如：从校门到图书馆怎么规划路线？附近有什么吃饭的地方？"
           @keydown.enter.exact.prevent="sendMessage()"
         />
-        <el-button type="primary" size="large" :disabled="!canSend" :loading="loading" @click="sendMessage()">
+        <el-button type="primary" size="large" :disabled="!canSend" @click="sendMessage()">
           <Send theme="outline" size="16" fill="currentColor" />
           发送
         </el-button>
