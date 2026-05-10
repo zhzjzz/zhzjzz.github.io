@@ -10,6 +10,20 @@ const http = axios.create({
   timeout: 20000,
 })
 
+export const resolveApiAssetUrl = (url) => {
+  if (!url || url.startsWith('data:') || url.startsWith('http')) {
+    return url
+  }
+  if (!url.startsWith('/')) {
+    return url
+  }
+  if (!baseURL.startsWith('http')) {
+    return url
+  }
+  const apiOrigin = new URL(baseURL).origin
+  return `${apiOrigin}${url}`
+}
+
 /**
  * 请求拦截器：统一附带登录令牌，便于后端后续扩展鉴权。
  */

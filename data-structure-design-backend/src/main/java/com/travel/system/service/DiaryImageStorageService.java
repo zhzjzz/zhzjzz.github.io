@@ -51,4 +51,20 @@ public class DiaryImageStorageService {
             throw new IllegalStateException("Failed to store diary image", exception);
         }
     }
+
+    public void deleteStoredImageIfOwned(String mediaUrl) {
+        if (mediaUrl == null || !mediaUrl.startsWith("/uploads/diaries/")) {
+            return;
+        }
+        String fileName = mediaUrl.substring("/uploads/diaries/".length());
+        Path target = diaryUploadDir.resolve(fileName).normalize();
+        if (!target.startsWith(diaryUploadDir)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException ignored) {
+            // Deleting the diary record should not fail just because the file is already gone or locked.
+        }
+    }
 }

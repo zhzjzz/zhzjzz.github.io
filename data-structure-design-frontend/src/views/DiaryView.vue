@@ -13,6 +13,7 @@ import {
   listHotDiaries,
   searchDiaryFullText,
 } from '../api/travel'
+import { resolveApiAssetUrl } from '../api/http'
 import diaryDefaultImage from '../assets/defaults/diary-default.png'
 import aigcDefaultImage from '../assets/defaults/aigc-animation-default.png'
 import { useAppStore } from '../stores/app'
@@ -221,10 +222,14 @@ const removeDiary = async (diary) => {
     cancelButtonText: '取消',
     type: 'warning',
   })
-  await deleteDiary(diary.id)
+  const deletedId = diary.id
+  await deleteDiary(deletedId)
   ElMessage.success('日记已删除')
-  comments.value = { ...comments.value, [diary.id]: [] }
-  await load()
+  comments.value = { ...comments.value, [deletedId]: [] }
+  diaries.value = diaries.value.filter((item) => item.id !== deletedId)
+  hotDiaries.value = hotDiaries.value.filter((item) => item.id !== deletedId)
+  selectedDiaryId.value = diaries.value[0]?.id || null
+  await loadDiaryDetail(selectedDiaryId.value)
 }
 
 const interact = async (diary, type) => {
@@ -295,7 +300,7 @@ const shareLink = (diary) => {
   return `${window.location.origin}${window.location.pathname}#/diaries?share=${diary.shareToken}`
 }
 
-const diaryCover = (diary) => (diary?.mediaType === 'image' && diary?.mediaUrl ? diary.mediaUrl : diaryDefaultImage)
+const diaryCover = (diary) => (diary?.mediaType === 'image' && diary?.mediaUrl ? resolveApiAssetUrl(diary.mediaUrl) : diaryDefaultImage)
 
 onMounted(load)
 </script>

@@ -92,6 +92,7 @@ public class DiaryService {
         if (!currentUser.equals(normalize(diary.getAuthorName()))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the author can delete this diary");
         }
+        imageStorageService.deleteStoredImageIfOwned(diary.getMediaUrl());
         diaryRepository.deleteCommentsByDiaryId(id);
         diaryRepository.deleteById(id);
     }
