@@ -23,8 +23,8 @@ const selectedDiaryId = ref(null)
 const selectedMediaName = ref('')
 const mediaPreview = ref('')
 const commentForm = ref({ authorName: '游客', content: '' })
-const MAX_DIARY_IMAGE_WIDTH = 1280
-const DIARY_IMAGE_QUALITY = 0.78
+const DIARY_IMAGE_MAX_EDGE = 1600
+const DIARY_IMAGE_QUALITY = 0.86
 const form = ref({
   title: '',
   content: '',
@@ -35,9 +35,6 @@ const form = ref({
   views: 0,
   isPublic: true,
 })
-
-const DIARY_IMAGE_MAX_EDGE = 1600
-const DIARY_IMAGE_QUALITY = 0.86
 
 const selectedDiary = computed(() => diaries.value.find((item) => item.id === selectedDiaryId.value) || diaries.value[0])
 
@@ -64,6 +61,9 @@ const load = async () => {
     diaries.value = Array.isArray(diaryData) ? diaryData : []
     hotDiaries.value = Array.isArray(hotData) ? hotData : []
     selectedDiaryId.value = diaries.value.some((item) => item.id === previousId) ? previousId : diaries.value[0]?.id || null
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('日记数据加载失败')
   } finally {
     loading.value = false
   }
@@ -74,6 +74,7 @@ const submit = async () => {
     ElMessage.warning('标题和内容不能为空')
     return
   }
+
   const payload = {
     ...form.value,
     title: form.value.title.trim(),
@@ -82,7 +83,7 @@ const submit = async () => {
   const { data } = await createDiary(payload)
   resetForm()
   const compressionSummary = data?.originalSizeBytes
-    ? `旅游日记已发布，媒体优化完成：${formatSize(data.originalSizeBytes)} -> ${formatSize(data.compressedSizeBytes)}，${compressionText(data)}`
+    ? `旅游日记已发布，媒体优化完成：${formatSize(originalSizeBytes(data))} -> ${formatSize(compressedSizeBytes(data))}，${compressionText(data)}`
     : '旅游日记已发布'
   ElMessage({ type: 'success', message: compressionSummary, duration: 4600 })
   await load()
@@ -134,53 +135,15 @@ const handleMediaFileChange = async (uploadFile) => {
     form.value.mediaUrl = normalizedDataUrl
     form.value.originalSizeBytes = Math.round((normalizedDataUrl.length * 3) / 4)
     mediaPreview.value = normalizedDataUrl
-    return
   } catch (error) {
     console.error(error)
     selectedMediaName.value = ''
     form.value.mediaUrl = ''
     form.value.originalSizeBytes = null
     mediaPreview.value = ''
-    ElMessage.error('鍥剧墖鏍煎紡鏃犳硶鍏煎棰勮锛岃鎹㈢敤 JPG/PNG 鍥剧墖')
-    return
+    ElMessage.error('图片处理失败，请换一张 JPG/PNG 图片重试')
   }
-
-  const reader = new FileReader()
-  reader.onload = () => {
-    compressImage(String(reader.result || ''), file.type)
-      .then((url) => {
-        form.value.mediaUrl = url
-        mediaPreview.value = url
-      })
-      .catch(() => {
-        form.value.mediaUrl = String(reader.result || '')
-        mediaPreview.value = form.value.mediaUrl
-      })
-  }
-  reader.onerror = () => ElMessage.error('图片读取失败，请重新选择')
-  reader.readAsDataURL(file)
 }
-
-const compressImage = (dataUrl, mimeType = 'image/jpeg') =>
-  new Promise((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => {
-      const scale = Math.min(1, MAX_DIARY_IMAGE_WIDTH / image.width)
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.max(1, Math.round(image.width * scale))
-      canvas.height = Math.max(1, Math.round(image.height * scale))
-      const context = canvas.getContext('2d')
-      if (!context) {
-        reject(new Error('canvas unavailable'))
-        return
-      }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height)
-      const outputType = mimeType === 'image/png' ? 'image/png' : 'image/jpeg'
-      resolve(canvas.toDataURL(outputType, DIARY_IMAGE_QUALITY))
-    }
-    image.onerror = reject
-    image.src = dataUrl
-  })
 
 const handleMediaTypeChange = () => {
   selectedMediaName.value = ''
@@ -194,11 +157,15 @@ const fullText = async () => {
     await load()
     return
   }
+
   loading.value = true
   try {
-    const { data } = await searchDiaryFullText(searchKeyword.value)
+    const { data } = await searchDiaryFullText(searchKeyword.value.trim())
     diaries.value = Array.isArray(data) ? data : []
     selectedDiaryId.value = diaries.value[0]?.id || null
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('搜索失败')
   } finally {
     loading.value = false
   }
@@ -230,7 +197,11 @@ const submitComment = async (diary) => {
     ElMessage.warning('评论内容不能为空')
     return
   }
-  await createDiaryComment(diary.id, commentForm.value)
+  await createDiaryComment(diary.id, {
+    ...commentForm.value,
+    authorName: commentForm.value.authorName.trim() || '游客',
+    content: commentForm.value.content.trim(),
+  })
   commentForm.value = { authorName: '游客', content: '' }
   await loadComments(diary)
   await load()
@@ -246,12 +217,20 @@ const formatSize = (bytes) => {
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
+const originalSizeBytes = (diary) => diary?.['originalSizeBytes'] ?? diary?.['original_size_bytes'] ?? 0
+
+const compressedSizeBytes = (diary) => diary?.['compressedSizeBytes'] ?? diary?.['compressed_size_bytes'] ?? 0
+
 const compressionText = (diary) => {
   if (diary?.compressionStatus === 'lossless_optimized') return '旧版模拟结果'
-  if (!diary?.originalSizeBytes || !diary?.compressedSizeBytes) return '未上传媒体'
-  const saved = 100 - (Number(diary.compressedSizeBytes) / Number(diary.originalSizeBytes)) * 100
+  const originalBytes = originalSizeBytes(diary)
+  const optimizedBytes = compressedSizeBytes(diary)
+  if (!originalBytes || !optimizedBytes) return '未上传媒体'
+  const saved = 100 - (Number(optimizedBytes) / Number(originalBytes)) * 100
   return `节省 ${Math.max(0, saved).toFixed(0)}%`
 }
+
+const compressionSizeText = (diary) => `${formatSize(originalSizeBytes(diary))} -> ${formatSize(compressedSizeBytes(diary))}`
 
 const compressionStatusText = (status) => {
   if (status === 'lossless_deflate') return 'DEFLATE 无损压缩'
@@ -378,7 +357,7 @@ onMounted(load)
           >
             <span><Fire theme="outline" size="14" fill="currentColor" /> 热度 {{ item.heatScore || 0 }}</span>
             <strong>{{ item.title }}</strong>
-            <small>{{ item.views || 0 }} 浏览 · {{ item.likeCount || 0 }} 喜欢 · {{ item.shareCount || 0 }} 分享</small>
+            <small>{{ item.views || 0 }} 浏览 / {{ item.likeCount || 0 }} 喜欢 / {{ item.shareCount || 0 }} 分享</small>
           </button>
           <el-empty v-if="!hotDiaries.length" description="暂无热门游记" />
         </div>
@@ -433,7 +412,7 @@ onMounted(load)
               <article>
                 <span><Star theme="outline" size="15" fill="currentColor" /> 媒体优化</span>
                 <strong>{{ compressionStatusText(selectedDiary.compressionStatus) }}</strong>
-                <small>{{ formatSize(selectedDiary.originalSizeBytes) }} -> {{ formatSize(selectedDiary.compressedSizeBytes) }} · {{ compressionText(selectedDiary) }}</small>
+                <small>{{ compressionSizeText(selectedDiary) }} / {{ compressionText(selectedDiary) }}</small>
               </article>
               <article>
                 <span><MagicWand theme="outline" size="15" fill="currentColor" /> AIGC 动画</span>

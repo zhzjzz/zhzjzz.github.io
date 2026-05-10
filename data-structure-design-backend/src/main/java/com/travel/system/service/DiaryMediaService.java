@@ -70,12 +70,5 @@ public class DiaryMediaService {
         } finally {
             deflater.end();
         }
-        diary.setCompressedSizeBytes(compressed);
-        if (diary.getMediaUrl().startsWith("data:")) {
-            diary.setCompressedMediaUrl(diary.getMediaUrl());
-        } else {
-            diary.setCompressedMediaUrl(diary.getMediaUrl() + "?optimized=lossless");
-        }
-        diary.setCompressionStatus("lossless_optimized");
     }
 }
