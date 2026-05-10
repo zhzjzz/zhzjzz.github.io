@@ -43,8 +43,22 @@ public class DiaryController {
      * 处理新增资源请求，将前端提交的数据交给 service 保存，并返回保存后的对象。
      */
     @PostMapping
-    public Diary create(@RequestBody Diary diary) {
-        return diaryService.save(diary);
+    public Diary create(@RequestBody Diary diary,
+                        @RequestHeader(value = "Authorization", required = false) String authorization,
+                        @RequestHeader(value = "X-Travel-User", required = false) String userName) {
+        return diaryService.save(diary, authorization, userName);
+    }
+
+    @GetMapping("/{id}")
+    public Diary detail(@PathVariable Long id) {
+        return diaryService.detail(id);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id,
+                       @RequestHeader(value = "Authorization", required = false) String authorization,
+                       @RequestHeader(value = "X-Travel-User", required = false) String userName) {
+        diaryService.delete(id, authorization, userName);
     }
     /**
      * 按前端传入的关键词、类型、分类或排序条件检索数据，返回可直接展示的候选列表。

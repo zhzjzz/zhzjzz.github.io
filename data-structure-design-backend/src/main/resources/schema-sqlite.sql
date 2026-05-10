@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS diary (
     share_count INTEGER DEFAULT 0,
     is_public INTEGER DEFAULT 1,
     share_token TEXT,
+    author_name TEXT,
     published_at TEXT,
     score REAL,
     views INTEGER,

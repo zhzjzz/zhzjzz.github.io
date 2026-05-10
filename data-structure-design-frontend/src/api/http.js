@@ -18,6 +18,10 @@ http.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  const userName = localStorage.getItem('travel-user-name')
+  if (userName) {
+    config.headers['X-Travel-User'] = encodeURIComponent(userName)
+  }
   config.headers['ngrok-skip-browser-warning'] = '1'
   return config
 })

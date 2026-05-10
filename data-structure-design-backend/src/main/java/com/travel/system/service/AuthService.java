@@ -37,9 +37,11 @@ public class AuthService {
 
     /** 用户账户 MyBatis Mapper，用于查询、保存用户信息。 */
     private final UserAccountMapper userAccountMapper;
+    private final AuthTokenService authTokenService;
 
-    public AuthService(UserAccountMapper userAccountMapper) {
+    public AuthService(UserAccountMapper userAccountMapper, AuthTokenService authTokenService) {
         this.userAccountMapper = userAccountMapper;
+        this.authTokenService = authTokenService;
     }
 
     /**
@@ -67,6 +69,7 @@ public class AuthService {
 
         // 演示用 token，可在实际项目中替换为 JWT 等实现
         String token = "demo-token-" + UUID.randomUUID();
+        authTokenService.remember(token, user.getDisplayName());
         return new LoginResponse(true, user.getDisplayName(), token, "登录成功，欢迎进入个性化旅游系统");
     }
 
@@ -97,6 +100,7 @@ public class AuthService {
         userAccountMapper.save(user);
 
         String token = "demo-token-" + UUID.randomUUID();
+        authTokenService.remember(token, user.getDisplayName());
         return new LoginResponse(true, user.getDisplayName(), token, "注册成功，已自动登录");
     }
 

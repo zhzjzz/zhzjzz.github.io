@@ -5,6 +5,8 @@ import com.travel.system.model.Destination;
 import com.travel.system.model.Diary;
 import com.travel.system.model.DiaryComment;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,15 +19,21 @@ public class DiaryService {
     private final DiaryHeatService heatService;
     private final DiaryMediaService mediaService;
     private final DiaryAigcService aigcService;
+    private final AuthTokenService authTokenService;
+    private final DiaryImageStorageService imageStorageService;
 
     public DiaryService(DiaryMapper diaryRepository,
                         DiaryHeatService heatService,
                         DiaryMediaService mediaService,
-                        DiaryAigcService aigcService) {
+                        DiaryAigcService aigcService,
+                        AuthTokenService authTokenService,
+                        DiaryImageStorageService imageStorageService) {
         this.diaryRepository = diaryRepository;
         this.heatService = heatService;
         this.mediaService = mediaService;
         this.aigcService = aigcService;
+        this.authTokenService = authTokenService;
+        this.imageStorageService = imageStorageService;
     }
 
     /**
@@ -35,9 +43,9 @@ public class DiaryService {
      */
     public List<Diary> list(String keyword) {
         if (keyword == null || keyword.isBlank()) {
-            return diaryRepository.findAll();
+            return diaryRepository.findRecent(20);
         }
-        return diaryRepository.findByTitleOrContentContainingIgnoreCase(keyword);
+        return diaryRepository.findByTitleOrContentContainingIgnoreCase(keyword, 20);
     }
 
     /**
@@ -45,7 +53,8 @@ public class DiaryService {
      * 保存或更新实体数据，并返回数据库持久化后的结果。
 
      */
-    public Diary save(Diary diary) {
+    public Diary save(Diary diary, String authorizationHeader, String userNameHeader) {
+        diary.setAuthorName(currentDisplayName(authorizationHeader, userNameHeader));
         if (diary.getViews() == null) diary.setViews(0L);
         if (diary.getLikeCount() == null) diary.setLikeCount(0L);
         if (diary.getFavoriteCount() == null) diary.setFavoriteCount(0L);
@@ -57,10 +66,34 @@ public class DiaryService {
         if (diary.getShareToken() == null || diary.getShareToken().isBlank()) {
             diary.setShareToken(UUID.randomUUID().toString().replace("-", ""));
         }
+        if (diary.getMediaType() == null || diary.getMediaType().isBlank()) {
+            diary.setMediaType("text");
+        }
         mediaService.enrichCompression(diary);
+        if ("image".equals(diary.getMediaType())) {
+            try {
+                diary.setMediaUrl(imageStorageService.saveDataUrlIfNeeded(diary.getMediaUrl()));
+            } catch (IllegalArgumentException | IllegalStateException exception) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid diary image", exception);
+            }
+            diary.setCompressedMediaUrl(null);
+        }
         aigcService.enrichAnimation(diary);
         diary.setHeatScore(heatService.compute(diary));
         return diaryRepository.save(diary);
+    }
+
+    public void delete(Long id, String authorizationHeader, String userNameHeader) {
+        Diary diary = diaryRepository.findById(id);
+        if (diary == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found: " + id);
+        }
+        String currentUser = currentDisplayName(authorizationHeader, userNameHeader);
+        if (!currentUser.equals(normalize(diary.getAuthorName()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the author can delete this diary");
+        }
+        diaryRepository.deleteCommentsByDiaryId(id);
+        diaryRepository.deleteById(id);
     }
 
     /**
@@ -69,7 +102,7 @@ public class DiaryService {
 
      */
     public List<Diary> fullTextSearch(String keyword) {
-        return diaryRepository.findByTitleOrContentContainingIgnoreCase(keyword);
+        return diaryRepository.findByTitleOrContentContainingIgnoreCase(keyword, 20);
     }
 
     public List<Diary> hot(int limit) {
@@ -78,6 +111,14 @@ public class DiaryService {
 
     public Diary shared(String shareToken) {
         return diaryRepository.findByShareToken(shareToken);
+    }
+
+    public Diary detail(Long id) {
+        Diary diary = diaryRepository.findById(id);
+        if (diary == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found: " + id);
+        }
+        return diary;
     }
 
     public Diary interact(Long id, String type) {
@@ -117,5 +158,15 @@ public class DiaryService {
 
     private long value(Long number) {
         return number == null ? 0L : number;
+    }
+
+    private String currentDisplayName(String authorizationHeader, String userNameHeader) {
+        return authTokenService.displayName(authorizationHeader, userNameHeader)
+                .map(this::normalize)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Please login first"));
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim();
     }
 }

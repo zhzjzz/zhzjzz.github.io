@@ -23,6 +23,7 @@
         <result column="share_count" property="shareCount"/>
         <result column="is_public" property="isPublic"/>
         <result column="share_token" property="shareToken"/>
+        <result column="author_name" property="authorName"/>
         <result column="published_at" property="publishedAt"/>
         <result column="score" property="score"/>
         <result column="views" property="views"/>
@@ -58,6 +59,7 @@
         dr.share_count,
         dr.is_public,
         dr.share_token,
+        dr.author_name,
         dr.published_at,
         dr.score,
         dr.views,
@@ -72,7 +74,40 @@
         d.longitude AS destination_longitude
     </sql>
 
-    <!-- 查询全部日记 -->
+    <sql id="diarySummaryColumns">
+        dr.id,
+        dr.title,
+        dr.content,
+        NULL AS media_url,
+        dr.media_type,
+        NULL AS compressed_media_url,
+        dr.original_size_bytes,
+        dr.compressed_size_bytes,
+        dr.compression_status,
+        dr.aigc_animation_url,
+        dr.aigc_status,
+        dr.heat_score,
+        dr.like_count,
+        dr.favorite_count,
+        dr.comment_count,
+        dr.share_count,
+        dr.is_public,
+        dr.share_token,
+        dr.author_name,
+        dr.published_at,
+        dr.score,
+        dr.views,
+        d.id AS destination_ref_id,
+        d.name AS destination_name,
+        d.scene_type AS destination_scene_type,
+        d.category AS destination_category,
+        d.heat AS destination_heat,
+        d.rating AS destination_rating,
+        d.description AS destination_description,
+        d.latitude AS destination_latitude,
+        d.longitude AS destination_longitude
+    </sql>
+
     <select id="findAll" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
         FROM diary dr
@@ -80,7 +115,14 @@
         ORDER BY dr.published_at DESC, dr.id DESC
     </select>
 
-    <!-- 按 ID 查询单条日记 -->
+    <select id="findRecent" resultMap="diaryResultMap">
+        SELECT <include refid="diarySummaryColumns"/>
+        FROM diary dr
+        LEFT JOIN destination d ON d.id = dr.destination_id
+        ORDER BY dr.published_at DESC, dr.id DESC
+        LIMIT #{limit}
+    </select>
+
     <select id="findById" parameterType="long" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
         FROM diary dr
@@ -88,7 +130,6 @@
         WHERE dr.id = #{id}
     </select>
 
-    <!-- 按标题进行不区分大小写的模糊匹配 -->
     <select id="findByTitleContainingIgnoreCase" resultMap="diaryResultMap">
         SELECT <include refid="diaryColumns"/>
         FROM diary dr
@@ -97,18 +138,18 @@
         ORDER BY dr.published_at DESC, dr.id DESC
     </select>
 
-    <!-- 按标题或内容进行不区分大小写的模糊匹配-->
     <select id="findByTitleOrContentContainingIgnoreCase" resultMap="diaryResultMap">
-        SELECT <include refid="diaryColumns"/>
+        SELECT <include refid="diarySummaryColumns"/>
         FROM diary dr
         LEFT JOIN destination d ON d.id = dr.destination_id
         WHERE LOWER(dr.title) LIKE '%' || LOWER(#{keyword}) || '%'
            OR LOWER(dr.content) LIKE '%' || LOWER(#{keyword}) || '%'
         ORDER BY dr.published_at DESC, dr.id DESC
+        LIMIT #{limit}
     </select>
 
     <select id="findHotPublic" resultMap="diaryResultMap">
-        SELECT <include refid="diaryColumns"/>
+        SELECT <include refid="diarySummaryColumns"/>
         FROM diary dr
         LEFT JOIN destination d ON d.id = dr.destination_id
         WHERE dr.is_public = 1
@@ -123,22 +164,20 @@
         WHERE dr.share_token = #{shareToken}
     </select>
 
-    <!-- 插入日记记录-->
     <insert id="insert" parameterType="com.travel.system.model.Diary"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO diary(title, content, media_type, media_url, compressed_media_url,
                           original_size_bytes, compressed_size_bytes, compression_status,
                           aigc_animation_url, aigc_status, heat_score, like_count,
                           favorite_count, comment_count, share_count, is_public,
-                          share_token, published_at, score, views, destination_id)
+                          share_token, author_name, published_at, score, views, destination_id)
         VALUES(#{title}, #{content}, #{mediaType}, #{mediaUrl}, #{compressedMediaUrl},
                #{originalSizeBytes}, #{compressedSizeBytes}, #{compressionStatus},
                #{aigcAnimationUrl}, #{aigcStatus}, #{heatScore}, #{likeCount},
                #{favoriteCount}, #{commentCount}, #{shareCount}, #{isPublic},
-               #{shareToken}, #{publishedAt}, #{score}, #{views}, #{destination.id})
+               #{shareToken}, #{authorName}, #{publishedAt}, #{score}, #{views}, #{destination.id})
     </insert>
 
-    <!-- 更新日记记录 -->
     <update id="update" parameterType="com.travel.system.model.Diary">
         UPDATE diary
         SET title = #{title},
@@ -158,6 +197,7 @@
             share_count = #{shareCount},
             is_public = #{isPublic},
             share_token = #{shareToken},
+            author_name = #{authorName},
             published_at = #{publishedAt},
             score = #{score},
             views = #{views},
@@ -176,6 +216,14 @@
         WHERE id = #{id}
     </update>
 
+    <delete id="deleteCommentsByDiaryId">
+        DELETE FROM diary_comment WHERE diary_id = #{diaryId}
+    </delete>
+
+    <delete id="deleteById">
+        DELETE FROM diary WHERE id = #{id}
+    </delete>
+
     <insert id="insertComment" parameterType="com.travel.system.model.DiaryComment"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO diary_comment(diary_id, author_name, content, created_at)
@@ -192,6 +240,5 @@
         WHERE diary_id = #{diaryId}
         ORDER BY created_at DESC
     </select>
-
 
 </mapper>

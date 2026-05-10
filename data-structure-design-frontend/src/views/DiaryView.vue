@@ -1,10 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Fire, Globe, Like, Lock, MagicWand, Message, Refresh, Search, Send, Share, Star, UploadPicture } from '@icon-park/vue-next'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Fire, Globe, Like, Lock, MagicWand, Message, Refresh, Search, Send, Share, Star, UploadPicture } from '@icon-park/vue-next'
 import {
   createDiary,
   createDiaryComment,
+  deleteDiary,
+  getDiary,
   interactDiary,
   listDiaries,
   listDiaryComments,
@@ -13,11 +15,13 @@ import {
 } from '../api/travel'
 import diaryDefaultImage from '../assets/defaults/diary-default.png'
 import aigcDefaultImage from '../assets/defaults/aigc-animation-default.png'
+import { useAppStore } from '../stores/app'
 
 const diaries = ref([])
 const hotDiaries = ref([])
 const comments = ref({})
 const loading = ref(false)
+const submitting = ref(false)
 const searchKeyword = ref('')
 const selectedDiaryId = ref(null)
 const selectedMediaName = ref('')
@@ -25,6 +29,7 @@ const mediaPreview = ref('')
 const commentForm = ref({ authorName: '游客', content: '' })
 const DIARY_IMAGE_MAX_EDGE = 1600
 const DIARY_IMAGE_QUALITY = 0.86
+const appStore = useAppStore()
 const form = ref({
   title: '',
   content: '',
@@ -37,6 +42,7 @@ const form = ref({
 })
 
 const selectedDiary = computed(() => diaries.value.find((item) => item.id === selectedDiaryId.value) || diaries.value[0])
+const canDeleteSelectedDiary = computed(() => Boolean(selectedDiary.value?.id && appStore.user.name))
 
 const resetForm = () => {
   form.value = {
@@ -61,6 +67,7 @@ const load = async () => {
     diaries.value = Array.isArray(diaryData) ? diaryData : []
     hotDiaries.value = Array.isArray(hotData) ? hotData : []
     selectedDiaryId.value = diaries.value.some((item) => item.id === previousId) ? previousId : diaries.value[0]?.id || null
+    await loadDiaryDetail(selectedDiaryId.value)
   } catch (error) {
     console.error(error)
     ElMessage.error('日记数据加载失败')
@@ -80,13 +87,27 @@ const submit = async () => {
     title: form.value.title.trim(),
     content: form.value.content.trim(),
   }
-  const { data } = await createDiary(payload)
+  submitting.value = true
+  let data
+  try {
+    ;({ data } = await createDiary(payload))
+  } catch (error) {
+    console.error(error)
+    ElMessage.error(error.response?.status === 401 ? '登录状态已失效，请重新登录后发布' : '发布日记失败，请稍后重试')
+    return
+  } finally {
+    submitting.value = false
+  }
   resetForm()
   const compressionSummary = data?.originalSizeBytes
     ? `旅游日记已发布，媒体优化完成：${formatSize(originalSizeBytes(data))} -> ${formatSize(compressedSizeBytes(data))}，${compressionText(data)}`
     : '旅游日记已发布'
   ElMessage({ type: 'success', message: compressionSummary, duration: 4600 })
   await load()
+  if (data?.id) {
+    selectedDiaryId.value = data.id
+    await loadDiaryDetail(data.id)
+  }
 }
 
 const readFileAsDataUrl = (file) =>
@@ -163,6 +184,7 @@ const fullText = async () => {
     const { data } = await searchDiaryFullText(searchKeyword.value.trim())
     diaries.value = Array.isArray(data) ? data : []
     selectedDiaryId.value = diaries.value[0]?.id || null
+    await loadDiaryDetail(selectedDiaryId.value)
   } catch (error) {
     console.error(error)
     ElMessage.error('搜索失败')
@@ -173,7 +195,36 @@ const fullText = async () => {
 
 const selectDiary = async (diary) => {
   selectedDiaryId.value = diary.id
+  await loadDiaryDetail(diary.id)
   await loadComments(diary)
+}
+
+const loadDiaryDetail = async (id) => {
+  if (!id) return
+  const { data } = await getDiary(id)
+  const index = diaries.value.findIndex((item) => item.id === data.id)
+  if (index >= 0) {
+    diaries.value[index] = { ...diaries.value[index], ...data }
+  } else {
+    diaries.value.unshift(data)
+  }
+}
+
+const removeDiary = async (diary) => {
+  if (!diary?.id) return
+  if (!canDeleteSelectedDiary.value) {
+    ElMessage.warning('只能删除自己发布的日记')
+    return
+  }
+  await ElMessageBox.confirm('确认删除这篇旅行日记吗？删除后不可恢复。', '删除日记', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+  await deleteDiary(diary.id)
+  ElMessage.success('日记已删除')
+  comments.value = { ...comments.value, [diary.id]: [] }
+  await load()
 }
 
 const interact = async (diary, type) => {
@@ -337,7 +388,7 @@ onMounted(load)
           <el-form-item label="内容描述">
             <el-input v-model="form.content" type="textarea" :rows="5" placeholder="记录你的旅行故事、路线体验和推荐理由..." />
           </el-form-item>
-          <el-button type="primary" @click="submit">
+          <el-button type="primary" :loading="submitting" @click="submit">
             <Send theme="outline" size="16" fill="currentColor" />
             发布并生成动态游记
           </el-button>
@@ -447,6 +498,10 @@ onMounted(load)
               <el-button @click="loadComments(selectedDiary)">
                 <Message theme="outline" size="16" fill="currentColor" />
                 查看评论 {{ selectedDiary.commentCount || 0 }}
+              </el-button>
+              <el-button v-if="canDeleteSelectedDiary" type="danger" @click="removeDiary(selectedDiary)">
+                <Delete theme="outline" size="16" fill="currentColor" />
+                删除日记
               </el-button>
             </div>
 

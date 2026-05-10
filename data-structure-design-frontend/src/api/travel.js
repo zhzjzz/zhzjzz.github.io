@@ -12,9 +12,11 @@ export const searchDestinations = (keyword) => http.get('/destinations', { param
 export const getTopFoods = (k = 10) => http.get('/foods/top', { params: { k } })
 
 // 日记管理与全文检索接口。
-export const listDiaries = () => http.get('/diaries')
+export const listDiaries = (limit = 20) => http.get('/diaries', { params: { limit } })
+export const getDiary = (id) => http.get(`/diaries/${id}`)
 export const createDiary = (payload) => http.post('/diaries', payload)
-export const searchDiaryFullText = (keyword) => http.get('/diaries/search', { params: { keyword } })
+export const deleteDiary = (id) => http.delete(`/diaries/${id}`)
+export const searchDiaryFullText = (keyword, limit = 20) => http.get('/diaries/search', { params: { keyword, limit } })
 export const listHotDiaries = (limit = 6) => http.get('/diaries/hot', { params: { limit } })
 export const getSharedDiary = (token) => http.get(`/diaries/share/${token}`)
 export const interactDiary = (id, type) => http.post(`/diaries/${id}/interactions/${type}`)

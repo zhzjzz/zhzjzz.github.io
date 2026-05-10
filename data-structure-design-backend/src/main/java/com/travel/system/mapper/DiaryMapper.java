@@ -17,11 +17,13 @@ public interface DiaryMapper {
     /** 查询全部日记。 */
     List<Diary> findAll();
 
+    List<Diary> findRecent(@Param("limit") int limit);
+
     /** 按标题进行不区分大小写的模糊查询。 */
     List<Diary> findByTitleContainingIgnoreCase(@Param("title") String title);
 
     /** 按标题或内容进行不区分大小写的模糊查询。 */
-    List<Diary> findByTitleOrContentContainingIgnoreCase(@Param("keyword") String keyword);
+    List<Diary> findByTitleOrContentContainingIgnoreCase(@Param("keyword") String keyword, @Param("limit") int limit);
 
     /** 查询公开热门日记。 */
     List<Diary> findHotPublic(@Param("limit") int limit);
@@ -40,6 +42,10 @@ public interface DiaryMapper {
 
     /** 更新浏览、互动计数和热度。 */
     void updateCounters(Diary diary);
+
+    void deleteCommentsByDiaryId(@Param("diaryId") Long diaryId);
+
+    void deleteById(@Param("id") Long id);
 
     /** 插入日记评论。 */
     void insertComment(DiaryComment comment);

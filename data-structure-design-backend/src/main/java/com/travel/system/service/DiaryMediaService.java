@@ -11,7 +11,6 @@ import java.util.zip.Deflater;
 @Service
 public class DiaryMediaService {
     private static final String DATA_URL_MARKER = ";base64,";
-    private static final String DEFLATE_DATA_URL_PREFIX = "data:application/octet-stream;compression=deflate;base64,";
 
     public void enrichCompression(Diary diary) {
         if (diary.getMediaUrl() == null || diary.getMediaUrl().isBlank()) {
@@ -29,11 +28,11 @@ public class DiaryMediaService {
         diary.setOriginalSizeBytes(original);
         if (compressed.length > 0 && compressed.length < source.length) {
             diary.setCompressedSizeBytes((long) compressed.length);
-            diary.setCompressedMediaUrl(DEFLATE_DATA_URL_PREFIX + Base64.getEncoder().encodeToString(compressed));
+            diary.setCompressedMediaUrl(null);
             diary.setCompressionStatus("lossless_deflate");
         } else {
             diary.setCompressedSizeBytes(original);
-            diary.setCompressedMediaUrl(diary.getMediaUrl());
+            diary.setCompressedMediaUrl(null);
             diary.setCompressionStatus("already_optimal");
         }
     }

@@ -72,6 +72,7 @@ public class DataInitializer implements CommandLineRunner {
         addDiaryColumnIfMissing(columns, "share_count", "INTEGER DEFAULT 0");
         addDiaryColumnIfMissing(columns, "is_public", "INTEGER DEFAULT 1");
         addDiaryColumnIfMissing(columns, "share_token", "TEXT");
+        addDiaryColumnIfMissing(columns, "author_name", "TEXT");
         addDiaryColumnIfMissing(columns, "published_at", "TEXT");
 
         jdbcTemplate.execute("""
@@ -233,6 +234,7 @@ public class DataInitializer implements CommandLineRunner {
         diary.setShareCount(2L);
         diary.setIsPublic(true);
         diary.setShareToken(UUID.randomUUID().toString().replace("-", ""));
+        diary.setAuthorName("演示用户");
         diary.setScore(4.7);
         diary.setViews(120L);
         diary.setPublishedAt(LocalDateTime.now());

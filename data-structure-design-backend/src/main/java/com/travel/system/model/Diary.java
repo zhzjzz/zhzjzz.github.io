@@ -30,6 +30,7 @@ public class Diary {
     private Long shareCount;
     private Boolean isPublic;
     private String shareToken;
+    private String authorName;
     private Double score;
     private Long views;
     private LocalDateTime publishedAt;
