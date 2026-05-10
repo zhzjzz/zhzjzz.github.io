@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Fire, Globe, Like, Lock, MagicWand, Message, Refresh, Search, Send, Share, Star, UploadPicture } from '@icon-park/vue-next'
+import { useRoute } from 'vue-router'
 import {
   createDiary,
   createDiaryComment,
@@ -36,6 +37,7 @@ const commentForm = ref({ authorName: '游客', content: '' })
 const DIARY_IMAGE_MAX_EDGE = 1600
 const DIARY_IMAGE_QUALITY = 0.86
 const appStore = useAppStore()
+const route = useRoute()
 const form = ref({
   title: '',
   content: '',
@@ -207,6 +209,11 @@ const handleMediaTypeChange = () => {
   form.value.originalSizeBytes = null
 }
 
+const routeKeyword = () => {
+  const keyword = route.query.keyword
+  return Array.isArray(keyword) ? keyword[0] || '' : keyword || ''
+}
+
 const fullText = async () => {
   if (!searchKeyword.value.trim()) {
     await load()
@@ -226,6 +233,16 @@ const fullText = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyRouteKeyword = async () => {
+  const keyword = routeKeyword().trim()
+  if (!keyword) {
+    await load()
+    return
+  }
+  searchKeyword.value = keyword
+  await fullText()
 }
 
 const selectDiary = async (diary) => {
@@ -386,7 +403,8 @@ watch(
   },
 )
 
-onMounted(load)
+onMounted(applyRouteKeyword)
+watch(() => route.query.keyword, applyRouteKeyword)
 onBeforeUnmount(() => {
   diaryImageUrlCache.forEach((imageUrl) => {
     if (imageUrl?.startsWith('blob:')) URL.revokeObjectURL(imageUrl)

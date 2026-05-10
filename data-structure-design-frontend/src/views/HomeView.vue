@@ -62,6 +62,17 @@ const go = (path) => {
   router.push(path)
 }
 
+const foodDiaryKeyword = (food) => {
+  const name = food?.name || ''
+  return name.includes('炸酱面') ? '北京炸酱面' : ''
+}
+
+const goFoodDiary = (food) => {
+  const keyword = foodDiaryKeyword(food)
+  if (!keyword) return
+  router.push({ path: '/diaries', query: { keyword } })
+}
+
 const scrollToFoodSection = async () => {
   if (route.query.section !== 'foods') return
   await nextTick()
@@ -159,7 +170,17 @@ watch(() => route.query.section, scrollToFoodSection)
       </div>
 
       <div v-if="foods.length" class="food-grid">
-        <article v-for="item in foods" :key="item.id || item.name" class="food-card reveal-in">
+        <article
+          v-for="item in foods"
+          :key="item.id || item.name"
+          class="food-card reveal-in"
+          :class="{ 'food-card--link': foodDiaryKeyword(item) }"
+          :role="foodDiaryKeyword(item) ? 'button' : undefined"
+          :tabindex="foodDiaryKeyword(item) ? 0 : undefined"
+          @click="goFoodDiary(item)"
+          @keydown.enter="goFoodDiary(item)"
+          @keydown.space.prevent="goFoodDiary(item)"
+        >
           <div class="food-media">
             <img :src="item.imageUrl || foodDefaultImage" :alt="item.name || '美食推荐默认图'" loading="lazy" />
           </div>
@@ -606,6 +627,18 @@ watch(() => route.query.section, scrollToFoodSection)
 
 .food-card {
   overflow: hidden;
+}
+
+.food-card--link {
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.food-card--link:hover,
+.food-card--link:focus-visible {
+  border-color: rgba(255, 56, 92, 0.28);
+  transform: translateY(-7px);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
 }
 
 .food-media {
