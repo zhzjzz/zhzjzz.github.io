@@ -25,6 +25,18 @@ export const resolveApiAssetUrl = (url) => {
   return `${resolvedAssetBase.replace(/\/$/, '')}${url}`
 }
 
+export const fetchApiAssetBlobUrl = async (url) => {
+  const resolvedUrl = resolveApiAssetUrl(url)
+  if (!resolvedUrl || resolvedUrl.startsWith('data:') || resolvedUrl.startsWith('blob:')) {
+    return resolvedUrl
+  }
+  const { data } = await axios.get(resolvedUrl, {
+    responseType: 'blob',
+    headers: { 'ngrok-skip-browser-warning': '1' },
+  })
+  return URL.createObjectURL(data)
+}
+
 /**
  * 请求拦截器：统一附带登录令牌，便于后端后续扩展鉴权。
  */

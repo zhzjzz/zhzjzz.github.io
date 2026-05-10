@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Fire, Globe, Like, Lock, MagicWand, Message, Refresh, Search, Send, Share, Star, UploadPicture } from '@icon-park/vue-next'
 import {
@@ -13,7 +13,7 @@ import {
   listHotDiaries,
   searchDiaryFullText,
 } from '../api/travel'
-import { resolveApiAssetUrl } from '../api/http'
+import { fetchApiAssetBlobUrl, resolveApiAssetUrl } from '../api/http'
 import diaryDefaultImage from '../assets/defaults/diary-default.png'
 import aigcDefaultImage from '../assets/defaults/aigc-animation-default.png'
 import { useAppStore } from '../stores/app'
@@ -27,6 +27,7 @@ const searchKeyword = ref('')
 const selectedDiaryId = ref(null)
 const selectedMediaName = ref('')
 const mediaPreview = ref('')
+const selectedDiaryImageUrl = ref('')
 const commentForm = ref({ authorName: '游客', content: '' })
 const DIARY_IMAGE_MAX_EDGE = 1600
 const DIARY_IMAGE_QUALITY = 0.86
@@ -104,8 +105,11 @@ const submit = async () => {
     ? `旅游日记已发布，媒体优化完成：${formatSize(originalSizeBytes(data))} -> ${formatSize(compressedSizeBytes(data))}，${compressionText(data)}`
     : '旅游日记已发布'
   ElMessage({ type: 'success', message: compressionSummary, duration: 4600 })
-  await load()
   if (data?.id) {
+    diaries.value = [data, ...diaries.value.filter((item) => item.id !== data.id)]
+    if (data.isPublic !== false) {
+      hotDiaries.value = [data, ...hotDiaries.value.filter((item) => item.id !== data.id)].slice(0, 6)
+    }
     selectedDiaryId.value = data.id
     await loadDiaryDetail(data.id)
   }
@@ -302,7 +306,31 @@ const shareLink = (diary) => {
 
 const diaryCover = (diary) => (diary?.mediaType === 'image' && diary?.mediaUrl ? resolveApiAssetUrl(diary.mediaUrl) : diaryDefaultImage)
 
+const revokeSelectedDiaryImage = () => {
+  if (selectedDiaryImageUrl.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(selectedDiaryImageUrl.value)
+  }
+  selectedDiaryImageUrl.value = ''
+}
+
+watch(
+  () => selectedDiary.value?.mediaUrl,
+  async (mediaUrl) => {
+    revokeSelectedDiaryImage()
+    if (!selectedDiary.value || selectedDiary.value.mediaType !== 'image' || !mediaUrl) {
+      return
+    }
+    try {
+      selectedDiaryImageUrl.value = await fetchApiAssetBlobUrl(mediaUrl)
+    } catch (error) {
+      console.error(error)
+      selectedDiaryImageUrl.value = diaryDefaultImage
+    }
+  },
+)
+
 onMounted(load)
+onBeforeUnmount(revokeSelectedDiaryImage)
 </script>
 
 <template>
@@ -434,7 +462,7 @@ onMounted(load)
           </el-button>
         </div>
 
-        <div class="diary-content-grid" v-loading="loading">
+        <div class="diary-content-grid">
           <aside class="diary-list">
             <button
               v-for="item in diaries"
@@ -461,7 +489,7 @@ onMounted(load)
             <p class="diary-story">{{ selectedDiary.content }}</p>
 
             <div class="story-media">
-              <img :src="diaryCover(selectedDiary)" :alt="selectedDiary.mediaUrl ? '日记图片' : '日记默认封面'" />
+              <img :src="selectedDiaryImageUrl || diaryCover(selectedDiary)" :alt="selectedDiary.mediaUrl ? '日记图片' : '日记默认封面'" />
             </div>
 
             <div class="metadata-grid">

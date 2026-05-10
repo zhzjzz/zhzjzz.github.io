@@ -3,10 +3,8 @@ package com.travel.system.service;
 import com.travel.system.model.Diary;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.zip.Deflater;
 
 @Service
 public class DiaryMediaService {
@@ -21,20 +19,11 @@ public class DiaryMediaService {
             return;
         }
 
-        byte[] source = extractStoredBytes(diary.getMediaUrl());
-        long original = source.length;
-        byte[] compressed = deflate(source);
-
+        long original = extractStoredBytes(diary.getMediaUrl()).length;
         diary.setOriginalSizeBytes(original);
-        if (compressed.length > 0 && compressed.length < source.length) {
-            diary.setCompressedSizeBytes((long) compressed.length);
-            diary.setCompressedMediaUrl(null);
-            diary.setCompressionStatus("lossless_deflate");
-        } else {
-            diary.setCompressedSizeBytes(original);
-            diary.setCompressedMediaUrl(null);
-            diary.setCompressionStatus("already_optimal");
-        }
+        diary.setCompressedSizeBytes(original);
+        diary.setCompressedMediaUrl(null);
+        diary.setCompressionStatus("stored_as_file");
     }
 
     private byte[] extractStoredBytes(String mediaUrl) {
@@ -50,24 +39,4 @@ public class DiaryMediaService {
         return mediaUrl.getBytes(StandardCharsets.UTF_8);
     }
 
-    private byte[] deflate(byte[] source) {
-        Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
-        deflater.setInput(source);
-        deflater.finish();
-        byte[] buffer = new byte[4096];
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream(source.length)) {
-            while (!deflater.finished()) {
-                int count = deflater.deflate(buffer);
-                if (count <= 0) {
-                    break;
-                }
-                output.write(buffer, 0, count);
-            }
-            return output.toByteArray();
-        } catch (Exception ignored) {
-            return new byte[0];
-        } finally {
-            deflater.end();
-        }
-    }
 }
