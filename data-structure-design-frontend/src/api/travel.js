@@ -50,3 +50,7 @@ export const listFacilities = (type) => http.get('/facilities', { params: type ?
 export const listFacilityTypes = (keyword = '', limit = 50) =>
   http.get('/facilities/types', { params: { keyword, limit } })
 export const searchNearbyFacilities = (params) => http.get('/facilities/nearby', { params })
+
+// 旅游服务 Agent：后端代理调用 SiliconFlow，前端不直接保存或暴露 API Key。
+// R1 类模型有时响应较慢，单独给 Agent 对话更长超时时间。
+export const chatWithTravelAgent = (payload) => http.post('/agent/chat', payload, { timeout: 90000 })

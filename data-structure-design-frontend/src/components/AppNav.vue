@@ -10,6 +10,7 @@ import {
   MapRoad,
   Navigation,
   NotebookAndPen,
+  Robot,
   Search,
   Shop,
 } from '@icon-park/vue-next'
@@ -26,6 +27,7 @@ const navItems = [
   { label: '设施', path: '/facilities' },
   { label: '日记', path: '/diaries' },
   { label: '行程', path: '/itineraries' },
+  { label: '旅行助手', path: '/agent' },
 ]
 
 const searchActions = [
@@ -43,6 +45,7 @@ const navIcons = {
   '/facilities': Shop,
   '/diaries': NotebookAndPen,
   '/itineraries': Calendar,
+  '/agent': Robot,
 }
 
 const searchIcons = [Compass, Navigation, Bowl]

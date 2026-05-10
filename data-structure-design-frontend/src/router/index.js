@@ -6,6 +6,7 @@ import RouteView from "../views/RouteView.vue";
 import FacilityView from "../views/FacilityView.vue";
 import DiaryView from "../views/DiaryView.vue";
 import ItineraryView from "../views/ItineraryView.vue";
+import AgentView from "../views/AgentView.vue";
 import LoginView from "../views/LoginView.vue";
 
 const routes = [
@@ -21,6 +22,7 @@ const routes = [
   { path: "/facilities", name: "facilities", component: FacilityView },
   { path: "/diaries", name: "diaries", component: DiaryView },
   { path: "/itineraries", name: "itineraries", component: ItineraryView },
+  { path: "/agent", name: "agent", component: AgentView },
 ];
 
 const router = createRouter({
