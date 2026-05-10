@@ -21,6 +21,8 @@ import { useAppStore } from '../stores/app'
 const diaries = ref([])
 const hotDiaries = ref([])
 const comments = ref({})
+const diaryDetailCache = ref(new Map())
+const commentCache = ref(new Map())
 const loading = ref(false)
 const submitting = ref(false)
 const searchKeyword = ref('')
@@ -28,6 +30,8 @@ const selectedDiaryId = ref(null)
 const selectedMediaName = ref('')
 const mediaPreview = ref('')
 const selectedDiaryImageUrl = ref('')
+const diaryImageUrlCache = new Map()
+const detailRequests = new Map()
 const commentForm = ref({ authorName: '游客', content: '' })
 const DIARY_IMAGE_MAX_EDGE = 1600
 const DIARY_IMAGE_QUALITY = 0.86
@@ -43,8 +47,29 @@ const form = ref({
   isPublic: true,
 })
 
-const selectedDiary = computed(() => diaries.value.find((item) => item.id === selectedDiaryId.value) || diaries.value[0])
+const selectedDiary = computed(() => {
+  if (!selectedDiaryId.value) return diaries.value[0] || null
+  return diaryDetailCache.value.get(selectedDiaryId.value) || diaries.value.find((item) => item.id === selectedDiaryId.value) || diaries.value[0] || null
+})
 const canDeleteSelectedDiary = computed(() => Boolean(selectedDiary.value?.id && appStore.user.name))
+
+const cacheDiary = (diary) => {
+  if (!diary?.id) return null
+  const cached = { ...(diaryDetailCache.value.get(diary.id) || {}), ...diary }
+  diaryDetailCache.value.set(diary.id, cached)
+  const diaryIndex = diaries.value.findIndex((item) => item.id === diary.id)
+  if (diaryIndex >= 0) diaries.value.splice(diaryIndex, 1, { ...diaries.value[diaryIndex], ...cached })
+  const hotIndex = hotDiaries.value.findIndex((item) => item.id === diary.id)
+  if (hotIndex >= 0) hotDiaries.value.splice(hotIndex, 1, { ...hotDiaries.value[hotIndex], ...cached })
+  return cached
+}
+
+const seedDiaryCache = (items) => {
+  items.forEach((item) => {
+    if (!item?.id) return
+    diaryDetailCache.value.set(item.id, { ...(diaryDetailCache.value.get(item.id) || {}), ...item })
+  })
+}
 
 const resetForm = () => {
   form.value = {
@@ -68,8 +93,10 @@ const load = async () => {
     const [{ data: diaryData }, { data: hotData }] = await Promise.all([listDiaries(), listHotDiaries(6)])
     diaries.value = Array.isArray(diaryData) ? diaryData : []
     hotDiaries.value = Array.isArray(hotData) ? hotData : []
+    seedDiaryCache(diaries.value)
+    seedDiaryCache(hotDiaries.value)
     selectedDiaryId.value = diaries.value.some((item) => item.id === previousId) ? previousId : diaries.value[0]?.id || null
-    await loadDiaryDetail(selectedDiaryId.value)
+    loadDiaryDetail(selectedDiaryId.value)
   } catch (error) {
     console.error(error)
     ElMessage.error('日记数据加载失败')
@@ -106,12 +133,14 @@ const submit = async () => {
     : '旅游日记已发布'
   ElMessage({ type: 'success', message: compressionSummary, duration: 4600 })
   if (data?.id) {
+    cacheDiary(data)
     diaries.value = [data, ...diaries.value.filter((item) => item.id !== data.id)]
     if (data.isPublic !== false) {
       hotDiaries.value = [data, ...hotDiaries.value.filter((item) => item.id !== data.id)].slice(0, 6)
     }
+    cacheDiary(data)
     selectedDiaryId.value = data.id
-    await loadDiaryDetail(data.id)
+    loadDiaryDetail(data.id)
   }
 }
 
@@ -188,8 +217,9 @@ const fullText = async () => {
   try {
     const { data } = await searchDiaryFullText(searchKeyword.value.trim())
     diaries.value = Array.isArray(data) ? data : []
+    seedDiaryCache(diaries.value)
     selectedDiaryId.value = diaries.value[0]?.id || null
-    await loadDiaryDetail(selectedDiaryId.value)
+    loadDiaryDetail(selectedDiaryId.value)
   } catch (error) {
     console.error(error)
     ElMessage.error('搜索失败')
@@ -200,19 +230,36 @@ const fullText = async () => {
 
 const selectDiary = async (diary) => {
   selectedDiaryId.value = diary.id
-  await loadDiaryDetail(diary.id)
-  await loadComments(diary)
+  cacheDiary(diary)
+  loadDiaryDetail(diary.id)
+  loadComments(diary)
 }
 
 const loadDiaryDetail = async (id) => {
   if (!id) return
-  const { data } = await getDiary(id)
-  const index = diaries.value.findIndex((item) => item.id === data.id)
-  if (index >= 0) {
-    diaries.value[index] = { ...diaries.value[index], ...data }
-  } else {
-    diaries.value.unshift(data)
+  if (detailRequests.has(id)) return detailRequests.get(id)
+  const request = getDiary(id)
+    .then(({ data }) => {
+      cacheDiary(data)
+      return data
+    })
+    .finally(() => {
+      detailRequests.delete(id)
+    })
+  detailRequests.set(id, request)
+  return request
+}
+
+const removeCachedDiary = (id) => {
+  diaryDetailCache.value.delete(id)
+  commentCache.value.delete(id)
+  delete comments.value[id]
+  comments.value = { ...comments.value }
+  const cachedImageUrl = diaryImageUrlCache.get(id)
+  if (cachedImageUrl?.startsWith('blob:')) {
+    URL.revokeObjectURL(cachedImageUrl)
   }
+  diaryImageUrlCache.delete(id)
 }
 
 const removeDiary = async (diary) => {
@@ -229,26 +276,29 @@ const removeDiary = async (diary) => {
   const deletedId = diary.id
   await deleteDiary(deletedId)
   ElMessage.success('日记已删除')
-  comments.value = { ...comments.value, [deletedId]: [] }
+  removeCachedDiary(deletedId)
   diaries.value = diaries.value.filter((item) => item.id !== deletedId)
   hotDiaries.value = hotDiaries.value.filter((item) => item.id !== deletedId)
   selectedDiaryId.value = diaries.value[0]?.id || null
-  await loadDiaryDetail(selectedDiaryId.value)
+  loadDiaryDetail(selectedDiaryId.value)
 }
 
 const interact = async (diary, type) => {
   const { data } = await interactDiary(diary.id, type)
-  const index = diaries.value.findIndex((item) => item.id === data.id)
-  if (index >= 0) diaries.value[index] = data
-  const hotIndex = hotDiaries.value.findIndex((item) => item.id === data.id)
-  if (hotIndex >= 0) hotDiaries.value[hotIndex] = data
+  cacheDiary(data)
   ElMessage.success(type === 'share' ? '分享热度已更新' : '互动成功')
 }
 
 const loadComments = async (diary) => {
   if (!diary?.id) return
+  if (commentCache.value.has(diary.id)) {
+    comments.value = { ...comments.value, [diary.id]: commentCache.value.get(diary.id) }
+    return
+  }
   const { data } = await listDiaryComments(diary.id)
-  comments.value = { ...comments.value, [diary.id]: Array.isArray(data) ? data : [] }
+  const items = Array.isArray(data) ? data : []
+  commentCache.value.set(diary.id, items)
+  comments.value = { ...comments.value, [diary.id]: items }
 }
 
 const submitComment = async (diary) => {
@@ -263,6 +313,7 @@ const submitComment = async (diary) => {
     content: commentForm.value.content.trim(),
   })
   commentForm.value = { authorName: '游客', content: '' }
+  commentCache.value.delete(diary.id)
   await loadComments(diary)
   await load()
 }
@@ -294,6 +345,7 @@ const compressionSizeText = (diary) => `${formatSize(originalSizeBytes(diary))} 
 
 const compressionStatusText = (status) => {
   if (status === 'lossless_deflate') return 'DEFLATE 无损压缩'
+  if (status === 'image_jpeg_optimized') return 'JPEG 图片优化'
   if (status === 'already_optimal') return '已是压缩格式'
   if (status === 'lossless_optimized') return '旧版模拟优化'
   return status || 'none'
@@ -307,21 +359,26 @@ const shareLink = (diary) => {
 const diaryCover = (diary) => (diary?.mediaType === 'image' && diary?.mediaUrl ? resolveApiAssetUrl(diary.mediaUrl) : diaryDefaultImage)
 
 const revokeSelectedDiaryImage = () => {
-  if (selectedDiaryImageUrl.value?.startsWith('blob:')) {
-    URL.revokeObjectURL(selectedDiaryImageUrl.value)
-  }
   selectedDiaryImageUrl.value = ''
 }
 
 watch(
-  () => selectedDiary.value?.mediaUrl,
-  async (mediaUrl) => {
+  () => [selectedDiary.value?.id, selectedDiary.value?.mediaUrl],
+  async ([diaryId, mediaUrl]) => {
     revokeSelectedDiaryImage()
-    if (!selectedDiary.value || selectedDiary.value.mediaType !== 'image' || !mediaUrl) {
+    if (!selectedDiary.value || selectedDiary.value.mediaType !== 'image' || !mediaUrl || !diaryId) {
+      return
+    }
+    if (diaryImageUrlCache.has(diaryId)) {
+      selectedDiaryImageUrl.value = diaryImageUrlCache.get(diaryId)
       return
     }
     try {
-      selectedDiaryImageUrl.value = await fetchApiAssetBlobUrl(mediaUrl)
+      const imageUrl = await fetchApiAssetBlobUrl(mediaUrl)
+      diaryImageUrlCache.set(diaryId, imageUrl)
+      if (selectedDiary.value?.id === diaryId) {
+        selectedDiaryImageUrl.value = imageUrl
+      }
     } catch (error) {
       console.error(error)
       selectedDiaryImageUrl.value = diaryDefaultImage
@@ -330,7 +387,13 @@ watch(
 )
 
 onMounted(load)
-onBeforeUnmount(revokeSelectedDiaryImage)
+onBeforeUnmount(() => {
+  diaryImageUrlCache.forEach((imageUrl) => {
+    if (imageUrl?.startsWith('blob:')) URL.revokeObjectURL(imageUrl)
+  })
+  diaryImageUrlCache.clear()
+  revokeSelectedDiaryImage()
+})
 </script>
 
 <template>

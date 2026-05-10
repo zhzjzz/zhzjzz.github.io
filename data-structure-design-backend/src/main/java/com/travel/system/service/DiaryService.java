@@ -72,6 +72,9 @@ public class DiaryService {
         mediaService.enrichCompression(diary);
         if ("image".equals(diary.getMediaType())) {
             try {
+                if ("image_jpeg_optimized".equals(diary.getCompressionStatus()) && diary.getCompressedMediaUrl() != null) {
+                    diary.setMediaUrl(diary.getCompressedMediaUrl());
+                }
                 diary.setMediaUrl(imageStorageService.saveDataUrlIfNeeded(diary.getMediaUrl()));
             } catch (IllegalArgumentException | IllegalStateException exception) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid diary image", exception);
