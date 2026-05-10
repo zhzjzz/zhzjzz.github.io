@@ -4,6 +4,8 @@ const resolvedBase = import.meta.env.VITE_API_BASE_URL || '/api'
 const baseURL = resolvedBase.startsWith('http') && !resolvedBase.endsWith('/api')
   ? resolvedBase + '/api'
   : resolvedBase
+const resolvedAssetBase = import.meta.env.VITE_ASSET_BASE_URL
+  || (baseURL.startsWith('http') ? new URL(baseURL).origin : '')
 
 const http = axios.create({
   baseURL,
@@ -17,11 +19,10 @@ export const resolveApiAssetUrl = (url) => {
   if (!url.startsWith('/')) {
     return url
   }
-  if (!baseURL.startsWith('http')) {
+  if (!resolvedAssetBase) {
     return url
   }
-  const apiOrigin = new URL(baseURL).origin
-  return `${apiOrigin}${url}`
+  return `${resolvedAssetBase.replace(/\/$/, '')}${url}`
 }
 
 /**
