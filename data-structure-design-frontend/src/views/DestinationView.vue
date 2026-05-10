@@ -35,37 +35,10 @@ const loadTop = async () => {
   loading.value = true
   try {
     const { data } = await getTopDestinations(10, rankMode.value)
-    rows.value = Array.isArray(data) ? data : []
+    rows.value = data
   } finally {
     loading.value = false
   }
-}
-
-const fetchDestinationSuggestions = async (queryString, callback) => {
-  const query = queryString.trim()
-  if (!query) {
-    callback(topRows.value.map((item) => ({ ...item, value: item.name })))
-    return
-  }
-
-  try {
-    const { data } = await searchDestinations(query)
-    const suggestions = Array.isArray(data)
-      ? data.slice(0, 10).map((item) => ({
-          ...item,
-          value: item.name,
-        }))
-      : []
-    callback(suggestions)
-  } catch (error) {
-    console.error(error)
-    callback([])
-  }
-}
-
-const selectSuggestion = async (item) => {
-  keyword.value = item.name || item.value || ''
-  await doSearch()
 }
 
 const doSearch = async () => {
@@ -76,8 +49,8 @@ const doSearch = async () => {
   loading.value = true
   try {
     const { data } = await searchDestinations(keyword.value)
-    rows.value = Array.isArray(data) ? data : []
-    ElMessage.success(`已找到 ${rows.value.length} 条结果`)
+    rows.value = data
+    ElMessage.success(`已找到 ${data.length} 条结果`)
   } finally {
     loading.value = false
   }
@@ -99,24 +72,13 @@ onMounted(loadTop)
 
       <el-row :gutter="12" class="toolbar-row">
         <el-col :md="12" :xs="24">
-          <el-autocomplete
+          <el-input
             v-model="keyword"
             placeholder="输入关键词（名称/类别）"
             clearable
             size="large"
-            :fetch-suggestions="fetchDestinationSuggestions"
-            :trigger-on-focus="true"
-            value-key="value"
-            @select="selectSuggestion"
             @keyup.enter="doSearch"
-          >
-            <template #default="{ item }">
-              <div class="destination-suggestion">
-                <strong>{{ item.name }}</strong>
-                <span>{{ item.sceneType || '目的地' }} · {{ item.category || '未分类' }}</span>
-              </div>
-            </template>
-          </el-autocomplete>
+          />
         </el-col>
         <el-col :md="6" :xs="24">
           <el-select v-model="rankMode" size="large" class="full-width" @change="loadTop">
@@ -205,26 +167,6 @@ onMounted(loadTop)
 
 .full-width {
   width: 100%;
-}
-
-.toolbar-row :deep(.el-autocomplete) {
-  width: 100%;
-}
-
-.destination-suggestion {
-  display: grid;
-  gap: 2px;
-  line-height: 1.35;
-}
-
-.destination-suggestion strong {
-  color: #111827;
-  font-size: 14px;
-}
-
-.destination-suggestion span {
-  color: #64748b;
-  font-size: 12px;
 }
 
 .btn-group {

@@ -23,6 +23,8 @@ const selectedDiaryId = ref(null)
 const selectedMediaName = ref('')
 const mediaPreview = ref('')
 const commentForm = ref({ authorName: '游客', content: '' })
+const MAX_DIARY_IMAGE_WIDTH = 1280
+const DIARY_IMAGE_QUALITY = 0.78
 const form = ref({
   title: '',
   content: '',
@@ -74,9 +76,6 @@ const submit = async () => {
     title: form.value.title.trim(),
     content: form.value.content.trim(),
   }
-  if (payload.mediaUrl?.startsWith('data:')) {
-    payload.mediaUrl = ''
-  }
   const { data } = await createDiary(payload)
   resetForm()
   const compressionSummary = data?.originalSizeBytes
@@ -100,12 +99,40 @@ const handleMediaFileChange = (uploadFile) => {
 
   const reader = new FileReader()
   reader.onload = () => {
-    form.value.mediaUrl = String(reader.result || '')
-    mediaPreview.value = form.value.mediaUrl
+    compressImage(String(reader.result || ''), file.type)
+      .then((url) => {
+        form.value.mediaUrl = url
+        mediaPreview.value = url
+      })
+      .catch(() => {
+        form.value.mediaUrl = String(reader.result || '')
+        mediaPreview.value = form.value.mediaUrl
+      })
   }
   reader.onerror = () => ElMessage.error('图片读取失败，请重新选择')
   reader.readAsDataURL(file)
 }
+
+const compressImage = (dataUrl, mimeType = 'image/jpeg') =>
+  new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      const scale = Math.min(1, MAX_DIARY_IMAGE_WIDTH / image.width)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(image.width * scale))
+      canvas.height = Math.max(1, Math.round(image.height * scale))
+      const context = canvas.getContext('2d')
+      if (!context) {
+        reject(new Error('canvas unavailable'))
+        return
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      const outputType = mimeType === 'image/png' ? 'image/png' : 'image/jpeg'
+      resolve(canvas.toDataURL(outputType, DIARY_IMAGE_QUALITY))
+    }
+    image.onerror = reject
+    image.src = dataUrl
+  })
 
 const handleMediaTypeChange = () => {
   selectedMediaName.value = ''

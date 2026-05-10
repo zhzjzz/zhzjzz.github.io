@@ -19,7 +19,11 @@ public class DiaryMediaService {
         long compressed = Math.max(1L, Math.round(original * 0.72));
         diary.setOriginalSizeBytes(original);
         diary.setCompressedSizeBytes(compressed);
-        diary.setCompressedMediaUrl(diary.getMediaUrl() + "?optimized=lossless");
+        if (diary.getMediaUrl().startsWith("data:")) {
+            diary.setCompressedMediaUrl(diary.getMediaUrl());
+        } else {
+            diary.setCompressedMediaUrl(diary.getMediaUrl() + "?optimized=lossless");
+        }
         diary.setCompressionStatus("lossless_optimized");
     }
 }

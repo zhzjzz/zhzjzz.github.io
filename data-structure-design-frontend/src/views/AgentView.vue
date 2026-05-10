@@ -120,7 +120,7 @@ const usePrompt = (prompt) => {
         </button>
       </div>
 
-      <div ref="messageListRef" class="chat-panel" v-loading="loading">
+      <div ref="messageListRef" class="chat-panel">
         <article
           v-for="(message, index) in messages"
           :key="`${message.role}-${index}`"
@@ -135,6 +135,14 @@ const usePrompt = (prompt) => {
             <p>{{ message.content }}</p>
             <small v-if="message.fallback">本地安全回退回复</small>
             <small v-else-if="message.model">模型：{{ message.model }}</small>
+          </div>
+        </article>
+        <article v-if="loading" class="chat-message assistant typing-message">
+          <div class="message-avatar">
+            <Robot theme="outline" size="18" fill="currentColor" />
+          </div>
+          <div class="message-bubble typing-bubble" aria-label="Agent 正在回复">
+            <span class="typing-dot"></span>
           </div>
         </article>
       </div>
@@ -293,6 +301,52 @@ const usePrompt = (prompt) => {
 
 .chat-message.user .message-bubble small {
   color: rgba(248, 250, 252, 0.66);
+}
+
+.typing-message {
+  animation: typing-fade-in 160ms ease-out;
+}
+
+.typing-bubble {
+  min-width: 48px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--demo-coral);
+  animation: typing-dot-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes typing-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.78);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes typing-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .agent-input {

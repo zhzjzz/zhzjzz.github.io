@@ -1,5 +1,6 @@
 package com.travel.system;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -13,8 +14,49 @@ public class TravelSystemApplication {
      * 应用入口方法，负责在 Spring Boot 启动前补齐 SQLite 数据库地址配置，然后启动后端服务。
      */
     public static void main(String[] args) {
+        loadDotenv();
         configureSqliteUrlIfMissing();
         SpringApplication.run(TravelSystemApplication.class, args);
+    }
+
+    private static void loadDotenv() {
+        List<Path> candidates = List.of(
+                Path.of(".env"),
+                Path.of("data-structure-design-backend", ".env"));
+
+        for (Path envPath : candidates) {
+            if (Files.isRegularFile(envPath)) {
+                loadDotenvFile(envPath);
+            }
+        }
+    }
+
+    private static void loadDotenvFile(Path envPath) {
+        try {
+            for (String line : Files.readAllLines(envPath)) {
+                loadDotenvLine(line);
+            }
+        } catch (IOException ignored) {
+            // Shell or deployment environment variables can still provide configuration.
+        }
+    }
+
+    private static void loadDotenvLine(String line) {
+        String trimmed = line.trim();
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+            return;
+        }
+
+        int separator = trimmed.indexOf('=');
+        if (separator <= 0) {
+            return;
+        }
+
+        String key = trimmed.substring(0, separator).trim();
+        String value = stripQuotes(trimmed.substring(separator + 1).trim());
+        if (hasText(key) && System.getProperty(key) == null && System.getenv(key) == null) {
+            System.setProperty(key, value);
+        }
     }
 
     /**
@@ -47,5 +89,14 @@ public class TravelSystemApplication {
      */
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static String stripQuotes(String value) {
+        if (value.length() >= 2
+                && ((value.startsWith("\"") && value.endsWith("\""))
+                || (value.startsWith("'") && value.endsWith("'")))) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
     }
 }
