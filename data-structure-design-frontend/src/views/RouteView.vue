@@ -49,13 +49,53 @@ visits.value = [newVisit(), newVisit()]
 const totalDistanceKm = computed(() => ((routeResult.value?.totalDistance || 0) / 1000).toFixed(2))
 const totalDurationMin = computed(() => ((routeResult.value?.totalTime || 0) / 60).toFixed(1))
 
-const segmentStats = computed(() => {
+const routeStageStats = computed(() => {
   const segments = routeResult.value?.segments || []
-  return segments.map((segment, index) => ({
-    ...segment,
+  const stages = []
+  let currentSpotStage = null
+
+  const flushSpotStage = () => {
+    if (currentSpotStage && (currentSpotStage.distance > 0 || currentSpotStage.time > 0)) {
+      stages.push(currentSpotStage)
+    }
+    currentSpotStage = null
+  }
+
+  segments.forEach((segment) => {
+    if (segment.type === 'city') {
+      flushSpotStage()
+      stages.push({
+        title: `${segment.fromSpotName} → ${segment.toSpotName}`,
+        modeLabel: segment.transitType || '城市交通',
+        distance: segment.distance || 0,
+        time: segment.time || 0,
+      })
+      return
+    }
+
+    const spotName = segment.fromSpotName || segment.toSpotName || '景区内'
+    const modeLabel = segment.transportMode === 'bike' ? '电动车' : '步行'
+    if (!currentSpotStage || currentSpotStage.spotName !== spotName || currentSpotStage.modeLabel !== modeLabel) {
+      flushSpotStage()
+      currentSpotStage = {
+        spotName,
+        title: `${spotName} 景区内游览`,
+        modeLabel,
+        distance: 0,
+        time: 0,
+      }
+    }
+    currentSpotStage.distance += segment.distance || 0
+    currentSpotStage.time += segment.time || 0
+  })
+
+  flushSpotStage()
+
+  return stages.map((stage, index) => ({
+    ...stage,
     index: index + 1,
-    distanceKm: ((segment.distance || 0) / 1000).toFixed(2),
-    timeMin: ((segment.time || 0) / 60).toFixed(1),
+    distanceKm: ((stage.distance || 0) / 1000).toFixed(2),
+    timeMin: ((stage.time || 0) / 60).toFixed(1),
   }))
 })
 
@@ -544,17 +584,17 @@ onBeforeUnmount(() => {
           <strong>{{ totalDurationMin }} 分钟</strong>
         </article>
         <article class="metric-card">
-          <span><Ranking theme="outline" size="15" fill="currentColor" /> 路线段数</span>
-          <strong>{{ routeResult.segments?.length || 0 }}</strong>
+          <span><Ranking theme="outline" size="15" fill="currentColor" /> 行程段数</span>
+          <strong>{{ routeStageStats.length }}</strong>
         </article>
       </section>
 
       <div v-if="routeResult" class="segment-list">
-        <div v-for="segment in segmentStats" :key="segment.index" class="segment-item">
-          <strong>{{ segment.index }}. {{ segment.fromSpotName }} → {{ segment.toSpotName }}</strong>
-          <span>{{ segment.type === 'city' ? (segment.transitType || '城市交通') : (segment.transportMode === 'bike' ? '电动车' : '步行') }}</span>
-          <span>{{ segment.distanceKm }} km</span>
-          <span>{{ segment.timeMin }} 分钟</span>
+        <div v-for="stage in routeStageStats" :key="stage.index" class="segment-item">
+          <strong>{{ stage.index }}. {{ stage.title }}</strong>
+          <span>{{ stage.modeLabel }}</span>
+          <span>{{ stage.distanceKm }} km</span>
+          <span>{{ stage.timeMin }} 分钟</span>
         </div>
       </div>
       <el-empty v-else description="添加景区和地点后开始规划" />

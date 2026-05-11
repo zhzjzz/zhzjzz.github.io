@@ -30,6 +30,8 @@ public class NavigationController {
 
     private static final String DEFAULT_MODE = "walk";
     private static final int EXACT_ORDER_LIMIT = 10;
+    private static final double KILOMETERS_TO_METERS = 1000.0;
+    private static final double MINUTES_TO_SECONDS = 60.0;
 
     public NavigationController(NavigationDataService navigationDataService,
                                 TransportModeService transportModeService,
@@ -144,10 +146,10 @@ public class NavigationController {
         }
         if (cityRoute != null) {
             resp.setTransitType(cityRoute.getTransitType());
-            resp.setSegment2Distance(cityRoute.getDistance());
-            resp.setSegment2Time(cityRoute.getTimeCost());
-            totalDist += cityRoute.getDistance() != null ? cityRoute.getDistance() : 0;
-            totalTime += cityRoute.getTimeCost() != null ? cityRoute.getTimeCost() : 0;
+            resp.setSegment2Distance(cityRouteDistanceMeters(cityRoute));
+            resp.setSegment2Time(cityRouteTimeSeconds(cityRoute));
+            totalDist += cityRouteDistanceMeters(cityRoute);
+            totalTime += cityRouteTimeSeconds(cityRoute);
         }
 
         // --- 第三段：园区内从入口到终点 ---
@@ -847,14 +849,28 @@ public class NavigationController {
         }
         if (cityRoute != null) {
             segment.setTransitType(cityRoute.getTransitType());
-            segment.setDistance(cityRoute.getDistance());
-            segment.setTime(cityRoute.getTimeCost());
+            segment.setDistance(cityRouteDistanceMeters(cityRoute));
+            segment.setTime(cityRouteTimeSeconds(cityRoute));
         } else {
             segment.setTransitType("城市交通");
             segment.setDistance(0.0);
             segment.setTime(0.0);
         }
         return segment;
+    }
+
+    /**
+     * city_routes 表中的 distance 使用公里存储；接口统一输出米，便于和景区内道路长度累加。
+     */
+    private double cityRouteDistanceMeters(CityRoute cityRoute) {
+        return safe(cityRoute == null ? null : cityRoute.getDistance()) * KILOMETERS_TO_METERS;
+    }
+
+    /**
+     * city_routes 表中的 time_cost 使用分钟存储；接口统一输出秒，便于和景区内道路耗时累加。
+     */
+    private double cityRouteTimeSeconds(CityRoute cityRoute) {
+        return safe(cityRoute == null ? null : cityRoute.getTimeCost()) * MINUTES_TO_SECONDS;
     }
 
     /**
