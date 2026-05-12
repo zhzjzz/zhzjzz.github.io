@@ -87,6 +87,10 @@ public class DataInitializer implements CommandLineRunner {
     private void ensureFoodSchema() {
         Set<String> columns = tableColumns("food");
         addColumnIfMissing("food", columns, "heat", "REAL");
+        addColumnIfMissing("food", columns, "latitude", "REAL");
+        addColumnIfMissing("food", columns, "longitude", "REAL");
+        addColumnIfMissing("food", columns, "source_type", "TEXT");
+        addColumnIfMissing("food", columns, "source_id", "TEXT");
     }
 
     private Set<String> tableColumns(String tableName) {

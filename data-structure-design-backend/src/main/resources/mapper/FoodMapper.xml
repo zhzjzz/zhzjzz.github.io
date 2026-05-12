@@ -11,6 +11,10 @@
         <result column="store_name" property="storeName"/>
         <result column="rating" property="rating"/>
         <result column="heat" property="heat"/>
+        <result column="latitude" property="latitude"/>
+        <result column="longitude" property="longitude"/>
+        <result column="source_type" property="sourceType"/>
+        <result column="source_id" property="sourceId"/>
         <association property="destination" javaType="com.travel.system.model.Destination">
             <id column="destination_ref_id" property="id"/>
             <result column="destination_name" property="name"/>
@@ -32,6 +36,10 @@
                f.store_name,
                f.rating,
                f.heat,
+               f.latitude,
+               f.longitude,
+               f.source_type,
+               f.source_id,
                f.destination_id,
                COALESCE(d.id, s.spot_id)          AS destination_ref_id,
                COALESCE(d.name, s.name)           AS destination_name,
@@ -61,6 +69,10 @@
                f.store_name,
                f.rating,
                f.heat,
+               f.latitude,
+               f.longitude,
+               f.source_type,
+               f.source_id,
                f.destination_id,
                COALESCE(d.id, s.spot_id)          AS destination_ref_id,
                COALESCE(d.name, s.name)           AS destination_name,
@@ -95,8 +107,8 @@
 
     <insert id="insert" parameterType="com.travel.system.model.Food"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO food (name, cuisine, store_name, rating, heat, destination_id)
-        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{heat}, #{destination.id})
+        INSERT INTO food (name, cuisine, store_name, rating, heat, latitude, longitude, source_type, source_id, destination_id)
+        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{heat}, #{latitude}, #{longitude}, #{sourceType}, #{sourceId}, #{destination.id})
     </insert>
 
     <!-- 更新美食记录 -->
@@ -107,6 +119,10 @@
             store_name = #{storeName},
             rating = #{rating},
             heat = #{heat},
+            latitude = #{latitude},
+            longitude = #{longitude},
+            source_type = #{sourceType},
+            source_id = #{sourceId},
             destination_id = #{destination.id}
         WHERE id = #{id}
     </update>

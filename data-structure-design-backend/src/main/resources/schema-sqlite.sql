@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS food (
     store_name TEXT,
     rating REAL,
     heat REAL,
+    latitude REAL,
+    longitude REAL,
+    source_type TEXT,
+    source_id TEXT,
     destination_id INTEGER
 );
 
