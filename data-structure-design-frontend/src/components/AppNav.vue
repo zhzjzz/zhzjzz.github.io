@@ -25,6 +25,7 @@ const navItems = [
   { label: '目的地', path: '/destinations' },
   { label: '路线', path: '/routes' },
   { label: '设施', path: '/facilities' },
+  { label: '美食', path: '/foods' },
   { label: '日记', path: '/diaries' },
   { label: '行程', path: '/itineraries' },
   { label: '旅行助手', path: '/agent' },
@@ -33,7 +34,7 @@ const navItems = [
 const searchActions = [
   { label: '去哪儿', aria: '打开目的地综合推荐', target: '/destinations' },
   { label: '怎么玩', aria: '打开游玩景点设施推荐', target: '/facilities' },
-  { label: '吃什么', aria: '打开美食推荐', target: { path: '/', query: { section: 'foods' } } },
+  { label: '吃什么', aria: '打开美食推荐', target: '/foods' },
 ]
 
 const activePath = computed(() => route.path)
@@ -43,6 +44,7 @@ const navIcons = {
   '/destinations': MapDraw,
   '/routes': MapRoad,
   '/facilities': Shop,
+  '/foods': Bowl,
   '/diaries': NotebookAndPen,
   '/itineraries': Calendar,
   '/agent': Robot,
@@ -197,17 +199,14 @@ const logout = () => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
 }
 
 .search-option :deep(.i-icon),
 .category-pill :deep(.i-icon) {
   transform: translateY(1.5px);
-}
-
-.search-option {
-  padding-right: 10px;
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  white-space: nowrap;
 }
 
 .search-option:hover,

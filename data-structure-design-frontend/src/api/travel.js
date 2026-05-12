@@ -10,6 +10,8 @@ export const searchDestinations = (keyword) => http.get('/destinations', { param
 
 // 美食推荐接口。
 export const getTopFoods = (k = 10) => http.get('/foods/top', { params: { k } })
+export const searchFoods = (params = {}) => http.get('/foods', { params })
+export const listFoodCuisines = () => http.get('/foods/cuisines')
 
 // 日记管理与全文检索接口。
 export const listDiaries = (limit = 20) => http.get('/diaries', { params: { limit } })

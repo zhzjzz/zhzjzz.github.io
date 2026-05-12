@@ -63,6 +63,7 @@ const go = (path) => {
 }
 
 const foodDiaryKeyword = (food) => {
+  if (food?.name) return 'foods'
   const name = food?.name || ''
   return name.includes('炸酱面') ? '北京炸酱面' : ''
 }
@@ -70,7 +71,7 @@ const foodDiaryKeyword = (food) => {
 const goFoodDiary = (food) => {
   const keyword = foodDiaryKeyword(food)
   if (!keyword) return
-  router.push({ path: '/diaries', query: { keyword } })
+  router.push('/foods')
 }
 
 const scrollToFoodSection = async () => {

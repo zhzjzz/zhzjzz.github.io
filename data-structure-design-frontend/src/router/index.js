@@ -4,6 +4,7 @@ import HomeView from "../views/HomeView.vue";
 import DestinationView from "../views/DestinationView.vue";
 import RouteView from "../views/RouteView.vue";
 import FacilityView from "../views/FacilityView.vue";
+import FoodView from "../views/FoodView.vue";
 import DiaryView from "../views/DiaryView.vue";
 import ItineraryView from "../views/ItineraryView.vue";
 import AgentView from "../views/AgentView.vue";
@@ -20,6 +21,7 @@ const routes = [
   { path: "/destinations", name: "destinations", component: DestinationView },
   { path: "/routes", name: "routes", component: RouteView },
   { path: "/facilities", name: "facilities", component: FacilityView },
+  { path: "/foods", name: "foods", component: FoodView },
   { path: "/diaries", name: "diaries", component: DiaryView },
   { path: "/itineraries", name: "itineraries", component: ItineraryView },
   { path: "/agent", name: "agent", component: AgentView },
