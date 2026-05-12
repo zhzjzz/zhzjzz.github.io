@@ -74,10 +74,11 @@ public class RecommendationService {
      * @return 按综合评分降序排列的 {@link Food} 列表
      */
     public List<Food> topKFood(List<Food> data, int k) {
+        int safeK = k <= 0 ? data.size() : Math.min(k, data.size());
         PriorityQueue<Food> heap = new PriorityQueue<>(Comparator.comparingDouble(this::foodScore));
         for (Food f : data) {
             heap.offer(f);
-            if (heap.size() > k) {
+            if (heap.size() > safeK) {
                 heap.poll();
             }
         }
@@ -118,7 +119,7 @@ public class RecommendationService {
      */
     private double foodScore(Food f) {
         Double destinationHeat = f.getDestination() == null ? null : f.getDestination().getHeat();
-        return safe(f.getRating()) * 0.8 + safe(destinationHeat) * 0.2;
+        return safe(f.getRating()) * 20 * 0.55 + safe(f.getHeat()) * 0.30 + safe(destinationHeat) * 0.15;
     }
 
     /**

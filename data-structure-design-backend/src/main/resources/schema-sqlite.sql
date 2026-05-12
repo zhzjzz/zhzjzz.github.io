@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS food (
     cuisine TEXT,
     store_name TEXT,
     rating REAL,
+    heat REAL,
     destination_id INTEGER
 );
 

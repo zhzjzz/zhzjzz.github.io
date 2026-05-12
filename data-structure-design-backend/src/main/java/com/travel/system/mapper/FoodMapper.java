@@ -19,6 +19,8 @@ public interface FoodMapper {
     /** 按名称、菜系或店名进行模糊查询。 */
     List<Food> findByKeyword(@Param("keyword") String keyword);
 
+    List<String> findCuisines();
+
     /** 插入美食记录。 */
     void insert(Food food);
 

@@ -10,6 +10,7 @@
         <result column="cuisine" property="cuisine"/>
         <result column="store_name" property="storeName"/>
         <result column="rating" property="rating"/>
+        <result column="heat" property="heat"/>
         <association property="destination" javaType="com.travel.system.model.Destination">
             <id column="destination_ref_id" property="id"/>
             <result column="destination_name" property="name"/>
@@ -29,6 +30,7 @@
                f.cuisine,
                f.store_name,
                f.rating,
+               f.heat,
                f.destination_id,
                d.id          AS destination_ref_id,
                d.name        AS destination_name,
@@ -49,6 +51,7 @@
                f.cuisine,
                f.store_name,
                f.rating,
+               f.heat,
                f.destination_id,
                d.id          AS destination_ref_id,
                d.name        AS destination_name,
@@ -66,10 +69,17 @@
     </select>
 
     <!-- 插入美食记录 -->
+    <select id="findCuisines" resultType="string">
+        SELECT DISTINCT cuisine
+        FROM food
+        WHERE cuisine IS NOT NULL AND TRIM(cuisine) != ''
+        ORDER BY cuisine
+    </select>
+
     <insert id="insert" parameterType="com.travel.system.model.Food"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO food (name, cuisine, store_name, rating, destination_id)
-        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{destination.id})
+        INSERT INTO food (name, cuisine, store_name, rating, heat, destination_id)
+        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{heat}, #{destination.id})
     </insert>
 
     <!-- 更新美食记录 -->
@@ -79,6 +89,7 @@
             cuisine = #{cuisine},
             store_name = #{storeName},
             rating = #{rating},
+            heat = #{heat},
             destination_id = #{destination.id}
         WHERE id = #{id}
     </update>
