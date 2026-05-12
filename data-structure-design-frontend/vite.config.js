@@ -7,6 +7,16 @@ export default defineConfig(({ mode }) => {
   return {
     base: "/",
     plugins: [vue()],
+    define: {
+      global: "globalThis",
+    },
+    optimizeDeps: {
+      esbuildOptions: {
+        define: {
+          global: "globalThis",
+        },
+      },
+    },
     server: {
       host: "0.0.0.0",
       proxy: {
@@ -17,6 +27,11 @@ export default defineConfig(({ mode }) => {
         "/uploads": {
           target: env.VITE_DEV_API_TARGET || "http://127.0.0.1:8080",
           changeOrigin: true,
+        },
+        "/ws": {
+          target: env.VITE_DEV_API_TARGET || "http://127.0.0.1:8080",
+          changeOrigin: true,
+          ws: true,
         },
       },
     },

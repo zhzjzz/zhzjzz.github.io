@@ -20,7 +20,6 @@ public class ItineraryWebSocketController {
 
     @MessageMapping("/itinerary/{id}/edit")
     public void editItinerary(@DestinationVariable Long id, ItineraryEditMessage message) {
-        message.setItineraryId(id);
-        itineraryService.handleEdit(message);
+        itineraryService.handleEdit(id, message);
     }
 }

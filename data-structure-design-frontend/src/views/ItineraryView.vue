@@ -1,10 +1,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Calendar, Copy, Edit, Info, ListAdd, People, Plus, Refresh, Search, Timer } from '@icon-park/vue-next'
-import { createItinerary, listItineraries, updateItinerary } from '../api/travel'
+import { Calendar, Connection, Copy, Edit, Info, ListAdd, People, Plus, Refresh, Search, Timer } from '@icon-park/vue-next'
+import { createItinerary, getItinerary, listItineraries, updateItinerary } from '../api/travel'
+import { useAppStore } from '../stores/app'
+import { useItineraryCollaboration } from '../composables/useItineraryCollaboration'
 import itineraryDefaultImage from '../assets/defaults/itinerary-default.png'
 
+const appStore = useAppStore()
 const loading = ref(false)
 const saving = ref(false)
 const rows = ref([])
@@ -14,6 +17,24 @@ const detailOpen = ref(false)
 const editOpen = ref(false)
 const editMode = ref('create')
 const editId = ref(null)
+const collabOpen = ref(false)
+const collabLoading = ref(false)
+const collabRow = ref(null)
+const collabVersion = ref('')
+const patchTimers = new Map()
+
+const {
+  connected,
+  connecting,
+  onlineUsers,
+  activeEditors,
+  lastError,
+  events,
+  connect,
+  disconnect,
+  sendEditing,
+  sendPatch,
+} = useItineraryCollaboration()
 
 const form = reactive({
   name: '',
@@ -22,7 +43,26 @@ const form = reactive({
   strategy: '',
   transportMode: '',
   notes: '',
+  updatedAt: null,
 })
+
+const collabForm = reactive({
+  name: '',
+  owner: '',
+  collaborators: '',
+  strategy: '',
+  transportMode: '',
+  notes: '',
+})
+
+const collabFields = [
+  { key: 'name', label: '名称' },
+  { key: 'owner', label: '创建者' },
+  { key: 'collaborators', label: '协作者' },
+  { key: 'strategy', label: '策略' },
+  { key: 'transportMode', label: '交通方式' },
+  { key: 'notes', label: '备注', type: 'textarea', rows: 5 },
+]
 
 const resetForm = () => {
   form.name = ''
@@ -31,6 +71,7 @@ const resetForm = () => {
   form.strategy = ''
   form.transportMode = ''
   form.notes = ''
+  form.updatedAt = null
   editId.value = null
 }
 
@@ -70,6 +111,8 @@ const stats = computed(() => ({
   latest: formatDateTime(rows.value[0]?.updatedAt),
 }))
 
+const currentEditorName = computed(() => appStore.user.name || collabForm.owner || '协作者')
+
 const loadRows = async () => {
   loading.value = true
   try {
@@ -79,6 +122,26 @@ const loadRows = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyItineraryToCollabForm = (itinerary) => {
+  collabForm.name = itinerary.name || ''
+  collabForm.owner = itinerary.owner || ''
+  collabForm.collaborators = itinerary.collaborators || ''
+  collabForm.strategy = itinerary.strategy || ''
+  collabForm.transportMode = itinerary.transportMode || ''
+  collabForm.notes = itinerary.notes || ''
+  collabVersion.value = itinerary.updatedAt || ''
+}
+
+const updateRowInList = (itinerary) => {
+  const index = rows.value.findIndex((row) => row.id === itinerary.id)
+  if (index >= 0) {
+    rows.value.splice(index, 1, itinerary)
+  } else {
+    rows.value.unshift(itinerary)
+  }
+  rows.value.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 }
 
 const openCreate = () => {
@@ -96,6 +159,7 @@ const openEdit = (row) => {
   form.strategy = row.strategy || ''
   form.transportMode = row.transportMode || ''
   form.notes = row.notes || ''
+  form.updatedAt = row.updatedAt || null
   editOpen.value = true
 }
 
@@ -120,6 +184,7 @@ const submit = async () => {
       notes: form.notes.trim(),
     }
     if (editMode.value === 'edit') {
+      payload.updatedAt = form.updatedAt
       await updateItinerary(editId.value, payload)
       ElMessage.success('行程已更新')
     } else {
@@ -139,8 +204,65 @@ const copySummary = async (row) => {
   ElMessage.success('已复制摘要')
 }
 
-const confirmEdit = async (row) => {
-  openEdit(row)
+const openCollaboration = async (row) => {
+  collabOpen.value = true
+  collabLoading.value = true
+  try {
+    const { data } = await getItinerary(row.id)
+    collabRow.value = data
+    applyItineraryToCollabForm(data)
+    connect({
+      itineraryId: data.id,
+      username: currentEditorName.value,
+      onUpdated: (payload) => {
+        if (payload.itinerary) {
+          applyItineraryToCollabForm(payload.itinerary)
+          updateRowInList(payload.itinerary)
+          collabRow.value = payload.itinerary
+        }
+      },
+      onConflict: async (payload) => {
+        ElMessage.warning(payload.message || '行程已被其他协作者更新')
+        const latest = await getItinerary(row.id)
+        applyItineraryToCollabForm(latest.data)
+        updateRowInList(latest.data)
+      },
+    })
+  } finally {
+    collabLoading.value = false
+  }
+}
+
+const closeCollaboration = () => {
+  patchTimers.forEach((timer) => clearTimeout(timer))
+  patchTimers.clear()
+  disconnect()
+  collabOpen.value = false
+  collabRow.value = null
+}
+
+const fieldEditor = (fieldKey) => {
+  return activeEditors.value.find((item) => item.field === fieldKey)
+}
+
+const markEditing = (fieldKey) => {
+  sendEditing(fieldKey)
+}
+
+const queuePatch = (fieldKey) => {
+  if (!collabRow.value?.id) return
+  clearTimeout(patchTimers.get(fieldKey))
+  const timer = setTimeout(() => {
+    const ok = sendPatch({
+      field: fieldKey,
+      value: collabForm[fieldKey],
+      expectedUpdatedAt: collabVersion.value,
+    })
+    if (!ok) {
+      ElMessage.warning('协作连接未建立，暂不能实时同步')
+    }
+  }, 700)
+  patchTimers.set(fieldKey, timer)
 }
 
 const refresh = async () => {
@@ -155,8 +277,8 @@ onMounted(loadRows)
     <el-card class="module-card hero-card">
       <div class="hero-copy">
         <div class="eyebrow">协作行程</div>
-        <h2>把路线、策略、备注和协作信息统一管理</h2>
-        <p>支持快速检索、查看详情、复制摘要和在线编辑。</p>
+        <h2>行程管理与多人同步编辑</h2>
+        <p>把路线策略、交通方式、备注和协作者信息集中维护。</p>
       </div>
       <div class="hero-actions">
         <el-button type="primary" size="large" @click="openCreate">
@@ -239,7 +361,8 @@ onMounted(loadRows)
           <strong class="itinerary-time">{{ formatDateTime(row.updatedAt) }}</strong>
           <div class="itinerary-actions">
             <button type="button" @click="openDetail(row)"><Info theme="outline" size="14" fill="currentColor" /> 详情</button>
-            <button type="button" @click="confirmEdit(row)"><Edit theme="outline" size="14" fill="currentColor" /> 编辑</button>
+            <button type="button" @click="openEdit(row)"><Edit theme="outline" size="14" fill="currentColor" /> 编辑</button>
+            <button type="button" @click="openCollaboration(row)"><Connection theme="outline" size="14" fill="currentColor" /> 协作</button>
             <button type="button" @click="copySummary(row)"><Copy theme="outline" size="14" fill="currentColor" /> 复制</button>
           </div>
         </article>
@@ -286,6 +409,64 @@ onMounted(loadRows)
         <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer
+      v-model="collabOpen"
+      title="协作编辑行程"
+      size="720px"
+      destroy-on-close
+      @closed="closeCollaboration"
+    >
+      <div class="collab-panel" v-loading="collabLoading">
+        <div class="collab-status">
+          <el-tag :type="connected ? 'success' : connecting ? 'warning' : 'info'" effect="plain">
+            {{ connected ? '已连接' : connecting ? '连接中' : '未连接' }}
+          </el-tag>
+          <span>当前身份：{{ currentEditorName }}</span>
+          <span>版本：{{ formatDateTime(collabVersion) }}</span>
+        </div>
+
+        <div class="online-strip">
+          <strong>在线协作者</strong>
+          <el-tag v-for="user in onlineUsers" :key="user" size="small">{{ user }}</el-tag>
+          <span v-if="!onlineUsers.length" class="muted">暂无在线成员</span>
+        </div>
+
+        <el-alert
+          v-if="lastError"
+          :title="lastError"
+          type="warning"
+          show-icon
+          :closable="false"
+        />
+
+        <el-form label-width="96px" class="collab-form">
+          <el-form-item v-for="field in collabFields" :key="field.key" :label="field.label">
+            <div class="collab-input-wrap">
+              <el-input
+                v-model="collabForm[field.key]"
+                :type="field.type || 'text'"
+                :rows="field.rows"
+                @focus="markEditing(field.key)"
+                @input="queuePatch(field.key)"
+              />
+              <small v-if="fieldEditor(field.key)" class="editing-hint">
+                {{ fieldEditor(field.key).username }} 正在编辑
+              </small>
+            </div>
+          </el-form-item>
+        </el-form>
+
+        <div class="event-feed">
+          <strong>同步记录</strong>
+          <div v-if="!events.length" class="muted">暂无同步记录</div>
+          <div v-for="event in events" :key="`${event.time}-${event.text}`" class="event-item">
+            <span>{{ event.time }}</span>
+            <p>{{ event.text }}</p>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -480,9 +661,9 @@ onMounted(loadRows)
 
 .itinerary-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.35fr) minmax(86px, 0.5fr) minmax(110px, 0.68fr) minmax(96px, 0.62fr) minmax(80px, 0.48fr) 150px 220px;
+  grid-template-columns: minmax(180px, 1.25fr) minmax(76px, 0.44fr) minmax(98px, 0.62fr) minmax(88px, 0.56fr) minmax(70px, 0.42fr) 138px 284px;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   padding: 16px 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: #d7dce5;
@@ -540,14 +721,14 @@ onMounted(loadRows)
 
 .itinerary-actions {
   display: flex;
-  gap: 8px;
+  gap: 7px;
   justify-content: flex-end;
   flex-wrap: nowrap;
 }
 
 .itinerary-actions button {
   min-height: 32px;
-  min-width: 58px;
+  min-width: 54px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -566,6 +747,77 @@ onMounted(loadRows)
 .itinerary-actions button:hover,
 .itinerary-actions button:focus-visible {
   color: #ff8ba0;
+}
+
+.collab-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.collab-status,
+.online-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.collab-status {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.online-strip {
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.collab-form {
+  padding-top: 4px;
+}
+
+.collab-input-wrap {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+}
+
+.editing-hint {
+  color: #ff5f7b;
+  font-size: 12px;
+}
+
+.event-feed {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.event-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: #475569;
+}
+
+.event-item span {
+  min-width: 46px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.event-item p {
+  margin: 0;
+}
+
+.muted {
+  color: #94a3b8;
+  font-size: 13px;
 }
 
 @media (max-width: 900px) {
@@ -603,6 +855,7 @@ onMounted(loadRows)
 
   .itinerary-actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 </style>

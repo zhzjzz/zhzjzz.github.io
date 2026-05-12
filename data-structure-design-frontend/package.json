@@ -12,10 +12,12 @@
     "@amap/amap-jsapi-loader": "^1.0.1",
     "@element-plus/icons-vue": "^2.3.2",
     "@icon-park/vue-next": "^1.4.2",
+    "@stomp/stompjs": "^7.3.0",
     "axios": "^1.13.5",
     "element-plus": "^2.13.6",
     "pinia": "^2.2.8",
     "pymysql": "^1.0.0",
+    "sockjs-client": "^1.6.1",
     "vue": "^3.5.32",
     "vue-router": "^4.5.1"
   },
