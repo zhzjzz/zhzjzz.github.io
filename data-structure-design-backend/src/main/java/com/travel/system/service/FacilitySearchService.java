@@ -9,10 +9,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 public class FacilitySearchService {
     private static final double EARTH_RADIUS_METERS = 6_371_000d;
+    private static final Set<String> SCENIC_NON_SERVICE_TYPES = Set.of("教学楼", "办公楼", "宿舍楼", "核心景点", "食堂", "图书馆");
 
     private final FacilityMapper facilityMapper;
 
@@ -28,9 +30,21 @@ public class FacilitySearchService {
                                                   String facilityType,
                                                   String keyword,
                                                   Double maxDistanceMeters) {
+        return searchNearby(fromLat, fromLon, facilityType, keyword, maxDistanceMeters, null, null);
+    }
+
+    public List<FacilityQueryResult> searchNearby(Double fromLat,
+                                                  Double fromLon,
+                                                  String facilityType,
+                                                  String keyword,
+                                                  Double maxDistanceMeters,
+                                                  String spotName,
+                                                  String sceneType) {
         List<Facility> facilities = facilityMapper.findAll();
 
         return facilities.stream()
+                .filter(facility -> matchesSpotName(facility, spotName))
+                .filter(facility -> matchesSceneType(facility, sceneType))
                 .filter(facility -> matchesFacilityType(facility, facilityType))
                 .filter(facility -> matchesKeyword(facility, keyword))
                 .map(facility -> toResult(facility, fromLat, fromLon))
@@ -38,6 +52,33 @@ public class FacilitySearchService {
                 .filter(result -> maxDistanceMeters == null || result.getDistanceMeters() <= maxDistanceMeters)
                 .sorted(Comparator.comparingDouble(FacilityQueryResult::getDistanceMeters))
                 .toList();
+    }
+
+    public static boolean isVisibleFacilityTypeForScene(String facilityType, String sceneType) {
+        if (!isScenicScene(sceneType)) {
+            return true;
+        }
+        return facilityType != null && !SCENIC_NON_SERVICE_TYPES.contains(facilityType);
+    }
+
+    private boolean matchesSpotName(Facility facility, String spotName) {
+        if (spotName == null || spotName.isBlank()) {
+            return true;
+        }
+        return facility.getDestination() != null
+                && spotName.trim().equals(facility.getDestination().getName());
+    }
+
+    private boolean matchesSceneType(Facility facility, String sceneType) {
+        if (!isScenicScene(sceneType)) {
+            return true;
+        }
+        return "poi".equalsIgnoreCase(facility.getSourceType())
+                && isVisibleFacilityTypeForScene(facility.getFacilityType(), sceneType);
+    }
+
+    private static boolean isScenicScene(String sceneType) {
+        return "景区".equals(sceneType) || "景点".equals(sceneType);
     }
 
     /**

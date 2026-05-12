@@ -9,6 +9,7 @@
         <id column="id" property="id"/>
         <result column="name" property="name"/>
         <result column="facility_type" property="facilityType"/>
+        <result column="source_type" property="sourceType"/>
         <result column="latitude" property="latitude"/>
         <result column="longitude" property="longitude"/>
         <association property="destination" javaType="com.travel.system.model.Destination">
@@ -28,36 +29,40 @@
         SELECT b.building_id AS id,
                b.name AS name,
                b.type AS facility_type,
+               'building' AS source_type,
                n.y AS latitude,
                n.x AS longitude,
                NULL AS destination_id,
                NULL AS destination_ref_id,
                b.spot_name AS destination_name,
-               'building' AS destination_scene_type,
-               b.type AS destination_category,
+               s.category AS destination_scene_type,
+               s.category AS destination_category,
                NULL AS destination_rating,
                NULL AS destination_description,
                n.y AS destination_latitude,
                n.x AS destination_longitude
         FROM buildings b
         LEFT JOIN nodes n ON n.osmid = b.nearest_node_id
+        LEFT JOIN spots s ON s.name = b.spot_name
         UNION ALL
         SELECT (p.poi_id + 1000000000) AS id,
                p.name AS name,
                p.type AS facility_type,
+               'poi' AS source_type,
                n.y AS latitude,
                n.x AS longitude,
                NULL AS destination_id,
                NULL AS destination_ref_id,
                p.spot_name AS destination_name,
-               'poi' AS destination_scene_type,
-               p.type AS destination_category,
+               s.category AS destination_scene_type,
+               s.category AS destination_category,
                NULL AS destination_rating,
                NULL AS destination_description,
                n.y AS destination_latitude,
                n.x AS destination_longitude
         FROM pois p
         LEFT JOIN nodes n ON n.osmid = p.nearest_node_id
+        LEFT JOIN spots s ON s.name = p.spot_name
     </select>
 
     <!-- 按设施类型、名称或所属地点模糊匹配-->
@@ -67,36 +72,40 @@
             SELECT b.building_id AS id,
                    b.name AS name,
                    b.type AS facility_type,
+                   'building' AS source_type,
                    n.y AS latitude,
                    n.x AS longitude,
                    NULL AS destination_id,
                    NULL AS destination_ref_id,
                    b.spot_name AS destination_name,
-                   'building' AS destination_scene_type,
-                   b.type AS destination_category,
+                   s.category AS destination_scene_type,
+                   s.category AS destination_category,
                    NULL AS destination_rating,
                    NULL AS destination_description,
                    n.y AS destination_latitude,
                    n.x AS destination_longitude
             FROM buildings b
             LEFT JOIN nodes n ON n.osmid = b.nearest_node_id
+            LEFT JOIN spots s ON s.name = b.spot_name
             UNION ALL
             SELECT (p.poi_id + 1000000000) AS id,
                    p.name AS name,
                    p.type AS facility_type,
+                   'poi' AS source_type,
                    n.y AS latitude,
                    n.x AS longitude,
                    NULL AS destination_id,
                    NULL AS destination_ref_id,
                    p.spot_name AS destination_name,
-                   'poi' AS destination_scene_type,
-                   p.type AS destination_category,
+                   s.category AS destination_scene_type,
+                   s.category AS destination_category,
                    NULL AS destination_rating,
                    NULL AS destination_description,
                    n.y AS destination_latitude,
                    n.x AS destination_longitude
             FROM pois p
             LEFT JOIN nodes n ON n.osmid = p.nearest_node_id
+            LEFT JOIN spots s ON s.name = p.spot_name
         ) f
         WHERE LOWER(f.facility_type) LIKE '%' || LOWER(#{type}) || '%'
            OR LOWER(f.name) LIKE '%' || LOWER(#{type}) || '%'

@@ -20,10 +20,11 @@ const form = ref({
   maxDistanceMeters: 1000,
 })
 
-const selectedDestinationName = computed(() => {
-  const item = destinations.value.find((destination) => destination.id === form.value.fromDestinationId)
-  return item?.name || '未选择'
+const selectedDestination = computed(() => {
+  return destinations.value.find((destination) => destination.id === form.value.fromDestinationId)
 })
+
+const selectedDestinationName = computed(() => selectedDestination.value?.name || '未选择')
 
 const preferredStartNames = ['北京邮电大学沙河校区', '北京邮电大学']
 
@@ -44,15 +45,17 @@ const findPreferredStartDestination = (items) => {
 }
 
 const facilityImage = (type = '') => {
-  if (/咖啡|餐|食堂|饭店|美食|饮/.test(type)) return facilityFoodImage
+  if (/咖啡|餐饮|食堂|饭店|美食|饮/.test(type)) return facilityFoodImage
   if (/商店|超市|购物|便利/.test(type)) return facilityShopImage
   return facilityDefaultImage
 }
 
+const currentSceneType = () => selectedDestination.value?.category || selectedDestination.value?.sceneType || ''
+
 const loadFacilityTypeOptions = async (keyword = '') => {
   loadingTypeOptions.value = true
   try {
-    const { data } = await listFacilityTypes(keyword.trim(), 80)
+    const { data } = await listFacilityTypes(keyword.trim(), 80, currentSceneType())
     facilityTypeOptions.value = Array.isArray(data) ? data.filter(Boolean) : []
   } catch (error) {
     console.error(error)
@@ -60,6 +63,11 @@ const loadFacilityTypeOptions = async (keyword = '') => {
   } finally {
     loadingTypeOptions.value = false
   }
+}
+
+const handleDestinationChange = async () => {
+  form.value.type = ''
+  await loadFacilityTypeOptions()
 }
 
 const loadDestinations = async () => {
@@ -72,8 +80,8 @@ const loadDestinations = async () => {
 }
 
 const search = async () => {
-  const selectedDestination = destinations.value.find((destination) => destination.id === form.value.fromDestinationId)
-  if (!selectedDestination || selectedDestination.latitude == null || selectedDestination.longitude == null) {
+  const currentDestination = selectedDestination.value
+  if (!currentDestination || currentDestination.latitude == null || currentDestination.longitude == null) {
     ElMessage.warning('请先选择有坐标的起点目的地')
     return
   }
@@ -81,23 +89,26 @@ const search = async () => {
   loading.value = true
   try {
     const params = {
-      fromLat: selectedDestination.latitude,
-      fromLon: selectedDestination.longitude,
+      fromLat: currentDestination.latitude,
+      fromLon: currentDestination.longitude,
+      spotName: currentDestination.name,
+      sceneType: currentSceneType(),
     }
     if (form.value.type) params.type = form.value.type
     if (form.value.keyword.trim()) params.keyword = form.value.keyword.trim()
     if (form.value.maxDistanceMeters) params.maxDistanceMeters = form.value.maxDistanceMeters
 
     const { data } = await searchNearbyFacilities(params)
-    results.value = data
-    ElMessage.success(`已找到 ${data.length} 个附近场所`)
+    results.value = Array.isArray(data) ? data : []
+    ElMessage.success(`已找到 ${results.value.length} 个附近场所`)
   } finally {
     loading.value = false
   }
 }
 
 onMounted(async () => {
-  await Promise.all([loadDestinations(), loadFacilityTypeOptions()])
+  await loadDestinations()
+  await loadFacilityTypeOptions()
   if (form.value.fromDestinationId) {
     await search()
   }
@@ -111,7 +122,7 @@ onMounted(async () => {
         <div>
           <p class="demo-eyebrow">Nearby Search</p>
           <h2>场所查询</h2>
-          <p class="module-subtitle">从起点目的地出发，按空间距离查询周边服务设施，并支持类别过滤和关键词检索。</p>
+          <p class="module-subtitle">从当前目的地出发，查询本目的地内合理的服务设施，并按距离排序。</p>
         </div>
       </div>
 
@@ -119,7 +130,12 @@ onMounted(async () => {
         <el-row :gutter="12">
           <el-col :md="12" :xs="24">
             <el-form-item label="起点目的地">
-              <el-select v-model="form.fromDestinationId" class="full-width" placeholder="请选择起点目的地">
+              <el-select
+                v-model="form.fromDestinationId"
+                class="full-width"
+                placeholder="请选择起点目的地"
+                @change="handleDestinationChange"
+              >
                 <el-option
                   v-for="destination in destinations"
                   :key="destination.id"
@@ -144,7 +160,7 @@ onMounted(async () => {
                 default-first-option
                 reserve-keyword
                 :loading="loadingTypeOptions"
-                placeholder="输入类别关键词搜索，留空可看全部类型"
+                placeholder="输入类别关键字搜索"
                 :remote-method="loadFacilityTypeOptions"
               >
                 <el-option
@@ -157,7 +173,7 @@ onMounted(async () => {
             </el-form-item>
           </el-col>
           <el-col :md="8" :xs="24">
-            <el-form-item label="关键词">
+            <el-form-item label="关键字">
               <el-input v-model="form.keyword" placeholder="名称/类别/所属地点" clearable />
             </el-form-item>
           </el-col>
