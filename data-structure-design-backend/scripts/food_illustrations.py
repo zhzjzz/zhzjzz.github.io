@@ -123,4 +123,4 @@ def make_food_illustration(name: str, cuisine: str | None = None, unique_key: st
     <text x="44" y="333" fill="#ffffff" font-family="Arial,'Microsoft YaHei',sans-serif" font-size="42" font-weight="800">{label}</text>
     <text x="46" y="365" fill="#ffffff" opacity=".76" font-family="Arial,'Microsoft YaHei',sans-serif" font-size="19" font-weight="700">{cuisine_label}</text>
     </svg>"""
-    return "data:image/svg+xml;charset=UTF-8," + urllib.parse.quote(svg, safe="(),/:;=#%")
+    return "data:image/svg+xml;charset=UTF-8," + urllib.parse.quote(svg, safe="(),/:;=")

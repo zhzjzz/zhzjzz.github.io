@@ -304,7 +304,7 @@ public class DataInitializer implements CommandLineRunner {
                 palette[1],
                 escapeXml(label),
                 escapeXml(cuisineLabel));
-        return "data:image/svg+xml;charset=UTF-8," + URLEncoder.encode(svg, StandardCharsets.UTF_8);
+        return "data:image/svg+xml;charset=UTF-8," + URLEncoder.encode(svg, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     private String safeLabel(String name) {
