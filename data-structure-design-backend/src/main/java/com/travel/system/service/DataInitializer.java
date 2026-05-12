@@ -152,6 +152,8 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void ensureFood() {
+        jdbcTemplate.update("UPDATE food SET heat = 91 WHERE name = ? AND heat IS NULL", "老北京炸酱面");
+
         if (foodMapper.findAll().size() >= 30) {
             return;
         }
