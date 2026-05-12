@@ -1,6 +1,7 @@
 ﻿.vscode/
 data/
 *.log
+__pycache__/
 
 # Local IDE state/backups
 .idea/workspace.xml

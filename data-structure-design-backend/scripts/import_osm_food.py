@@ -19,6 +19,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from food_illustrations import make_food_illustration
+
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
@@ -44,6 +46,7 @@ class FoodPoi:
     lon: float
     source_type: str
     source_id: str
+    image_url: str
     destination_id: int | None
 
 
@@ -96,6 +99,7 @@ def ensure_columns(conn: sqlite3.Connection) -> None:
         "longitude": "ALTER TABLE food ADD COLUMN longitude REAL",
         "source_type": "ALTER TABLE food ADD COLUMN source_type TEXT",
         "source_id": "ALTER TABLE food ADD COLUMN source_id TEXT",
+        "image_url": "ALTER TABLE food ADD COLUMN image_url TEXT",
     }
     for column, sql in migrations.items():
         if column not in columns:
@@ -250,6 +254,7 @@ def parse_food_pois(data: dict, spots: list[Spot], limit: int) -> list[FoodPoi]:
                 lon=lon,
                 source_type=source_type,
                 source_id=source_id,
+                image_url=make_food_illustration(name, cuisine, source_id),
                 destination_id=destination_id,
             )
         )
@@ -273,9 +278,9 @@ def import_pois(conn: sqlite3.Connection, pois: list[FoodPoi], replace_osm: bool
             """
             INSERT INTO food (
                 name, cuisine, store_name, rating, heat,
-                latitude, longitude, source_type, source_id, destination_id
+                latitude, longitude, source_type, source_id, image_url, destination_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 poi.name,
@@ -287,6 +292,7 @@ def import_pois(conn: sqlite3.Connection, pois: list[FoodPoi], replace_osm: bool
                 poi.lon,
                 poi.source_type,
                 poi.source_id,
+                poi.image_url,
                 poi.destination_id,
             ),
         )

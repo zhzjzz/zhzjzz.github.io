@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS food (
     longitude REAL,
     source_type TEXT,
     source_id TEXT,
+    image_url TEXT,
     destination_id INTEGER
 );
 

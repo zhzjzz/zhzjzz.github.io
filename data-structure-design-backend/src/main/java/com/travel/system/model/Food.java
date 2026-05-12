@@ -19,6 +19,7 @@ public class Food {
     private Double longitude;
     private String sourceType;
     private String sourceId;
+    private String imageUrl;
     @Transient
     private Double distanceMeters;
     @ManyToOne(fetch = FetchType.LAZY)

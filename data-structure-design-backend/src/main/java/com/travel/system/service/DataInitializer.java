@@ -11,6 +11,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +51,7 @@ public class DataInitializer implements CommandLineRunner {
         authService.ensureSeedUsers();
         ensureFacilities(bupt);
         ensureFood();
+        ensureFoodImages();
         ensureDiary(bupt);
     }
 
@@ -91,6 +94,7 @@ public class DataInitializer implements CommandLineRunner {
         addColumnIfMissing("food", columns, "longitude", "REAL");
         addColumnIfMissing("food", columns, "source_type", "TEXT");
         addColumnIfMissing("food", columns, "source_id", "TEXT");
+        addColumnIfMissing("food", columns, "image_url", "TEXT");
     }
 
     private Set<String> tableColumns(String tableName) {
@@ -238,6 +242,85 @@ public class DataInitializer implements CommandLineRunner {
         );
     }
 
+    private void ensureFoodImages() {
+        List<FoodImageSeed> rows = jdbcTemplate.query(
+                """
+                SELECT id, name, cuisine
+                FROM food
+                WHERE image_url IS NULL OR image_url = ''
+                """,
+                (rs, rowNum) -> new FoodImageSeed(
+                        rs.getLong("id"),
+                        rs.getString("name"),
+                        rs.getString("cuisine")
+                ));
+        for (FoodImageSeed row : rows) {
+            jdbcTemplate.update(
+                    "UPDATE food SET image_url = ? WHERE id = ?",
+                    foodIllustration(row.id(), row.name(), row.cuisine()),
+                    row.id());
+        }
+    }
+
+    private String foodIllustration(Long id, String name, String cuisine) {
+        int seed = Math.abs((String.valueOf(id) + "|" + name + "|" + cuisine).hashCode());
+        String[][] palettes = {
+                {"#111827", "#f97316", "#fed7aa", "#fff7ed"},
+                {"#172554", "#38bdf8", "#bae6fd", "#eff6ff"},
+                {"#3b0764", "#d946ef", "#f5d0fe", "#fdf4ff"},
+                {"#0f172a", "#14b8a6", "#99f6e4", "#f0fdfa"}
+        };
+        String[] palette = palettes[seed % palettes.length];
+        String label = safeLabel(name);
+        String cuisineLabel = cuisine == null || cuisine.isBlank() ? "Local Taste" : cuisine;
+        String svg = """
+                <svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
+                  <defs>
+                    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+                      <stop offset="0" stop-color="%s"/>
+                      <stop offset="1" stop-color="%s"/>
+                    </linearGradient>
+                  </defs>
+                  <rect width="640" height="400" fill="url(#g)"/>
+                  <circle cx="%d" cy="78" r="42" fill="#ffffff" opacity=".12"/>
+                  <circle cx="548" cy="%d" r="82" fill="#000000" opacity=".14"/>
+                  <ellipse cx="300" cy="218" rx="152" ry="66" fill="%s" opacity=".98"/>
+                  <path d="M186 205h228l-30 82H216z" fill="%s" opacity=".92"/>
+                  <circle cx="250" cy="198" r="18" fill="%s"/>
+                  <circle cx="305" cy="214" r="15" fill="%s" opacity=".82"/>
+                  <circle cx="360" cy="195" r="20" fill="%s" opacity=".72"/>
+                  <text x="44" y="333" fill="#ffffff" font-family="Arial,'Microsoft YaHei',sans-serif" font-size="42" font-weight="800">%s</text>
+                  <text x="46" y="365" fill="#ffffff" opacity=".76" font-family="Arial,'Microsoft YaHei',sans-serif" font-size="19" font-weight="700">%s</text>
+                </svg>
+                """.formatted(
+                palette[0],
+                palette[1],
+                72 + seed % 120,
+                260 + seed % 80,
+                palette[3],
+                palette[2],
+                palette[1],
+                palette[1],
+                palette[1],
+                escapeXml(label),
+                escapeXml(cuisineLabel));
+        return "data:image/svg+xml;charset=UTF-8," + URLEncoder.encode(svg, StandardCharsets.UTF_8);
+    }
+
+    private String safeLabel(String name) {
+        if (name == null || name.isBlank()) {
+            return "美食";
+        }
+        return name.trim().replaceAll("\\s+", "").substring(0, Math.min(4, name.trim().replaceAll("\\s+", "").length()));
+    }
+
+    private String escapeXml(String value) {
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;");
+    }
+
     private void ensureDiary(Destination bupt) {
         if (!diaryMapper.findAll().isEmpty()) {
             return;
@@ -273,5 +356,8 @@ public class DataInitializer implements CommandLineRunner {
                             Double rating,
                             Double heat,
                             String destinationName) {
+    }
+
+    private record FoodImageSeed(Long id, String name, String cuisine) {
     }
 }

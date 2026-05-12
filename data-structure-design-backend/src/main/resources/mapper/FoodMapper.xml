@@ -15,6 +15,7 @@
         <result column="longitude" property="longitude"/>
         <result column="source_type" property="sourceType"/>
         <result column="source_id" property="sourceId"/>
+        <result column="image_url" property="imageUrl"/>
         <association property="destination" javaType="com.travel.system.model.Destination">
             <id column="destination_ref_id" property="id"/>
             <result column="destination_name" property="name"/>
@@ -40,6 +41,7 @@
                f.longitude,
                f.source_type,
                f.source_id,
+               f.image_url,
                f.destination_id,
                COALESCE(d.id, s.spot_id)          AS destination_ref_id,
                COALESCE(d.name, s.name)           AS destination_name,
@@ -73,6 +75,7 @@
                f.longitude,
                f.source_type,
                f.source_id,
+               f.image_url,
                f.destination_id,
                COALESCE(d.id, s.spot_id)          AS destination_ref_id,
                COALESCE(d.name, s.name)           AS destination_name,
@@ -107,8 +110,8 @@
 
     <insert id="insert" parameterType="com.travel.system.model.Food"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO food (name, cuisine, store_name, rating, heat, latitude, longitude, source_type, source_id, destination_id)
-        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{heat}, #{latitude}, #{longitude}, #{sourceType}, #{sourceId}, #{destination.id})
+        INSERT INTO food (name, cuisine, store_name, rating, heat, latitude, longitude, source_type, source_id, image_url, destination_id)
+        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{heat}, #{latitude}, #{longitude}, #{sourceType}, #{sourceId}, #{imageUrl}, #{destination.id})
     </insert>
 
     <!-- 更新美食记录 -->
@@ -123,6 +126,7 @@
             longitude = #{longitude},
             source_type = #{sourceType},
             source_id = #{sourceId},
+            image_url = #{imageUrl},
             destination_id = #{destination.id}
         WHERE id = #{id}
     </update>
