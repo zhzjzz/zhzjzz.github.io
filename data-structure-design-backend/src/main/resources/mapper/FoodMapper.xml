@@ -16,6 +16,7 @@
             <result column="destination_name" property="name"/>
             <result column="destination_scene_type" property="sceneType"/>
             <result column="destination_category" property="category"/>
+            <result column="destination_heat" property="heat"/>
             <result column="destination_rating" property="rating"/>
             <result column="destination_description" property="description"/>
             <result column="destination_latitude" property="latitude"/>
@@ -32,16 +33,24 @@
                f.rating,
                f.heat,
                f.destination_id,
-               d.id          AS destination_ref_id,
-               d.name        AS destination_name,
-               d.scene_type  AS destination_scene_type,
-               d.category    AS destination_category,
-               d.rating      AS destination_rating,
-               d.description AS destination_description,
-               d.latitude    AS destination_latitude,
-               d.longitude   AS destination_longitude
+               COALESCE(d.id, s.spot_id)          AS destination_ref_id,
+               COALESCE(d.name, s.name)           AS destination_name,
+               COALESCE(d.scene_type, s.category) AS destination_scene_type,
+               COALESCE(d.category, s.category)   AS destination_category,
+               COALESCE(d.heat, s.hotness)        AS destination_heat,
+               COALESCE(d.rating, s.rating)       AS destination_rating,
+               d.description                      AS destination_description,
+               COALESCE(d.latitude, nc.latitude)  AS destination_latitude,
+               COALESCE(d.longitude, nc.longitude) AS destination_longitude
         FROM food f
                  LEFT JOIN destination d ON d.id = f.destination_id
+                 LEFT JOIN spots s ON s.spot_id = f.destination_id
+                 LEFT JOIN (
+                     SELECT spot_name, AVG(y) AS latitude, AVG(x) AS longitude
+                     FROM nodes
+                     WHERE y IS NOT NULL AND x IS NOT NULL
+                     GROUP BY spot_name
+                 ) nc ON nc.spot_name = s.name
     </select>
 
     <!-- 多字段关键词模糊搜索 -->
@@ -53,16 +62,24 @@
                f.rating,
                f.heat,
                f.destination_id,
-               d.id          AS destination_ref_id,
-               d.name        AS destination_name,
-               d.scene_type  AS destination_scene_type,
-               d.category    AS destination_category,
-               d.rating      AS destination_rating,
-               d.description AS destination_description,
-               d.latitude    AS destination_latitude,
-               d.longitude   AS destination_longitude
+               COALESCE(d.id, s.spot_id)          AS destination_ref_id,
+               COALESCE(d.name, s.name)           AS destination_name,
+               COALESCE(d.scene_type, s.category) AS destination_scene_type,
+               COALESCE(d.category, s.category)   AS destination_category,
+               COALESCE(d.heat, s.hotness)        AS destination_heat,
+               COALESCE(d.rating, s.rating)       AS destination_rating,
+               d.description                      AS destination_description,
+               COALESCE(d.latitude, nc.latitude)  AS destination_latitude,
+               COALESCE(d.longitude, nc.longitude) AS destination_longitude
         FROM food f
                  LEFT JOIN destination d ON d.id = f.destination_id
+                 LEFT JOIN spots s ON s.spot_id = f.destination_id
+                 LEFT JOIN (
+                     SELECT spot_name, AVG(y) AS latitude, AVG(x) AS longitude
+                     FROM nodes
+                     WHERE y IS NOT NULL AND x IS NOT NULL
+                     GROUP BY spot_name
+                 ) nc ON nc.spot_name = s.name
         WHERE LOWER(f.name) LIKE '%' || LOWER(#{keyword}) || '%'
            OR LOWER(f.cuisine) LIKE '%' || LOWER(#{keyword}) || '%'
            OR LOWER(f.store_name) LIKE '%' || LOWER(#{keyword}) || '%'
