@@ -2,6 +2,8 @@
 data/
 *.log
 __pycache__/
+.worktrees
+.worktrees/
 
 # Local IDE state/backups
 .idea/workspace.xml
