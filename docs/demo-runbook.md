@@ -31,3 +31,15 @@ npm.cmd run dev
 - If the map does not load, verify `.env` has `VITE_AMAP_KEY` and `VITE_AMAP_SECRET`.
 - If API calls fail, verify backend is running at `http://localhost:8080`.
 - If route demo finds no data, search and select a scenic spot manually.
+
+## Tactical Map Collaboration Demo
+
+1. Start the backend and frontend.
+2. Log in with a demo user.
+3. Open `协作行程`.
+4. Choose an itinerary and click `协作`.
+5. In the collaboration drawer, select a tactical map node and vote `必去`.
+6. Open a second browser session with another demo user.
+7. Vote `不想去` for the same node.
+8. Confirm the node changes to a conflict state and the Ping panel shows both actions.
+9. Disconnect the backend WebSocket or refresh during reconnect, then submit a vote and confirm the REST fallback saves it.
