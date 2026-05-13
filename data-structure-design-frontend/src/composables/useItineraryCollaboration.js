@@ -36,14 +36,16 @@ export const useItineraryCollaboration = () => {
     events.value = events.value.slice(0, 8)
   }
 
-  const publish = (body) => {
+  const publishTo = (destination, body) => {
     if (!client?.connected || !currentItineraryId) return false
     client.publish({
-      destination: `/app/itinerary/${currentItineraryId}/edit`,
+      destination,
       body: JSON.stringify(body),
     })
     return true
   }
+
+  const publish = (body) => publishTo(`/app/itinerary/${currentItineraryId}/edit`, body)
 
   const disconnect = () => {
     if (client?.connected && currentItineraryId && currentUsername) {
@@ -58,7 +60,7 @@ export const useItineraryCollaboration = () => {
     currentItineraryId = null
   }
 
-  const connect = ({ itineraryId, username, onUpdated, onConflict }) => {
+  const connect = ({ itineraryId, username, onUpdated, onConflict, onSpotVoteUpdated, onSpotVoteRejected }) => {
     disconnect()
     currentItineraryId = itineraryId
     currentUsername = username || '协作者'
@@ -78,6 +80,14 @@ export const useItineraryCollaboration = () => {
           const payload = JSON.parse(frame.body)
           if (Array.isArray(payload.onlineUsers)) {
             onlineUsers.value = payload.onlineUsers
+          }
+          if (payload.type === 'SPOT_VOTE_UPDATED') {
+            addEvent(`${payload.username || '协作者'}标记了景点投票`)
+            onSpotVoteUpdated?.(payload)
+          }
+          if (payload.type === 'SPOT_VOTE_REJECTED') {
+            lastError.value = payload.message || '投票未保存'
+            onSpotVoteRejected?.(payload)
           }
           if (payload.type === 'JOINED') {
             addEvent(`${payload.username || '协作者'}加入协作`)
@@ -129,6 +139,16 @@ export const useItineraryCollaboration = () => {
     })
   }
 
+  const sendSpotVote = ({ spotId, spotName, voteType, reason }) => {
+    return publishTo(`/app/itinerary/${currentItineraryId}/spot-vote`, {
+      username: currentUsername,
+      spotId,
+      spotName,
+      voteType,
+      reason,
+    })
+  }
+
   onBeforeUnmount(disconnect)
 
   return {
@@ -142,5 +162,6 @@ export const useItineraryCollaboration = () => {
     disconnect,
     sendEditing,
     sendPatch,
+    sendSpotVote,
   }
 }

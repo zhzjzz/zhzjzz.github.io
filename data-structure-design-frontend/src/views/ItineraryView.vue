@@ -2,9 +2,21 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Calendar, Connection, Copy, Edit, Info, ListAdd, People, Plus, Refresh, Search, Timer } from '@icon-park/vue-next'
-import { createItinerary, getItinerary, listItineraries, updateItinerary } from '../api/travel'
+import {
+  createItinerary,
+  getItinerary,
+  listItineraries,
+  listItinerarySpotVotes,
+  submitItinerarySpotVote,
+  updateItinerary,
+} from '../api/travel'
 import { useAppStore } from '../stores/app'
 import { useItineraryCollaboration } from '../composables/useItineraryCollaboration'
+import ConsensusProgress from '../components/itinerary/ConsensusProgress.vue'
+import SpotDecisionCard from '../components/itinerary/SpotDecisionCard.vue'
+import SquadPingFeed from '../components/itinerary/SquadPingFeed.vue'
+import TacticalMapPanel from '../components/itinerary/TacticalMapPanel.vue'
+import { buildSpotNodes, makePingText } from '../utils/itineraryVotes'
 import itineraryDefaultImage from '../assets/defaults/itinerary-default.png'
 
 const appStore = useAppStore()
@@ -21,6 +33,10 @@ const collabOpen = ref(false)
 const collabLoading = ref(false)
 const collabRow = ref(null)
 const collabVersion = ref('')
+const spotVotes = ref([])
+const selectedNode = ref(null)
+const voteSaving = ref(false)
+const pingEvents = ref([])
 const patchTimers = new Map()
 
 const {
@@ -34,6 +50,7 @@ const {
   disconnect,
   sendEditing,
   sendPatch,
+  sendSpotVote,
 } = useItineraryCollaboration()
 
 const form = reactive({
@@ -112,6 +129,31 @@ const stats = computed(() => ({
 }))
 
 const currentEditorName = computed(() => appStore.user.name || collabForm.owner || '协作者')
+
+const fallbackTacticalNodes = computed(() => {
+  if (!collabRow.value?.id) return []
+  const baseId = Number(collabRow.value.id) * 1000
+  return [
+    { spotId: baseId + 1, spotName: collabRow.value.name || '行程主节点', x: 18, y: 28 },
+    { spotId: baseId + 2, spotName: collabRow.value.strategy || '路线策略', x: 45, y: 58 },
+    { spotId: baseId + 3, spotName: collabRow.value.transportMode || '集合交通', x: 74, y: 34 },
+  ].map((node) => ({
+    ...node,
+    votes: [],
+    consensus: 'backup',
+  }))
+})
+
+const tacticalNodes = computed(() => {
+  const nodes = buildSpotNodes(spotVotes.value)
+  const votedSpotIds = new Set(nodes.map((node) => String(node.spotId)))
+  return [
+    ...nodes,
+    ...fallbackTacticalNodes.value.filter((node) => !votedSpotIds.has(String(node.spotId))),
+  ]
+})
+
+const selectedSpotId = computed(() => selectedNode.value?.spotId || null)
 
 const loadRows = async () => {
   loading.value = true
@@ -204,6 +246,80 @@ const copySummary = async (row) => {
   ElMessage.success('已复制摘要')
 }
 
+const syncSelectedNode = () => {
+  const previousSpotId = selectedSpotId.value
+  selectedNode.value = tacticalNodes.value.find((node) => String(node.spotId) === String(previousSpotId))
+    || tacticalNodes.value[0]
+    || null
+}
+
+const loadSpotVotes = async (row) => {
+  if (!row?.id) {
+    spotVotes.value = []
+    selectedNode.value = null
+    return
+  }
+  const { data } = await listItinerarySpotVotes(row.id)
+  spotVotes.value = Array.isArray(data) ? data : []
+  syncSelectedNode()
+}
+
+const selectNode = (node) => {
+  selectedNode.value = node
+}
+
+const pushPing = (payload) => {
+  const vote = payload?.vote || payload
+  if (!vote?.spotId) return
+  pingEvents.value.unshift({
+    key: `${Date.now()}-${vote.spotId}-${vote.username || payload?.username || 'user'}`,
+    username: vote.username || payload?.username || '队友',
+    serverTimestamp: payload?.serverTimestamp || vote.updatedAt || vote.createdAt,
+    text: makePingText(vote),
+    vote,
+  })
+  pingEvents.value = pingEvents.value.slice(0, 8)
+}
+
+const applyVoteBroadcast = (payload) => {
+  if (payload.type === 'SPOT_VOTE_REJECTED') {
+    ElMessage.warning(payload.message || '投票未保存')
+    return
+  }
+  if (payload.type !== 'SPOT_VOTE_UPDATED') return
+  if (Array.isArray(payload.votes)) {
+    spotVotes.value = payload.votes
+  }
+  pushPing(payload)
+  syncSelectedNode()
+}
+
+const submitVote = async ({ spotId, spotName, voteType, reason }) => {
+  if (!collabRow.value?.id) {
+    ElMessage.warning('请先打开协作行程')
+    return
+  }
+  voteSaving.value = true
+  const payload = {
+    spotId,
+    spotName,
+    username: currentEditorName.value,
+    voteType,
+    reason,
+  }
+  try {
+    const sent = sendSpotVote(payload)
+    if (!sent) {
+      const { data } = await submitItinerarySpotVote(collabRow.value.id, payload)
+      await loadSpotVotes(collabRow.value)
+      pushPing(data)
+      ElMessage.success('投票已保存')
+    }
+  } finally {
+    voteSaving.value = false
+  }
+}
+
 const openCollaboration = async (row) => {
   collabOpen.value = true
   collabLoading.value = true
@@ -211,6 +327,8 @@ const openCollaboration = async (row) => {
     const { data } = await getItinerary(row.id)
     collabRow.value = data
     applyItineraryToCollabForm(data)
+    pingEvents.value = []
+    await loadSpotVotes(data)
     connect({
       itineraryId: data.id,
       username: currentEditorName.value,
@@ -219,6 +337,7 @@ const openCollaboration = async (row) => {
           applyItineraryToCollabForm(payload.itinerary)
           updateRowInList(payload.itinerary)
           collabRow.value = payload.itinerary
+          syncSelectedNode()
         }
       },
       onConflict: async (payload) => {
@@ -227,6 +346,8 @@ const openCollaboration = async (row) => {
         applyItineraryToCollabForm(latest.data)
         updateRowInList(latest.data)
       },
+      onSpotVoteUpdated: applyVoteBroadcast,
+      onSpotVoteRejected: applyVoteBroadcast,
     })
   } finally {
     collabLoading.value = false
@@ -239,6 +360,9 @@ const closeCollaboration = () => {
   disconnect()
   collabOpen.value = false
   collabRow.value = null
+  spotVotes.value = []
+  selectedNode.value = null
+  pingEvents.value = []
 }
 
 const fieldEditor = (fieldKey) => {
@@ -413,7 +537,7 @@ onMounted(loadRows)
     <el-drawer
       v-model="collabOpen"
       title="协作编辑行程"
-      size="720px"
+      size="86%"
       destroy-on-close
       @closed="closeCollaboration"
     >
@@ -439,6 +563,24 @@ onMounted(loadRows)
           show-icon
           :closable="false"
         />
+
+        <div class="tactical-layout">
+          <TacticalMapPanel
+            :nodes="tacticalNodes"
+            :selected-spot-id="selectedSpotId"
+            @select-node="selectNode"
+          />
+          <div class="tactical-side">
+            <ConsensusProgress :nodes="tacticalNodes" />
+            <SpotDecisionCard
+              :node="selectedNode"
+              :current-user="currentEditorName"
+              :saving="voteSaving"
+              @submit-vote="submitVote"
+            />
+            <SquadPingFeed :events="pingEvents" />
+          </div>
+        </div>
 
         <el-form label-width="96px" class="collab-form">
           <el-form-item v-for="field in collabFields" :key="field.key" :label="field.label">
@@ -775,6 +917,18 @@ onMounted(loadRows)
   border-radius: 10px;
 }
 
+.tactical-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.tactical-side {
+  display: grid;
+  gap: 14px;
+}
+
 .collab-form {
   padding-top: 4px;
 }
@@ -856,6 +1010,10 @@ onMounted(loadRows)
   .itinerary-actions {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+
+  .tactical-layout {
+    grid-template-columns: 1fr;
   }
 }
 </style>
