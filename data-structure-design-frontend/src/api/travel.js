@@ -34,6 +34,7 @@ export const listItinerarySpotVotes = (id) => http.get(`/itineraries/${id}/spot-
 export const submitItinerarySpotVote = (id, payload) => http.post(`/itineraries/${id}/spot-votes`, payload)
 export const listItineraryMapSpots = (id) => http.get(`/itineraries/${id}/map-spots`)
 export const addItinerarySpotCandidate = (id, payload) => http.post(`/itineraries/${id}/map-spots`, payload)
+export const previewItineraryPlan = (payload) => http.post('/itinerary-planner/preview', payload)
 
 // 路线规划接口。
 export const getOsmRoute = (params) => http.get('/route', { params })
