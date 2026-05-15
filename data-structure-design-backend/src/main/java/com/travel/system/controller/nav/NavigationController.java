@@ -11,6 +11,7 @@ import com.travel.system.model.nav.CityRoute;
 import com.travel.system.model.nav.RoadEdge;
 import com.travel.system.model.nav.RoadNode;
 import com.travel.system.service.nav.CityRouteService;
+import com.travel.system.service.nav.MultiSpotRoutePlanner;
 import com.travel.system.service.nav.NavigationDataService;
 import com.travel.system.service.nav.TransportModeService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +28,7 @@ public class NavigationController {
     private final NavigationDataService navigationDataService;
     private final TransportModeService transportModeService;
     private final CityRouteService cityRouteService;
+    private final MultiSpotRoutePlanner multiSpotRoutePlanner;
 
     private static final String DEFAULT_MODE = "walk";
     private static final int EXACT_ORDER_LIMIT = 10;
@@ -35,10 +37,12 @@ public class NavigationController {
 
     public NavigationController(NavigationDataService navigationDataService,
                                 TransportModeService transportModeService,
-                                CityRouteService cityRouteService) {
+                                CityRouteService cityRouteService,
+                                MultiSpotRoutePlanner multiSpotRoutePlanner) {
         this.navigationDataService = navigationDataService;
         this.transportModeService = transportModeService;
         this.cityRouteService = cityRouteService;
+        this.multiSpotRoutePlanner = multiSpotRoutePlanner;
     }
     /**
      * 规划单个景区内部的路线。根据请求策略选择最短距离、最短时间或混合交通算法，并返回节点路径、分段步骤、总距离和总时间。
@@ -174,138 +178,7 @@ public class NavigationController {
     @Operation(summary = "多景区多地点路线规划")
     @PostMapping("/multi-spot")
     public MultiSpotNavigationResponse multiSpotRoute(@RequestBody MultiSpotNavigationRequest request) {
-        MultiSpotNavigationResponse resp = new MultiSpotNavigationResponse();
-        resp.setSegments(new ArrayList<>());
-        resp.setTotalDistance(0.0);
-        resp.setTotalTime(0.0);
-
-        if (request == null || request.getVisits() == null || request.getVisits().isEmpty()) {
-            return resp;
-        }
-
-        List<MultiSpotNavigationRequest.SpotVisit> visits = request.getVisits().stream()
-                .filter(visit -> visit != null && visit.getSpotName() != null && !visit.getSpotName().isBlank())
-                .toList();
-        if (visits.isEmpty()) {
-            return resp;
-        }
-
-        double totalDistance = 0.0;
-        double totalTime = 0.0;
-
-        List<List<Long>> orderedVisitNodes = new ArrayList<>();
-        for (int i = 0; i < visits.size(); i++) {
-            MultiSpotNavigationRequest.SpotVisit visit = visits.get(i);
-            String spotName = visit.getSpotName();
-            RoadNode gate = navigationDataService.getGateNode(spotName);
-            Long entryNode = i > 0 && gate != null && !sameSpot(visits.get(i - 1).getSpotName(), spotName) ? gate.getOsmid() : null;
-            Long exitNode = i < visits.size() - 1 && gate != null && !sameSpot(spotName, visits.get(i + 1).getSpotName()) ? gate.getOsmid() : null;
-            orderedVisitNodes.add(orderVisitNodes(
-                    resolveVisitNodes(visit),
-                    navigationDataService.buildAdjacencyList(spotName),
-                    request.getStrategy(),
-                    normalizeMode(visit.getTransportMode()),
-                    Boolean.TRUE.equals(request.getOptimizeVisitOrder()),
-                    entryNode,
-                    exitNode
-            ));
-        }
-
-        for (int i = 0; i < visits.size(); i++) {
-            MultiSpotNavigationRequest.SpotVisit current = visits.get(i);
-            String currentSpot = current.getSpotName();
-            String currentMode = normalizeMode(current.getTransportMode());
-            Map<Long, List<RoadEdge>> currentAdj = navigationDataService.buildAdjacencyList(currentSpot);
-            List<Long> currentNodes = orderedVisitNodes.get(i);
-
-            if (currentNodes.size() >= 2) {
-                for (int j = 0; j < currentNodes.size() - 1; j++) {
-                    NavigationResponse inner = planByStrategy(
-                            currentAdj,
-                            currentNodes.get(j),
-                            currentNodes.get(j + 1),
-                            request.getStrategy(),
-                            currentMode
-                    );
-                    MultiSpotNavigationResponse.RouteSegment segment = createInnerSegment(
-                            currentSpot,
-                            currentNodes.get(j),
-                            currentNodes.get(j + 1),
-                            currentMode,
-                            inner
-                    );
-                    resp.getSegments().add(segment);
-                    totalDistance += safe(segment.getDistance());
-                    totalTime += safe(segment.getTime());
-                }
-            }
-
-            if (i < visits.size() - 1) {
-                MultiSpotNavigationRequest.SpotVisit next = visits.get(i + 1);
-                String nextSpot = next.getSpotName();
-                if (sameSpot(currentSpot, nextSpot)) {
-                    continue;
-                }
-
-                RoadNode fromGate = navigationDataService.getGateNode(currentSpot);
-                RoadNode toGate = navigationDataService.getGateNode(nextSpot);
-                if (fromGate == null || toGate == null) {
-                    continue;
-                }
-
-                Long fromNode = currentNodes.isEmpty() ? fromGate.getOsmid() : currentNodes.get(currentNodes.size() - 1);
-                List<Long> nextNodes = orderedVisitNodes.get(i + 1);
-                Long toNode = nextNodes.isEmpty() ? toGate.getOsmid() : nextNodes.get(0);
-
-                NavigationResponse exit = planByStrategy(
-                        navigationDataService.buildAdjacencyList(currentSpot),
-                        fromNode,
-                        fromGate.getOsmid(),
-                        request.getStrategy(),
-                        currentMode
-                );
-                MultiSpotNavigationResponse.RouteSegment exitSegment = createInnerSegment(
-                        currentSpot,
-                        fromNode,
-                        fromGate.getOsmid(),
-                        currentMode,
-                        exit
-                );
-                exitSegment.setType("spot_exit");
-                resp.getSegments().add(exitSegment);
-                totalDistance += safe(exitSegment.getDistance());
-                totalTime += safe(exitSegment.getTime());
-
-                MultiSpotNavigationResponse.RouteSegment citySegment = createCitySegment(currentSpot, nextSpot, fromGate, toGate);
-                resp.getSegments().add(citySegment);
-                totalDistance += safe(citySegment.getDistance());
-                totalTime += safe(citySegment.getTime());
-
-                String nextMode = normalizeMode(next.getTransportMode());
-                NavigationResponse enter = planByStrategy(
-                        navigationDataService.buildAdjacencyList(nextSpot),
-                        toGate.getOsmid(),
-                        toNode,
-                        request.getStrategy(),
-                        nextMode
-                );
-                MultiSpotNavigationResponse.RouteSegment enterSegment = createInnerSegment(
-                        nextSpot,
-                        toGate.getOsmid(),
-                        toNode,
-                        nextMode,
-                        enter
-                );
-                enterSegment.setType("spot_enter");
-                resp.getSegments().add(enterSegment);
-                totalDistance += safe(enterSegment.getDistance());
-                totalTime += safe(enterSegment.getTime());
-            }
-        }
-
-        resp.setTotalDistance(totalDistance);
-        resp.setTotalTime(totalTime);
-        return resp;
+        return multiSpotRoutePlanner.plan(request);
     }
     /**
      * 返回指定景区的全部路网节点，供前端地图标点、起终点选择和调试使用。
