@@ -101,3 +101,20 @@ CREATE TABLE IF NOT EXISTS itinerary_spot_vote (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_itinerary_spot_vote_unique
 ON itinerary_spot_vote(itinerary_id, spot_id, username);
+
+CREATE TABLE IF NOT EXISTS itinerary_spot_candidate (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    itinerary_id INTEGER NOT NULL,
+    destination_id INTEGER NOT NULL,
+    spot_name TEXT NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_itinerary_spot_candidate_unique
+ON itinerary_spot_candidate(itinerary_id, destination_id);
+
+CREATE INDEX IF NOT EXISTS idx_itinerary_spot_candidate_itinerary
+ON itinerary_spot_candidate(itinerary_id);

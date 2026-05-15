@@ -6,8 +6,10 @@ import com.travel.system.model.ItinerarySpotVote;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,10 +17,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ItinerarySpotVoteServiceTest {
 
     private final FakeVoteMapper mapper = new FakeVoteMapper();
-    private final ItinerarySpotVoteService service = new ItinerarySpotVoteService(mapper);
+    private final FakeCandidateService candidateService = new FakeCandidateService();
+    private final ItinerarySpotVoteService service = new ItinerarySpotVoteService(mapper, candidateService);
 
     @Test
     void createsVoteWhenUserHasNotVotedForSpot() {
+        candidateService.allow(7L, 101L);
         ItinerarySpotVoteMessage message = new ItinerarySpotVoteMessage();
         message.setSpotId(101L);
         message.setSpotName("外滩");
@@ -41,6 +45,7 @@ class ItinerarySpotVoteServiceTest {
 
     @Test
     void updatesExistingVoteForSameItinerarySpotAndUser() {
+        candidateService.allow(7L, 101L);
         ItinerarySpotVoteMessage first = new ItinerarySpotVoteMessage();
         first.setSpotId(101L);
         first.setSpotName("外滩");
@@ -88,6 +93,40 @@ class ItinerarySpotVoteServiceTest {
         assertThatThrownBy(() -> service.saveVote(7L, message))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("username");
+    }
+
+    @Test
+    void rejectsVoteForSpotThatIsNotAnItineraryCandidate() {
+        ItinerarySpotVoteMessage message = new ItinerarySpotVoteMessage();
+        message.setSpotId(101L);
+        message.setSpotName("West Lake");
+        message.setUsername("Zhou");
+        message.setVoteType("must");
+
+        assertThatThrownBy(() -> service.saveVote(7L, message))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("candidate");
+    }
+
+    private static class FakeCandidateService extends ItinerarySpotCandidateService {
+        private final Set<String> allowed = new HashSet<>();
+
+        FakeCandidateService() {
+            super(null, null, null);
+        }
+
+        void allow(Long itineraryId, Long destinationId) {
+            allowed.add(key(itineraryId, destinationId));
+        }
+
+        @Override
+        public boolean exists(Long itineraryId, Long destinationId) {
+            return allowed.contains(key(itineraryId, destinationId));
+        }
+
+        private String key(Long itineraryId, Long destinationId) {
+            return itineraryId + ":" + destinationId;
+        }
     }
 
     private static class FakeVoteMapper implements ItinerarySpotVoteMapper {

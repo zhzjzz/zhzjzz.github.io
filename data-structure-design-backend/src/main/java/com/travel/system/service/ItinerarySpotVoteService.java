@@ -14,9 +14,12 @@ public class ItinerarySpotVoteService {
     private static final Set<String> ALLOWED_TYPES = Set.of("must", "want", "avoid", "backup");
 
     private final ItinerarySpotVoteMapper voteMapper;
+    private final ItinerarySpotCandidateService candidateService;
 
-    public ItinerarySpotVoteService(ItinerarySpotVoteMapper voteMapper) {
+    public ItinerarySpotVoteService(ItinerarySpotVoteMapper voteMapper,
+                                    ItinerarySpotCandidateService candidateService) {
         this.voteMapper = voteMapper;
+        this.candidateService = candidateService;
     }
 
     public List<ItinerarySpotVote> findByItineraryId(Long itineraryId) {
@@ -71,6 +74,9 @@ public class ItinerarySpotVoteService {
         }
         if (message.getVoteType() == null || !ALLOWED_TYPES.contains(message.getVoteType().trim())) {
             throw new IllegalArgumentException("voteType must be one of must, want, avoid, backup");
+        }
+        if (!candidateService.exists(itineraryId, message.getSpotId())) {
+            throw new IllegalArgumentException("spot must be an itinerary candidate");
         }
     }
 

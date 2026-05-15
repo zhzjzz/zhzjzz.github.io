@@ -3,6 +3,7 @@ package com.travel.system.controller;
 import com.travel.system.dto.ItinerarySpotVoteMessage;
 import com.travel.system.mapper.ItinerarySpotVoteMapper;
 import com.travel.system.model.ItinerarySpotVote;
+import com.travel.system.service.ItinerarySpotCandidateService;
 import com.travel.system.service.ItinerarySpotVoteService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -77,7 +78,7 @@ class ItinerarySpotVoteControllerTest {
         private RuntimeException failure;
 
         RecordingVoteService() {
-            super(new NoopVoteMapper());
+            super(new NoopVoteMapper(), new NoopCandidateService());
         }
 
         @Override
@@ -115,6 +116,17 @@ class ItinerarySpotVoteControllerTest {
         @Override
         public int updateByUnique(ItinerarySpotVote vote) {
             return 0;
+        }
+    }
+
+    private static class NoopCandidateService extends ItinerarySpotCandidateService {
+        NoopCandidateService() {
+            super(null, null, null);
+        }
+
+        @Override
+        public boolean exists(Long itineraryId, Long destinationId) {
+            return true;
         }
     }
 }
