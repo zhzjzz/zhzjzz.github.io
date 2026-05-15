@@ -15,6 +15,7 @@ import {
 import { useAppStore } from '../stores/app'
 import { useItineraryCollaboration } from '../composables/useItineraryCollaboration'
 import ConsensusProgress from '../components/itinerary/ConsensusProgress.vue'
+import ItineraryPlannerPanel from '../components/itinerary/ItineraryPlannerPanel.vue'
 import RealSpotSearchPanel from '../components/itinerary/RealSpotSearchPanel.vue'
 import SpotDecisionCard from '../components/itinerary/SpotDecisionCard.vue'
 import SquadPingFeed from '../components/itinerary/SquadPingFeed.vue'
@@ -38,6 +39,7 @@ const collabRow = ref(null)
 const collabVersion = ref('')
 const mapSpots = ref([])
 const selectedNode = ref(null)
+const plannerOpen = ref(false)
 const voteSaving = ref(false)
 const pingEvents = ref([])
 const spotSearchKeyword = ref('')
@@ -361,6 +363,7 @@ const submitVote = async ({ spotId, spotName, voteType, reason }) => {
 const openCollaboration = async (row) => {
   collabOpen.value = true
   collabLoading.value = true
+  plannerOpen.value = false
   try {
     const { data } = await getItinerary(row.id)
     collabRow.value = data
@@ -402,6 +405,7 @@ const closeCollaboration = () => {
   collabRow.value = null
   mapSpots.value = []
   selectedNode.value = null
+  plannerOpen.value = false
   pingEvents.value = []
   spotSearchKeyword.value = ''
   spotSearchResults.value = []
@@ -607,11 +611,19 @@ onMounted(loadRows)
         />
 
         <div class="tactical-layout">
-          <TacticalMapPanel
-            :nodes="tacticalNodes"
-            :selected-spot-id="selectedSpotId"
-            @select-node="selectNode"
-          />
+          <div class="tactical-map-stack">
+            <div class="planner-action-row">
+              <span>{{ tacticalNodes.length }} 个真实景点</span>
+              <el-button type="primary" :disabled="!tacticalNodes.length" @click="plannerOpen = !plannerOpen">
+                一键规划
+              </el-button>
+            </div>
+            <TacticalMapPanel
+              :nodes="tacticalNodes"
+              :selected-spot-id="selectedSpotId"
+              @select-node="selectNode"
+            />
+          </div>
           <div class="tactical-side">
             <RealSpotSearchPanel
               v-model:keyword="spotSearchKeyword"
@@ -621,6 +633,7 @@ onMounted(loadRows)
               @search="searchRealSpots"
               @add="addRealSpot"
             />
+            <ItineraryPlannerPanel v-if="plannerOpen" :spots="tacticalNodes" />
             <ConsensusProgress :nodes="tacticalNodes" />
             <SpotDecisionCard
               :node="selectedNode"
@@ -977,6 +990,28 @@ onMounted(loadRows)
 .tactical-side {
   display: grid;
   gap: 14px;
+}
+
+.tactical-map-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.planner-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.planner-action-row span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .collab-form {
