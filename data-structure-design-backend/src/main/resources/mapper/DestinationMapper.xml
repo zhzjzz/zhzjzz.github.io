@@ -31,6 +31,26 @@
     </select>
 
     <!-- 按名称、分类或关键词进行模糊搜索-->
+    <select id="findById" parameterType="long" resultType="com.travel.system.model.Destination">
+        SELECT s.spot_id AS id,
+               s.name AS name,
+               s.category AS sceneType,
+               s.category AS category,
+               s.hotness AS heat,
+               s.rating AS rating,
+               s.description AS description,
+               nc.latitude AS latitude,
+               nc.longitude AS longitude
+        FROM spots s
+        LEFT JOIN (
+            SELECT spot_name, AVG(y) AS latitude, AVG(x) AS longitude
+            FROM nodes
+            WHERE y IS NOT NULL AND x IS NOT NULL
+            GROUP BY spot_name
+        ) nc ON nc.spot_name = s.name
+        WHERE s.spot_id = #{id}
+    </select>
+
     <select id="findByKeyword" resultType="com.travel.system.model.Destination">
         SELECT s.spot_id AS id,
                s.name AS name,

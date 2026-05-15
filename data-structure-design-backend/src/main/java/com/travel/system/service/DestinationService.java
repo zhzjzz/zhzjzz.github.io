@@ -33,6 +33,13 @@ public class DestinationService {
         return destinationMapper.findByKeyword(keyword);
     }
 
+    public Destination findById(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return destinationMapper.findById(id);
+    }
+
     /**
 
      * 按默认或指定推荐策略返回前 k 条数据，k 非法时由 service 内部修正为安全默认值。
