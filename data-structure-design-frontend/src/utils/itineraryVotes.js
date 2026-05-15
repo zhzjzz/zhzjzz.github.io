@@ -62,6 +62,29 @@ export const buildSpotNodes = (votes = []) => {
   })
 }
 
+export const buildRealSpotNodes = (mapSpots = []) => {
+  return mapSpots
+    .filter((spot) => {
+      if (spot.latitude == null || spot.longitude == null || spot.latitude === '' || spot.longitude === '') {
+        return false
+      }
+      return Number.isFinite(Number(spot.latitude)) && Number.isFinite(Number(spot.longitude))
+    })
+    .map((spot) => {
+      const votes = Array.isArray(spot.votes) ? spot.votes : []
+      return {
+        candidateId: spot.candidateId,
+        destinationId: spot.destinationId,
+        spotId: spot.spotId || spot.destinationId,
+        spotName: spot.spotName || `景点 ${spot.spotId || spot.destinationId}`,
+        latitude: Number(spot.latitude),
+        longitude: Number(spot.longitude),
+        votes,
+        consensus: computeConsensus(votes),
+      }
+    })
+}
+
 export const summarizeConsensus = (nodes = []) => ({
   total: nodes.length,
   agreed: nodes.filter((node) => ['must', 'want'].includes(node.consensus)).length,
