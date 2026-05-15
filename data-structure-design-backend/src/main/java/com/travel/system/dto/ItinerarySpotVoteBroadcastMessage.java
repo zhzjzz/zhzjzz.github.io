@@ -18,6 +18,7 @@ public class ItinerarySpotVoteBroadcastMessage {
     private String username;
     private ItinerarySpotVote vote;
     private List<ItinerarySpotVote> votes;
+    private List<ItineraryMapSpot> mapSpots;
     private String message;
     private LocalDateTime serverTimestamp;
 }
