@@ -45,3 +45,9 @@ npm.cmd run dev
 9. Open a second browser session with another demo user and vote "avoid" for the same marker.
 10. Confirm the marker changes to conflict state and the Ping panel shows both actions.
 11. Stop WebSocket connectivity or refresh during reconnect, submit another vote, and confirm REST fallback saves it.
+12. Click `一键规划`.
+13. Confirm the planner panel preselects `must` and `want` spots.
+14. Choose a departure time and keep automatic ordering enabled.
+15. Click `生成`.
+16. Confirm the preview shows total distance, total travel time, estimated arrival time, and segment timeline.
+17. Note that future one-click itinerary replication can reuse the same `POST /api/itinerary-planner/preview` endpoint and `ItineraryPlannerPanel` by passing replicated destination spots into the same input shape.
