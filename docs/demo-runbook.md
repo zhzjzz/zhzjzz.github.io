@@ -20,11 +20,11 @@ npm.cmd run dev
 
 1. Open `http://localhost:5173/#/`.
 2. Explain the system goal from the dashboard hero.
-3. Open `目的地推荐` and show the Top10 leaderboard.
-4. Open `路线规划`, click `演示模式`, then click `规划路线`.
+3. Open the destination recommendation page and show the Top10 leaderboard.
+4. Open route planning, click demo mode, then click route planning.
 5. Show map path, total distance, total time, and segment list.
-6. Open `场所查询` to show nearby service search.
-7. Open `协作行程` to show multi-person itinerary management.
+6. Open facility search to show nearby service search.
+7. Open itinerary collaboration to show multi-person itinerary management.
 
 ## Backup Checks
 
@@ -34,12 +34,14 @@ npm.cmd run dev
 
 ## Tactical Map Collaboration Demo
 
-1. Start the backend and frontend.
-2. Log in with a demo user.
-3. Open `协作行程`.
-4. Choose an itinerary and click `协作`.
-5. In the collaboration drawer, select a tactical map node and vote `必去`.
-6. Open a second browser session with another demo user.
-7. Vote `不想去` for the same node.
-8. Confirm the node changes to a conflict state and the Ping panel shows both actions.
-9. Disconnect the backend WebSocket or refresh during reconnect, then submit a vote and confirm the REST fallback saves it.
+1. Start the backend and frontend from `codex/tactical-map-collaboration`.
+2. Confirm `data-structure-design-frontend/.env` has `VITE_AMAP_KEY` and `VITE_AMAP_SECRET`.
+3. Open `http://localhost:5173/#/itineraries`.
+4. Choose an itinerary and click collaboration.
+5. Search a real destination such as `西湖`.
+6. Add a result with latitude and longitude to the collaboration map.
+7. Confirm the AMap panel shows a marker at the real location.
+8. Vote "must go" for that marker.
+9. Open a second browser session with another demo user and vote "avoid" for the same marker.
+10. Confirm the marker changes to conflict state and the Ping panel shows both actions.
+11. Stop WebSocket connectivity or refresh during reconnect, submit another vote, and confirm REST fallback saves it.
