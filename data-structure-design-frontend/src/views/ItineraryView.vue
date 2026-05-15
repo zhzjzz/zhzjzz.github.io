@@ -3,20 +3,23 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Calendar, Connection, Copy, Edit, Info, ListAdd, People, Plus, Refresh, Search, Timer } from '@icon-park/vue-next'
 import {
+  addItinerarySpotCandidate,
   createItinerary,
   getItinerary,
   listItineraries,
-  listItinerarySpotVotes,
+  listItineraryMapSpots,
+  searchDestinations,
   submitItinerarySpotVote,
   updateItinerary,
 } from '../api/travel'
 import { useAppStore } from '../stores/app'
 import { useItineraryCollaboration } from '../composables/useItineraryCollaboration'
 import ConsensusProgress from '../components/itinerary/ConsensusProgress.vue'
+import RealSpotSearchPanel from '../components/itinerary/RealSpotSearchPanel.vue'
 import SpotDecisionCard from '../components/itinerary/SpotDecisionCard.vue'
 import SquadPingFeed from '../components/itinerary/SquadPingFeed.vue'
 import TacticalMapPanel from '../components/itinerary/TacticalMapPanel.vue'
-import { buildSpotNodes, makePingText } from '../utils/itineraryVotes'
+import { buildRealSpotNodes, makePingText } from '../utils/itineraryVotes'
 import itineraryDefaultImage from '../assets/defaults/itinerary-default.png'
 
 const appStore = useAppStore()
@@ -33,10 +36,14 @@ const collabOpen = ref(false)
 const collabLoading = ref(false)
 const collabRow = ref(null)
 const collabVersion = ref('')
-const spotVotes = ref([])
+const mapSpots = ref([])
 const selectedNode = ref(null)
 const voteSaving = ref(false)
 const pingEvents = ref([])
+const spotSearchKeyword = ref('')
+const spotSearchResults = ref([])
+const spotSearchLoading = ref(false)
+const spotAddingId = ref(null)
 const patchTimers = new Map()
 
 const {
@@ -145,12 +152,7 @@ const fallbackTacticalNodes = computed(() => {
 })
 
 const tacticalNodes = computed(() => {
-  const nodes = buildSpotNodes(spotVotes.value)
-  const votedSpotIds = new Set(nodes.map((node) => String(node.spotId)))
-  return [
-    ...nodes,
-    ...fallbackTacticalNodes.value.filter((node) => !votedSpotIds.has(String(node.spotId))),
-  ]
+  return buildRealSpotNodes(mapSpots.value)
 })
 
 const selectedSpotId = computed(() => selectedNode.value?.spotId || null)
@@ -253,15 +255,51 @@ const syncSelectedNode = () => {
     || null
 }
 
-const loadSpotVotes = async (row) => {
+const loadMapSpots = async (row) => {
   if (!row?.id) {
-    spotVotes.value = []
+    mapSpots.value = []
     selectedNode.value = null
     return
   }
-  const { data } = await listItinerarySpotVotes(row.id)
-  spotVotes.value = Array.isArray(data) ? data : []
+  const { data } = await listItineraryMapSpots(row.id)
+  mapSpots.value = Array.isArray(data) ? data : []
   syncSelectedNode()
+}
+
+const searchRealSpots = async () => {
+  const keyword = spotSearchKeyword.value.trim()
+  if (!keyword) {
+    spotSearchResults.value = []
+    return
+  }
+  spotSearchLoading.value = true
+  try {
+    const { data } = await searchDestinations(keyword)
+    spotSearchResults.value = Array.isArray(data)
+      ? data
+        .filter((item) => item.latitude != null
+          && item.longitude != null
+          && item.latitude !== ''
+          && item.longitude !== ''
+          && Number.isFinite(Number(item.latitude))
+          && Number.isFinite(Number(item.longitude)))
+        .slice(0, 10)
+      : []
+  } finally {
+    spotSearchLoading.value = false
+  }
+}
+
+const addRealSpot = async (spot) => {
+  if (!collabRow.value?.id || !spot?.id) return
+  spotAddingId.value = spot.id
+  try {
+    await addItinerarySpotCandidate(collabRow.value.id, { destinationId: spot.id })
+    await loadMapSpots(collabRow.value)
+    ElMessage.success('景点已加入协作地图')
+  } finally {
+    spotAddingId.value = null
+  }
 }
 
 const selectNode = (node) => {
@@ -287,8 +325,8 @@ const applyVoteBroadcast = (payload) => {
     return
   }
   if (payload.type !== 'SPOT_VOTE_UPDATED') return
-  if (Array.isArray(payload.votes)) {
-    spotVotes.value = payload.votes
+  if (Array.isArray(payload.mapSpots)) {
+    mapSpots.value = payload.mapSpots
   }
   pushPing(payload)
   syncSelectedNode()
@@ -311,7 +349,7 @@ const submitVote = async ({ spotId, spotName, voteType, reason }) => {
     const sent = sendSpotVote(payload)
     if (!sent) {
       const { data } = await submitItinerarySpotVote(collabRow.value.id, payload)
-      await loadSpotVotes(collabRow.value)
+      await loadMapSpots(collabRow.value)
       pushPing(data)
       ElMessage.success('投票已保存')
     }
@@ -328,7 +366,9 @@ const openCollaboration = async (row) => {
     collabRow.value = data
     applyItineraryToCollabForm(data)
     pingEvents.value = []
-    await loadSpotVotes(data)
+    spotSearchKeyword.value = ''
+    spotSearchResults.value = []
+    await loadMapSpots(data)
     connect({
       itineraryId: data.id,
       username: currentEditorName.value,
@@ -360,9 +400,11 @@ const closeCollaboration = () => {
   disconnect()
   collabOpen.value = false
   collabRow.value = null
-  spotVotes.value = []
+  mapSpots.value = []
   selectedNode.value = null
   pingEvents.value = []
+  spotSearchKeyword.value = ''
+  spotSearchResults.value = []
 }
 
 const fieldEditor = (fieldKey) => {
@@ -571,6 +613,14 @@ onMounted(loadRows)
             @select-node="selectNode"
           />
           <div class="tactical-side">
+            <RealSpotSearchPanel
+              v-model:keyword="spotSearchKeyword"
+              :results="spotSearchResults"
+              :loading="spotSearchLoading"
+              :adding-id="spotAddingId"
+              @search="searchRealSpots"
+              @add="addRealSpot"
+            />
             <ConsensusProgress :nodes="tacticalNodes" />
             <SpotDecisionCard
               :node="selectedNode"
