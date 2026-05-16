@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Bowl, Refresh, Search } from '@icon-park/vue-next'
+import { Bowl, Fire, MapDistance, Refresh, Search, Shop, Star } from '@icon-park/vue-next'
 import { listDestinations, listFoodCuisines, searchFoods } from '../api/travel'
 import foodDefaultImage from '../assets/defaults/food-default.png'
 
@@ -12,20 +12,52 @@ const destinations = ref([])
 const cuisines = ref([])
 
 const form = ref({
+  place: '天安门',
   keyword: '',
   cuisine: '',
   destinationId: null,
-  sort: 'recommend',
+  sort: 'distance',
+  radiusMeters: 3000,
   limit: 30,
 })
 
-const resultTitle = computed(() => `${foods.value.length} 个美食结果`)
+const quickPlaces = ['天安门', '前门', '南锣鼓巷', '北京邮电大学']
+const knownPlaces = {
+  天安门: { latitude: 39.9087, longitude: 116.3975 },
+  天安门广场: { latitude: 39.9042, longitude: 116.3975 },
+  前门: { latitude: 39.8990, longitude: 116.3979 },
+  大栅栏: { latitude: 39.8936, longitude: 116.3926 },
+  南锣鼓巷: { latitude: 39.9421, longitude: 116.4039 },
+  北京邮电大学: { latitude: 39.9652, longitude: 116.3511 },
+}
+
+const radiusOptions = [
+  { label: '1 公里', value: 1000 },
+  { label: '3 公里', value: 3000 },
+  { label: '5 公里', value: 5000 },
+  { label: '10 公里', value: 10000 },
+]
 
 const sortOptions = [
+  { label: '距离优先', value: 'distance' },
   { label: '综合推荐', value: 'recommend' },
   { label: '评分优先', value: 'rating' },
   { label: '目的地热度', value: 'destinationHeat' },
 ]
+
+const visualPalettes = [
+  ['#18212f', '#f97316'],
+  ['#102820', '#22c55e'],
+  ['#241a12', '#eab308'],
+  ['#16213f', '#38bdf8'],
+  ['#2a173d', '#d946ef'],
+  ['#2b1618', '#ef4444'],
+  ['#102329', '#14b8a6'],
+  ['#232016', '#a3e635'],
+]
+
+const resultTitle = computed(() => `${foods.value.length} 个餐馆结果`)
+const activePlace = computed(() => form.value.place.trim() || '当前位置')
 
 const loadOptions = async () => {
   optionLoading.value = true
@@ -48,14 +80,16 @@ const search = async () => {
   loading.value = true
   try {
     const params = {
+      place: form.value.place.trim() || undefined,
       keyword: form.value.keyword.trim() || undefined,
       cuisine: form.value.cuisine || undefined,
       destinationId: form.value.destinationId || undefined,
       sort: form.value.sort,
+      radiusMeters: form.value.radiusMeters,
       limit: form.value.limit,
     }
     const { data } = await searchFoods(params)
-    foods.value = Array.isArray(data) ? data : []
+    foods.value = applyNearbyClientFilters(Array.isArray(data) ? data : [])
   } catch (error) {
     console.error(error)
     foods.value = []
@@ -67,16 +101,121 @@ const search = async () => {
 
 const reset = async () => {
   form.value = {
+    place: '天安门',
     keyword: '',
     cuisine: '',
     destinationId: null,
-    sort: 'recommend',
+    sort: 'distance',
+    radiusMeters: 3000,
     limit: 30,
   }
   await search()
 }
 
+const searchPlace = async (place) => {
+  form.value.place = place
+  form.value.destinationId = null
+  form.value.sort = 'distance'
+  await search()
+}
+
+const selectCuisine = async (cuisine) => {
+  form.value.cuisine = form.value.cuisine === cuisine ? '' : cuisine
+  await search()
+}
+
 const destinationName = (item) => item.destination?.name || '附近目的地'
+
+const normalizePlace = (value) => value.trim().toLowerCase().replace(/\s+/g, '')
+
+const resolvePlace = () => {
+  const place = form.value.place.trim()
+  if (!place) return null
+  const exact = knownPlaces[place]
+  if (exact) return exact
+  const key = normalizePlace(place)
+  const entry = Object.entries(knownPlaces).find(([name]) => {
+    const nameKey = normalizePlace(name)
+    return nameKey.includes(key) || key.includes(nameKey)
+  })
+  return entry?.[1] || null
+}
+
+const foodLocation = (item) => {
+  if (Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude))) {
+    return { latitude: Number(item.latitude), longitude: Number(item.longitude) }
+  }
+  if (Number.isFinite(Number(item.destination?.latitude)) && Number.isFinite(Number(item.destination?.longitude))) {
+    return {
+      latitude: Number(item.destination.latitude),
+      longitude: Number(item.destination.longitude),
+    }
+  }
+  return null
+}
+
+const haversineMeters = (from, to) => {
+  const radius = 6371000
+  const dLat = ((to.latitude - from.latitude) * Math.PI) / 180
+  const dLng = ((to.longitude - from.longitude) * Math.PI) / 180
+  const lat1 = (from.latitude * Math.PI) / 180
+  const lat2 = (to.latitude * Math.PI) / 180
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const applyNearbyClientFilters = (items) => {
+  const anchor = resolvePlace()
+  if (!anchor) return items
+  const radius = Number(form.value.radiusMeters) || 3000
+  const withDistance = items
+    .map((item) => {
+      const location = foodLocation(item)
+      return {
+        ...item,
+        distanceMeters: location ? haversineMeters(anchor, location) : item.distanceMeters,
+      }
+    })
+    .filter((item) => Number.isFinite(Number(item.distanceMeters)) && Number(item.distanceMeters) <= radius)
+
+  if (form.value.sort === 'rating') {
+    return withDistance.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+  }
+  if (form.value.sort === 'destinationHeat') {
+    return withDistance.sort((a, b) => Number(b.destination?.heat || 0) - Number(a.destination?.heat || 0))
+  }
+  return withDistance.sort((a, b) => {
+    const distanceDiff = Number(a.distanceMeters || Infinity) - Number(b.distanceMeters || Infinity)
+    return distanceDiff || Number(b.rating || 0) - Number(a.rating || 0)
+  })
+}
+
+const formatDistance = (meters) => {
+  const value = Number(meters)
+  if (!Number.isFinite(value)) return '距离待补充'
+  if (value < 1000) return `${Math.round(value)} m`
+  return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)} km`
+}
+
+const externalImage = (url) => {
+  if (!url) return ''
+  return /^https?:\/\//i.test(url) || url.startsWith('/uploads/')
+}
+
+const visualKey = (item) => `${item.cuisine || ''}${item.storeName || ''}${item.name || ''}`
+
+const paletteFor = (item) => {
+  const key = visualKey(item)
+  const seed = Array.from(key).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const [bg, accent] = visualPalettes[seed % visualPalettes.length]
+  return { '--food-bg': bg, '--food-accent': accent }
+}
+
+const visualLabel = (item) => {
+  const label = item.cuisine || item.name || '美食'
+  return label.replace(/\s+/g, '').slice(0, 2)
+}
 
 onMounted(async () => {
   await loadOptions()
@@ -89,8 +228,8 @@ onMounted(async () => {
     <div class="food-header">
       <div>
         <p class="demo-eyebrow">Local Taste</p>
-        <h2>美食推荐</h2>
-        <p class="module-subtitle">按名称、菜系和目的地查找旅途中的顺路好味道。</p>
+        <h2>附近美食</h2>
+        <p class="module-subtitle">按地点、距离、评分和店铺类型找餐馆。</p>
       </div>
       <div class="food-count">
         <Bowl theme="outline" size="20" fill="currentColor" />
@@ -99,33 +238,60 @@ onMounted(async () => {
     </div>
 
     <el-card class="module-card food-filter-card">
-      <el-form :model="form" label-width="88px" @submit.prevent>
+      <el-form :model="form" label-width="92px" @submit.prevent>
         <el-row :gutter="12">
-          <el-col :lg="8" :md="12" :xs="24">
-            <el-form-item label="关键词">
+          <el-col :lg="7" :md="12" :xs="24">
+            <el-form-item label="附近地点">
               <el-input
-                v-model="form.keyword"
+                v-model="form.place"
                 clearable
-                placeholder="美食名 / 店名 / 目的地"
+                placeholder="例如：天安门 / 前门 / 南锣鼓巷"
                 @keyup.enter="search"
               />
             </el-form-item>
           </el-col>
           <el-col :lg="5" :md="12" :xs="24">
-            <el-form-item label="菜系">
+            <el-form-item label="餐馆/菜品">
+              <el-input
+                v-model="form.keyword"
+                clearable
+                placeholder="餐馆名、菜名"
+                @keyup.enter="search"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :lg="4" :md="8" :xs="24">
+            <el-form-item label="店铺类型">
               <el-select
                 v-model="form.cuisine"
                 class="full-width"
                 clearable
                 filterable
                 :loading="optionLoading"
-                placeholder="全部菜系"
+                placeholder="全部类型"
               >
                 <el-option v-for="item in cuisines" :key="item" :label="item" :value="item" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :lg="5" :md="12" :xs="24">
+          <el-col :lg="4" :md="8" :xs="24">
+            <el-form-item label="范围">
+              <el-select v-model="form.radiusMeters" class="full-width">
+                <el-option v-for="item in radiusOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :lg="4" :md="8" :xs="24">
+            <el-form-item label="排序">
+              <el-select v-model="form.sort" class="full-width">
+                <el-option v-for="item in sortOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="12">
+          <el-col :lg="8" :md="12" :xs="24">
             <el-form-item label="目的地">
               <el-select
                 v-model="form.destinationId"
@@ -133,7 +299,7 @@ onMounted(async () => {
                 clearable
                 filterable
                 :loading="optionLoading"
-                placeholder="全部目的地"
+                placeholder="可选：绑定景点"
               >
                 <el-option
                   v-for="destination in destinations"
@@ -145,53 +311,104 @@ onMounted(async () => {
             </el-form-item>
           </el-col>
           <el-col :lg="4" :md="8" :xs="24">
-            <el-form-item label="排序">
-              <el-select v-model="form.sort" class="full-width">
-                <el-option v-for="item in sortOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :lg="2" :md="4" :xs="24">
             <el-form-item label="数量">
               <el-input-number v-model="form.limit" :min="6" :max="60" :step="6" class="full-width" />
             </el-form-item>
           </el-col>
+          <el-col :lg="12" :md="24" :xs="24">
+            <div class="toolbar-actions">
+              <el-button @click="reset">
+                <Refresh theme="outline" size="16" fill="currentColor" />
+                重置
+              </el-button>
+              <el-button type="primary" :loading="loading" @click="search">
+                <Search theme="outline" size="16" fill="currentColor" />
+                搜索餐馆
+              </el-button>
+            </div>
+          </el-col>
         </el-row>
 
-        <div class="toolbar">
-          <el-tag type="info" effect="plain">推荐算法：评分 + 美食热度 + 目的地热度</el-tag>
-          <div class="toolbar-actions">
-            <el-button @click="reset">
-              <Refresh theme="outline" size="16" fill="currentColor" />
-              重置
-            </el-button>
-            <el-button type="primary" :loading="loading" @click="search">
-              <Search theme="outline" size="16" fill="currentColor" />
-              搜索美食
-            </el-button>
-          </div>
+        <div class="quick-row" aria-label="常用地点">
+          <button
+            v-for="place in quickPlaces"
+            :key="place"
+            type="button"
+            class="quick-chip"
+            :class="{ active: form.place === place }"
+            @click="searchPlace(place)"
+          >
+            <MapDistance theme="outline" size="14" fill="currentColor" />
+            {{ place }}
+          </button>
+        </div>
+
+        <div class="quick-row cuisine-row" aria-label="店铺类型快捷筛选">
+          <button
+            v-for="item in cuisines.slice(0, 10)"
+            :key="item"
+            type="button"
+            class="quick-chip"
+            :class="{ active: form.cuisine === item }"
+            @click="selectCuisine(item)"
+          >
+            <Shop theme="outline" size="14" fill="currentColor" />
+            {{ item }}
+          </button>
         </div>
       </el-form>
     </el-card>
 
-    <el-empty v-if="!foods.length && !loading" description="暂无匹配美食" />
+    <div class="result-context">
+      <span>
+        <MapDistance theme="outline" size="16" fill="currentColor" />
+        {{ activePlace }}附近 {{ formatDistance(form.radiusMeters) }}
+      </span>
+      <span>
+        <Star theme="outline" size="16" fill="currentColor" />
+        显示评分与距离
+      </span>
+    </div>
 
-    <div v-else class="food-grid" v-loading="loading">
+    <el-empty v-if="!foods.length && !loading" description="暂无匹配餐馆" />
+
+    <div v-else class="food-list" v-loading="loading">
       <article v-for="item in foods" :key="item.id || `${item.name}-${item.storeName}`" class="food-card">
         <div class="food-media">
-          <img :src="item.imageUrl || foodDefaultImage" :alt="item.name || '美食图片'" loading="lazy" />
-          <span>{{ item.cuisine || '地方风味' }}</span>
+          <img
+            v-if="externalImage(item.imageUrl)"
+            :src="item.imageUrl"
+            :alt="item.storeName || item.name || '餐馆图片'"
+            loading="lazy"
+            @error="$event.target.src = foodDefaultImage"
+          />
+          <div v-else class="food-visual" :style="paletteFor(item)">
+            <span>{{ visualLabel(item) }}</span>
+          </div>
+          <small>{{ externalImage(item.imageUrl) ? '真实图片' : '分类标识' }}</small>
         </div>
         <div class="food-body">
-          <div>
-            <h3>{{ item.name }}</h3>
-            <p>{{ item.storeName || '推荐店铺' }}</p>
+          <div class="food-title-row">
+            <div>
+              <h3>{{ item.storeName || item.name }}</h3>
+              <p>{{ item.name }}</p>
+            </div>
+            <strong>{{ item.rating || '-' }}</strong>
           </div>
-          <div class="food-meta">
-            <strong>评分 {{ item.rating || '-' }}</strong>
-            <span>热度 {{ Math.round(item.heat || 0) }}</span>
+          <div class="food-tags">
+            <span>{{ item.cuisine || '综合餐饮' }}</span>
+            <span>{{ destinationName(item) }}</span>
           </div>
-          <div class="food-destination">{{ destinationName(item) }}</div>
+          <div class="food-metrics">
+            <span>
+              <MapDistance theme="outline" size="15" fill="currentColor" />
+              {{ formatDistance(item.distanceMeters) }}
+            </span>
+            <span>
+              <Fire theme="outline" size="15" fill="currentColor" />
+              热度 {{ Math.round(item.heat || 0) }}
+            </span>
+          </div>
         </div>
       </article>
     </div>
@@ -227,7 +444,7 @@ onMounted(async () => {
   gap: 8px;
   padding: 0 16px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   color: #f8fafc;
 }
@@ -240,27 +457,76 @@ onMounted(async () => {
   width: 100%;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 .toolbar-actions {
+  min-height: 32px;
   display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
   gap: 10px;
 }
 
-.food-grid {
+.quick-row,
+.result-context,
+.food-tags,
+.food-metrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quick-row {
+  margin-top: 12px;
+}
+
+.cuisine-row {
+  padding-top: 2px;
+}
+
+.quick-chip {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d7dee9;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.quick-chip.active,
+.quick-chip:hover {
+  border-color: rgba(56, 189, 248, 0.7);
+  background: rgba(56, 189, 248, 0.16);
+  color: #f8fafc;
+}
+
+.result-context {
+  min-height: 42px;
+  padding: 0 4px;
+  color: #cbd5e1;
+}
+
+.result-context span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.food-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
   min-height: 220px;
 }
 
 .food-card {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
@@ -270,73 +536,112 @@ onMounted(async () => {
 
 .food-media {
   position: relative;
-  aspect-ratio: 16 / 10;
+  min-height: 170px;
   background: #24272d;
 }
 
-.food-media img {
+.food-media img,
+.food-visual {
   width: 100%;
   height: 100%;
+  min-height: 170px;
   display: block;
   object-fit: cover;
 }
 
-.food-media span {
+.food-visual {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 70% 18%, rgba(255, 255, 255, 0.24), transparent 30%),
+    linear-gradient(135deg, var(--food-bg), var(--food-accent));
+}
+
+.food-visual span {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.food-media small {
   position: absolute;
   left: 12px;
   bottom: 12px;
-  max-width: calc(100% - 24px);
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: 5px 8px;
+  border-radius: 8px;
   background: rgba(13, 15, 18, 0.78);
-  color: #f3d08a;
+  color: #f8fafc;
   font-size: 12px;
   font-weight: 900;
 }
 
 .food-body {
-  min-height: 178px;
+  min-width: 0;
   display: grid;
-  gap: 14px;
+  gap: 16px;
   padding: 16px;
 }
 
-.food-body h3 {
+.food-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.food-title-row h3 {
   color: #f8fafc;
   font-size: 19px;
   line-height: 1.28;
   font-weight: 900;
 }
 
-.food-body p {
+.food-title-row p {
   margin-top: 6px;
   color: #a7b0bf;
   font-size: 14px;
 }
 
-.food-meta {
-  display: flex;
+.food-title-row strong {
+  min-width: 52px;
+  height: 34px;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  color: #f8fafc;
-}
-
-.food-meta span {
-  color: #ff385c;
-  font-size: 13px;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
   font-weight: 900;
 }
 
-.food-destination {
-  align-self: end;
-  color: #a7b0bf;
+.food-tags span,
+.food-metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #cbd5e1;
   font-size: 13px;
+  font-weight: 800;
+}
+
+.food-metrics span:first-child {
+  color: #bfdbfe;
 }
 
 @media (max-width: 1128px) {
-  .food-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .food-list {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -354,7 +659,11 @@ onMounted(async () => {
     flex-direction: column;
   }
 
-  .food-grid {
+  .toolbar-actions .el-button {
+    width: 100%;
+  }
+
+  .food-card {
     grid-template-columns: 1fr;
   }
 }
