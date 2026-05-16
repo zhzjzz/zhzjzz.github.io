@@ -1,9 +1,28 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Bowl, Fire, MapDistance, Refresh, Search, Shop, Star } from '@icon-park/vue-next'
+import {
+  Bowl,
+  Bread,
+  Cake,
+  ChickenLeg,
+  ChopsticksFork,
+  CoffeeMachine,
+  Cup,
+  Fire,
+  ForkSpoon,
+  Hamburger,
+  KnifeFork,
+  MapDistance,
+  Noodles,
+  Refresh,
+  Search,
+  Shop,
+  Star,
+  Tea,
+} from '@icon-park/vue-next'
 import { listDestinations, listFoodCuisines, searchFoods } from '../api/travel'
-import foodDefaultImage from '../assets/defaults/food-default.png'
+import { foodIconLabel, foodIconName } from '../utils/foodIcon'
 
 const loading = ref(false)
 const optionLoading = ref(false)
@@ -44,6 +63,20 @@ const sortOptions = [
   { label: '评分优先', value: 'rating' },
   { label: '目的地热度', value: 'destinationHeat' },
 ]
+
+const foodIconComponents = {
+  Bread,
+  Cake,
+  ChickenLeg,
+  ChopsticksFork,
+  CoffeeMachine,
+  Cup,
+  ForkSpoon,
+  Hamburger,
+  KnifeFork,
+  Noodles,
+  Tea,
+}
 
 const visualPalettes = [
   ['#18212f', '#f97316'],
@@ -198,11 +231,6 @@ const formatDistance = (meters) => {
   return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)} km`
 }
 
-const externalImage = (url) => {
-  if (!url) return ''
-  return /^https?:\/\//i.test(url) || url.startsWith('/uploads/')
-}
-
 const visualKey = (item) => `${item.cuisine || ''}${item.storeName || ''}${item.name || ''}`
 
 const paletteFor = (item) => {
@@ -212,10 +240,7 @@ const paletteFor = (item) => {
   return { '--food-bg': bg, '--food-accent': accent }
 }
 
-const visualLabel = (item) => {
-  const label = item.cuisine || item.name || '美食'
-  return label.replace(/\s+/g, '').slice(0, 2)
-}
+const foodIconComponent = (item) => foodIconComponents[foodIconName(item)] || ChopsticksFork
 
 onMounted(async () => {
   await loadOptions()
@@ -375,17 +400,11 @@ onMounted(async () => {
     <div v-else class="food-list" v-loading="loading">
       <article v-for="item in foods" :key="item.id || `${item.name}-${item.storeName}`" class="food-card">
         <div class="food-media">
-          <img
-            v-if="externalImage(item.imageUrl)"
-            :src="item.imageUrl"
-            :alt="item.storeName || item.name || '餐馆图片'"
-            loading="lazy"
-            @error="$event.target.src = foodDefaultImage"
-          />
-          <div v-else class="food-visual" :style="paletteFor(item)">
-            <span>{{ visualLabel(item) }}</span>
+          <div class="food-icon-visual" :style="paletteFor(item)">
+            <component :is="foodIconComponent(item)" theme="filled" size="70" fill="currentColor" />
+            <span>{{ foodIconLabel(item) }}</span>
           </div>
-          <small>{{ externalImage(item.imageUrl) ? '真实图片' : '分类标识' }}</small>
+          <small>真实图标</small>
         </div>
         <div class="food-body">
           <div class="food-title-row">
@@ -540,24 +559,22 @@ onMounted(async () => {
   background: #24272d;
 }
 
-.food-media img,
-.food-visual {
+.food-icon-visual {
   width: 100%;
   height: 100%;
   min-height: 170px;
-  display: block;
-  object-fit: cover;
-}
-
-.food-visual {
   display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
   place-items: center;
+  align-content: center;
   background:
     radial-gradient(circle at 70% 18%, rgba(255, 255, 255, 0.24), transparent 30%),
     linear-gradient(135deg, var(--food-bg), var(--food-accent));
+  color: #ffffff;
 }
 
-.food-visual span {
+.food-icon-visual :deep(.i-icon) {
   width: 72px;
   height: 72px;
   display: grid;
@@ -566,7 +583,17 @@ onMounted(async () => {
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.2);
   color: #ffffff;
-  font-size: 24px;
+}
+
+.food-icon-visual span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+  font-size: 13px;
   font-weight: 900;
 }
 
