@@ -84,4 +84,18 @@ public class ItineraryController {
         }
         return result;
     }
+
+    @Operation(summary = "删除行程")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "删除成功"),
+        @ApiResponse(responseCode = "404", description = "行程不存在")
+    })
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        boolean deleted = itineraryService.delete(id);
+        if (!deleted) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "行程不存在");
+        }
+    }
 }

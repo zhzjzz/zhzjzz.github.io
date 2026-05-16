@@ -5,6 +5,7 @@ import com.travel.system.dto.MultiSpotNavigationResponse;
 import com.travel.system.model.nav.CityRoute;
 import com.travel.system.model.nav.RoadNode;
 import com.travel.system.service.nav.CityRouteService;
+import com.travel.system.service.nav.MultiSpotRoutePlanner;
 import com.travel.system.service.nav.NavigationDataService;
 import com.travel.system.service.nav.TransportModeService;
 import org.junit.jupiter.api.Test;
@@ -22,10 +23,17 @@ class NavigationControllerTest {
     void multiSpotRouteConvertsCityRouteKilometersAndMinutesToMetersAndSeconds() {
         NavigationDataService navigationDataService = mock(NavigationDataService.class);
         CityRouteService cityRouteService = mock(CityRouteService.class);
+        TransportModeService transportModeService = new TransportModeService();
+        MultiSpotRoutePlanner routePlanner = new MultiSpotRoutePlanner(
+                navigationDataService,
+                transportModeService,
+                cityRouteService
+        );
         NavigationController controller = new NavigationController(
                 navigationDataService,
-                new TransportModeService(),
-                cityRouteService
+                transportModeService,
+                cityRouteService,
+                routePlanner
         );
 
         RoadNode fromGate = new RoadNode(1L, "景区A", 39.9, 116.3, null, null);

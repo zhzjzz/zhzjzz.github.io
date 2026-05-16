@@ -16,6 +16,9 @@ public interface DestinationMapper {
     /** 查询全部目的地。 */
     List<Destination> findAll();
 
+    /** 按主键查询目的地。 */
+    Destination findById(@Param("id") Long id);
+
     /** 按名称、分类或关键词进行模糊搜索。 */
     List<Destination> findByKeyword(@Param("keyword") String keyword);
 

@@ -50,5 +50,9 @@
           )
     </update>
 
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM itinerary WHERE id = #{id}
+    </delete>
+
 </mapper>
 
