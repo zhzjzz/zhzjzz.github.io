@@ -1,6 +1,7 @@
 package com.travel.system.service;
 
 import com.travel.system.mapper.FoodMapper;
+import com.travel.system.dto.FoodPlaceAnchor;
 import com.travel.system.model.Destination;
 import com.travel.system.model.Food;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,65 @@ class FoodServiceTest {
         assertThat(results.get(0).getDistanceMeters()).isNotNull();
     }
 
+    @Test
+    void searchCanResolveAnySpotAnchorFromDatabase() {
+        Food restaurant = food(1L, "Palace noodles", "noodles", "Palace cafe", 4.5, 82d,
+                39.9165, 116.3970, null);
+        Food far = food(2L, "Far burger", "fast_food", "Far diner", 4.2, 70d,
+                39.9652, 116.3511, null);
+        when(foodMapper.findAll()).thenReturn(List.of(far, restaurant));
+        when(foodMapper.findPlaceAnchors()).thenReturn(List.of(anchor("故宫博物院", 39.9163, 116.3972)));
+
+        List<Food> results = service.search(null, null, null, "distance", 10,
+                "故宫", null, null, 1_000d);
+
+        assertThat(results).extracting(Food::getName).containsExactly("Palace noodles");
+        assertThat(results.get(0).getDistanceMeters()).isLessThan(100d);
+    }
+
+    @Test
+    void searchCuisineFilterMatchesFriendlyTypeLabels() {
+        Food fastFood = food(1L, "Burger", "fast_food", "Burger shop", 4.3, 76d,
+                39.9087, 116.3975, null);
+        Food coffee = food(2L, "Latte", "coffee", "Coffee shop", 4.7, 80d,
+                39.9088, 116.3976, null);
+        when(foodMapper.findAll()).thenReturn(List.of(fastFood, coffee));
+
+        List<Food> results = service.search(null, "快餐", null, "distance", 10,
+                "天安门", null, null, 1_000d);
+
+        assertThat(results).extracting(Food::getName).containsExactly("Burger");
+    }
+
+    @Test
+    void cuisinesReturnsReadableDedupedTypeLabels() {
+        when(foodMapper.findCuisines()).thenReturn(List.of("fast_food", "coffee", "咖啡", "bakery", "unknown", ""));
+
+        List<String> results = service.cuisines();
+
+        assertThat(results).containsExactly("咖啡", "快餐", "烘焙", "餐饮");
+    }
+
+    @Test
+    void searchFiltersAveragePriceRangeAndSortsAscending() {
+        Food cheap = food(1L, "Soy milk", "breakfast", "Morning stall", 4.2, 65d,
+                39.9087, 116.3975, null);
+        cheap.setAveragePrice(12d);
+        Food mid = food(2L, "Noodles", "noodles", "Noodle shop", 4.6, 88d,
+                39.9088, 116.3976, null);
+        mid.setAveragePrice(38d);
+        Food premium = food(3L, "Roast duck", "beijing", "Duck house", 4.8, 94d,
+                39.9089, 116.3977, null);
+        premium.setAveragePrice(168d);
+        when(foodMapper.findAll()).thenReturn(List.of(premium, cheap, mid));
+
+        List<Food> results = service.search(null, null, null, "averagePrice", 10,
+                "天安门", null, null, 1_000d, 20d, 100d);
+
+        assertThat(results).extracting(Food::getName).containsExactly("Noodles");
+        assertThat(results.get(0).getAveragePrice()).isEqualTo(38d);
+    }
+
     private Destination destination(Long id, String name, Double heat, Double latitude, Double longitude) {
         Destination destination = new Destination();
         destination.setId(id);
@@ -106,5 +166,13 @@ class FoodServiceTest {
         food.setLongitude(longitude);
         food.setDestination(destination);
         return food;
+    }
+
+    private FoodPlaceAnchor anchor(String name, Double latitude, Double longitude) {
+        FoodPlaceAnchor anchor = new FoodPlaceAnchor();
+        anchor.setName(name);
+        anchor.setLatitude(latitude);
+        anchor.setLongitude(longitude);
+        return anchor;
     }
 }

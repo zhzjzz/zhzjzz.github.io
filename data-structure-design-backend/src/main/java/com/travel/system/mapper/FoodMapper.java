@@ -1,6 +1,7 @@
 package com.travel.system.mapper;
 
 import com.travel.system.model.Food;
+import com.travel.system.dto.FoodPlaceAnchor;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -20,6 +21,8 @@ public interface FoodMapper {
     List<Food> findByKeyword(@Param("keyword") String keyword);
 
     List<String> findCuisines();
+
+    List<FoodPlaceAnchor> findPlaceAnchors();
 
     /** 插入美食记录。 */
     void insert(Food food);

@@ -42,6 +42,7 @@ class FoodPoi:
     store_name: str
     rating: float
     heat: float
+    average_price: float
     lat: float
     lon: float
     source_type: str
@@ -95,6 +96,7 @@ def ensure_columns(conn: sqlite3.Connection) -> None:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(food)")}
     migrations = {
         "heat": "ALTER TABLE food ADD COLUMN heat REAL",
+        "average_price": "ALTER TABLE food ADD COLUMN average_price REAL",
         "latitude": "ALTER TABLE food ADD COLUMN latitude REAL",
         "longitude": "ALTER TABLE food ADD COLUMN longitude REAL",
         "source_type": "ALTER TABLE food ADD COLUMN source_type TEXT",
@@ -210,6 +212,18 @@ def demo_metric(seed_text: str, low: float, high: float, digits: int = 1) -> flo
     return round(low + (high - low) * bucket, digits)
 
 
+def estimated_average_price(cuisine: str, rating: float, seed_text: str) -> float:
+    if cuisine in {"咖啡", "甜品", "饮品", "烘焙"}:
+        base = 36
+    elif cuisine in {"快餐", "面食"}:
+        base = 30
+    elif cuisine in {"京菜", "火锅", "农家菜"}:
+        base = 86
+    else:
+        base = 58
+    return round(base + max(0, rating - 4.2) * 18 + demo_metric(seed_text, -8, 18, 0))
+
+
 def element_location(element: dict) -> tuple[float, float] | None:
     if "lat" in element and "lon" in element:
         return float(element["lat"]), float(element["lon"])
@@ -242,6 +256,7 @@ def parse_food_pois(data: dict, spots: list[Spot], limit: int) -> list[FoodPoi]:
         store_name = clean_text(tags.get("brand")) or name
         rating = demo_metric(source_id + name, 3.8, 4.9)
         heat = demo_metric(name + source_id, 45, 98, 0)
+        average_price = estimated_average_price(cuisine, rating, source_id)
         destination_id = nearest_spot_id(spots, lat, lon)
         pois.append(
             FoodPoi(
@@ -250,6 +265,7 @@ def parse_food_pois(data: dict, spots: list[Spot], limit: int) -> list[FoodPoi]:
                 store_name=store_name[:80],
                 rating=rating,
                 heat=heat,
+                average_price=average_price,
                 lat=lat,
                 lon=lon,
                 source_type=source_type,
@@ -278,9 +294,9 @@ def import_pois(conn: sqlite3.Connection, pois: list[FoodPoi], replace_osm: bool
             """
             INSERT INTO food (
                 name, cuisine, store_name, rating, heat,
-                latitude, longitude, source_type, source_id, image_url, destination_id
+                average_price, latitude, longitude, source_type, source_id, image_url, destination_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 poi.name,
@@ -288,6 +304,7 @@ def import_pois(conn: sqlite3.Connection, pois: list[FoodPoi], replace_osm: bool
                 poi.store_name,
                 poi.rating,
                 poi.heat,
+                poi.average_price,
                 poi.lat,
                 poi.lon,
                 poi.source_type,

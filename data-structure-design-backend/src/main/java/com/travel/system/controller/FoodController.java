@@ -36,8 +36,11 @@ public class FoodController {
             @Parameter(description = "Nearby place or landmark") @RequestParam(required = false) String place,
             @Parameter(description = "Center latitude") @RequestParam(required = false) Double latitude,
             @Parameter(description = "Center longitude") @RequestParam(required = false) Double longitude,
-            @Parameter(description = "Search radius in meters") @RequestParam(required = false) Double radiusMeters) {
-        return foodService.search(keyword, cuisine, destinationId, sort, limit, place, latitude, longitude, radiusMeters);
+            @Parameter(description = "Search radius in meters") @RequestParam(required = false) Double radiusMeters,
+            @Parameter(description = "Minimum average price per person") @RequestParam(required = false) Double minAveragePrice,
+            @Parameter(description = "Maximum average price per person") @RequestParam(required = false) Double maxAveragePrice) {
+        return foodService.search(keyword, cuisine, destinationId, sort, limit, place, latitude, longitude,
+                radiusMeters, minAveragePrice, maxAveragePrice);
     }
 
     @Operation(summary = "Food cuisine list", description = "Return all available food cuisines")

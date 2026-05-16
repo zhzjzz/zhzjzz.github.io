@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS food (
     store_name TEXT,
     rating REAL,
     heat REAL,
+    average_price REAL,
     latitude REAL,
     longitude REAL,
     source_type TEXT,

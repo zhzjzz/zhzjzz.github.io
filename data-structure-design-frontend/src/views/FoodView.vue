@@ -37,6 +37,7 @@ const form = ref({
   destinationId: null,
   sort: 'distance',
   radiusMeters: 3000,
+  priceRange: 'all',
   limit: 30,
 })
 
@@ -61,7 +62,16 @@ const sortOptions = [
   { label: '距离优先', value: 'distance' },
   { label: '综合推荐', value: 'recommend' },
   { label: '评分优先', value: 'rating' },
+  { label: '人均低到高', value: 'averagePrice' },
   { label: '目的地热度', value: 'destinationHeat' },
+]
+
+const priceRanges = [
+  { label: '不限价格', value: 'all', min: null, max: null },
+  { label: '¥50 以下', value: '0-50', min: 0, max: 50 },
+  { label: '¥50-100', value: '50-100', min: 50, max: 100 },
+  { label: '¥100-200', value: '100-200', min: 100, max: 200 },
+  { label: '¥200 以上', value: '200+', min: 200, max: null },
 ]
 
 const foodIconComponents = {
@@ -91,6 +101,7 @@ const visualPalettes = [
 
 const resultTitle = computed(() => `${foods.value.length} 个餐馆结果`)
 const activePlace = computed(() => form.value.place.trim() || '当前位置')
+const selectedPriceRange = computed(() => priceRanges.find((item) => item.value === form.value.priceRange) || priceRanges[0])
 
 const loadOptions = async () => {
   optionLoading.value = true
@@ -119,6 +130,8 @@ const search = async () => {
       destinationId: form.value.destinationId || undefined,
       sort: form.value.sort,
       radiusMeters: form.value.radiusMeters,
+      minAveragePrice: selectedPriceRange.value.min ?? undefined,
+      maxAveragePrice: selectedPriceRange.value.max ?? undefined,
       limit: form.value.limit,
     }
     const { data } = await searchFoods(params)
@@ -140,6 +153,7 @@ const reset = async () => {
     destinationId: null,
     sort: 'distance',
     radiusMeters: 3000,
+    priceRange: 'all',
     limit: 30,
   }
   await search()
@@ -202,6 +216,7 @@ const applyNearbyClientFilters = (items) => {
   const anchor = resolvePlace()
   if (!anchor) return items
   const radius = Number(form.value.radiusMeters) || 3000
+  const priceRange = selectedPriceRange.value
   const withDistance = items
     .map((item) => {
       const location = foodLocation(item)
@@ -211,9 +226,21 @@ const applyNearbyClientFilters = (items) => {
       }
     })
     .filter((item) => Number.isFinite(Number(item.distanceMeters)) && Number(item.distanceMeters) <= radius)
+    .filter((item) => {
+      const price = Number(item.averagePrice)
+      if (!Number.isFinite(price)) return priceRange.value === 'all'
+      return (priceRange.min == null || price >= priceRange.min)
+        && (priceRange.max == null || price <= priceRange.max)
+    })
 
   if (form.value.sort === 'rating') {
     return withDistance.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+  }
+  if (form.value.sort === 'averagePrice') {
+    return withDistance.sort((a, b) => {
+      const priceDiff = Number(a.averagePrice || Infinity) - Number(b.averagePrice || Infinity)
+      return priceDiff || Number(b.rating || 0) - Number(a.rating || 0)
+    })
   }
   if (form.value.sort === 'destinationHeat') {
     return withDistance.sort((a, b) => Number(b.destination?.heat || 0) - Number(a.destination?.heat || 0))
@@ -222,6 +249,12 @@ const applyNearbyClientFilters = (items) => {
     const distanceDiff = Number(a.distanceMeters || Infinity) - Number(b.distanceMeters || Infinity)
     return distanceDiff || Number(b.rating || 0) - Number(a.rating || 0)
   })
+}
+
+const formatPrice = (price) => {
+  const value = Number(price)
+  if (!Number.isFinite(value) || value <= 0) return '人均待补充'
+  return `人均 ¥${Math.round(value)}`
 }
 
 const formatDistance = (meters) => {
@@ -336,11 +369,18 @@ onMounted(async () => {
             </el-form-item>
           </el-col>
           <el-col :lg="4" :md="8" :xs="24">
+            <el-form-item label="人均价格">
+              <el-select v-model="form.priceRange" class="full-width">
+                <el-option v-for="item in priceRanges" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :lg="4" :md="8" :xs="24">
             <el-form-item label="数量">
               <el-input-number v-model="form.limit" :min="6" :max="60" :step="6" class="full-width" />
             </el-form-item>
           </el-col>
-          <el-col :lg="12" :md="24" :xs="24">
+          <el-col :lg="8" :md="24" :xs="24">
             <div class="toolbar-actions">
               <el-button @click="reset">
                 <Refresh theme="outline" size="16" fill="currentColor" />
@@ -393,6 +433,10 @@ onMounted(async () => {
         <Star theme="outline" size="16" fill="currentColor" />
         显示评分与距离
       </span>
+      <span>
+        <Shop theme="outline" size="16" fill="currentColor" />
+        {{ selectedPriceRange.label }}
+      </span>
     </div>
 
     <el-empty v-if="!foods.length && !loading" description="暂无匹配餐馆" />
@@ -426,6 +470,10 @@ onMounted(async () => {
             <span>
               <Fire theme="outline" size="15" fill="currentColor" />
               热度 {{ Math.round(item.heat || 0) }}
+            </span>
+            <span>
+              <Shop theme="outline" size="15" fill="currentColor" />
+              {{ formatPrice(item.averagePrice) }}
             </span>
           </div>
         </div>

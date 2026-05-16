@@ -15,6 +15,7 @@ public class Food {
     private String storeName;
     private Double rating;
     private Double heat;
+    private Double averagePrice;
     private Double latitude;
     private Double longitude;
     private String sourceType;
