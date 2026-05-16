@@ -27,5 +27,6 @@ public class ItineraryPlannerPreviewRequest {
         private Double longitude;
         private String transportMode;
         private Boolean selected;
+        private Integer stayMinutes;
     }
 }

@@ -19,6 +19,7 @@ test('defaultPlannerSelection selects must and want nodes', () => {
     [2, true],
     [3, false],
   ])
+  assert.deepEqual(selected.map((spot) => spot.stayMinutes), [120, 120, 120])
 })
 
 test('defaultPlannerSelection selects all nodes when no must or want exists', () => {
@@ -37,7 +38,7 @@ test('buildPlannerPayload keeps selected spots in order', () => {
     optimizeVisitOrder: false,
     spots: [
       { spotId: 1, destinationId: 1, spotName: 'A', latitude: 1, longitude: 2, selected: false },
-      { spotId: 2, destinationId: 2, spotName: 'B', latitude: 3, longitude: 4, selected: true },
+      { spotId: 2, destinationId: 2, spotName: 'B', latitude: 3, longitude: 4, selected: true, stayMinutes: 90 },
     ],
   })
 
@@ -45,8 +46,10 @@ test('buildPlannerPayload keeps selected spots in order', () => {
   assert.equal(payload.optimizeVisitOrder, false)
   assert.equal(payload.spots.length, 2)
   assert.equal(payload.spots[0].selected, false)
+  assert.equal(payload.spots[0].stayMinutes, 120)
   assert.equal(payload.spots[1].spotName, 'B')
   assert.equal(payload.spots[1].transportMode, 'walk')
+  assert.equal(payload.spots[1].stayMinutes, 90)
 })
 
 test('format helpers render compact distance and duration', () => {

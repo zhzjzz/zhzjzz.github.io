@@ -15,6 +15,9 @@ import java.util.List;
 
 @Service
 public class ItineraryPlannerService {
+    private static final int DEFAULT_STAY_MINUTES = 120;
+    private static final double MINUTES_TO_SECONDS = 60.0;
+
     private final NavigationDataService navigationDataService;
     private final MultiSpotRoutePlanner routePlanner;
 
@@ -52,6 +55,7 @@ public class ItineraryPlannerService {
                 continue;
             }
             String transportMode = normalizeMode(spot.getTransportMode());
+            int stayMinutes = normalizeStayMinutes(spot.getStayMinutes());
             visits.add(new MultiSpotNavigationRequest.SpotVisit(
                     spot.getSpotName(),
                     List.of(gate.getOsmid()),
@@ -64,6 +68,7 @@ public class ItineraryPlannerService {
                     spot.getLatitude(),
                     spot.getLongitude(),
                     transportMode,
+                    stayMinutes,
                     orderIndex++,
                     true
             ));
@@ -71,7 +76,12 @@ public class ItineraryPlannerService {
 
         response.setDepartureTime(request.getDepartureTime());
         if (visits.size() <= 1) {
-            response.setArrivalTime(request.getDepartureTime());
+            double totalStayTime = totalStayTime(response.getOrderedSpots());
+            response.setTotalTime(totalStayTime);
+            response.setTimeline(buildTimeline(request.getDepartureTime(), response.getOrderedSpots(), List.of()));
+            if (request.getDepartureTime() != null) {
+                response.setArrivalTime(request.getDepartureTime().plusSeconds(Math.round(totalStayTime)));
+            }
             if (visits.size() == 1) {
                 response.getWarnings().add("Only one routable spot selected; route segments were not generated");
             }
@@ -89,20 +99,83 @@ public class ItineraryPlannerService {
                 : route.getSegments();
         response.setSegments(segments);
         response.setTotalDistance(safe(route == null ? null : route.getTotalDistance()));
-        response.setTotalTime(safe(route == null ? null : route.getTotalTime()));
+        response.setTotalTime(safe(route == null ? null : route.getTotalTime()) + totalStayTime(response.getOrderedSpots()));
         if (request.getDepartureTime() != null) {
             response.setArrivalTime(request.getDepartureTime().plusSeconds(Math.round(response.getTotalTime())));
         }
-        response.setTimeline(buildTimeline(request.getDepartureTime(), segments));
+        response.setTimeline(buildTimeline(request.getDepartureTime(), response.getOrderedSpots(), segments));
         return response;
     }
 
     private List<ItineraryPlannerPreviewResponse.TimelineEntry> buildTimeline(
             LocalDateTime departureTime,
+            List<ItineraryPlannerPreviewResponse.OrderedSpot> orderedSpots,
             List<MultiSpotNavigationResponse.RouteSegment> segments) {
         List<ItineraryPlannerPreviewResponse.TimelineEntry> timeline = new ArrayList<>();
         LocalDateTime cursor = departureTime;
-        for (MultiSpotNavigationResponse.RouteSegment segment : segments) {
+        int segmentIndex = 0;
+        for (int spotIndex = 0; spotIndex < orderedSpots.size(); spotIndex++) {
+            ItineraryPlannerPreviewResponse.OrderedSpot spot = orderedSpots.get(spotIndex);
+            double stayDuration = normalizeStayMinutes(spot.getStayMinutes()) * MINUTES_TO_SECONDS;
+            LocalDateTime stayStart = cursor;
+            LocalDateTime stayEnd = cursor == null ? null : cursor.plusSeconds(Math.round(stayDuration));
+            timeline.add(new ItineraryPlannerPreviewResponse.TimelineEntry(
+                    spot.getSpotName() + " stay",
+                    "stay",
+                    spot.getSpotName(),
+                    spot.getSpotName(),
+                    0.0,
+                    stayDuration,
+                    stayStart,
+                    stayEnd
+            ));
+            cursor = stayEnd;
+
+            if (spotIndex >= orderedSpots.size() - 1) {
+                continue;
+            }
+            String currentSpot = spot.getSpotName();
+            String nextSpot = orderedSpots.get(spotIndex + 1).getSpotName();
+            while (segmentIndex < segments.size()) {
+                MultiSpotNavigationResponse.RouteSegment segment = segments.get(segmentIndex++);
+                double duration = safe(segment == null ? null : segment.getTime());
+                LocalDateTime start = cursor;
+                LocalDateTime end = cursor == null ? null : cursor.plusSeconds(Math.round(duration));
+                timeline.add(new ItineraryPlannerPreviewResponse.TimelineEntry(
+                        labelFor(segment),
+                        segment == null ? null : segment.getType(),
+                        segment == null ? null : segment.getFromSpotName(),
+                        segment == null ? null : segment.getToSpotName(),
+                        safe(segment == null ? null : segment.getDistance()),
+                        duration,
+                        start,
+                        end
+                ));
+                cursor = end;
+                if (isRouteBoundary(segment, currentSpot, nextSpot)) {
+                    while (segmentIndex < segments.size() && isEnterSegmentFor(segments.get(segmentIndex), nextSpot)) {
+                        MultiSpotNavigationResponse.RouteSegment enterSegment = segments.get(segmentIndex++);
+                        double enterDuration = safe(enterSegment.getTime());
+                        LocalDateTime enterStart = cursor;
+                        LocalDateTime enterEnd = cursor == null ? null : cursor.plusSeconds(Math.round(enterDuration));
+                        timeline.add(new ItineraryPlannerPreviewResponse.TimelineEntry(
+                                labelFor(enterSegment),
+                                enterSegment.getType(),
+                                enterSegment.getFromSpotName(),
+                                enterSegment.getToSpotName(),
+                                safe(enterSegment.getDistance()),
+                                enterDuration,
+                                enterStart,
+                                enterEnd
+                        ));
+                        cursor = enterEnd;
+                    }
+                    break;
+                }
+            }
+        }
+        while (segmentIndex < segments.size()) {
+            MultiSpotNavigationResponse.RouteSegment segment = segments.get(segmentIndex++);
             double duration = safe(segment == null ? null : segment.getTime());
             LocalDateTime start = cursor;
             LocalDateTime end = cursor == null ? null : cursor.plusSeconds(Math.round(duration));
@@ -119,6 +192,19 @@ public class ItineraryPlannerService {
             cursor = end;
         }
         return timeline;
+    }
+
+    private boolean isRouteBoundary(MultiSpotNavigationResponse.RouteSegment segment, String currentSpot, String nextSpot) {
+        return segment != null
+                && "city".equals(segment.getType())
+                && currentSpot.equals(segment.getFromSpotName())
+                && nextSpot.equals(segment.getToSpotName());
+    }
+
+    private boolean isEnterSegmentFor(MultiSpotNavigationResponse.RouteSegment segment, String spotName) {
+        return segment != null
+                && "spot_enter".equals(segment.getType())
+                && spotName.equals(segment.getToSpotName());
     }
 
     private String labelFor(MultiSpotNavigationResponse.RouteSegment segment) {
@@ -139,6 +225,16 @@ public class ItineraryPlannerService {
 
     private String normalizeMode(String mode) {
         return mode == null || mode.isBlank() ? "walk" : mode.trim().toLowerCase();
+    }
+
+    private int normalizeStayMinutes(Integer stayMinutes) {
+        return stayMinutes == null || stayMinutes < 0 ? DEFAULT_STAY_MINUTES : stayMinutes;
+    }
+
+    private double totalStayTime(List<ItineraryPlannerPreviewResponse.OrderedSpot> orderedSpots) {
+        return orderedSpots.stream()
+                .mapToDouble(spot -> normalizeStayMinutes(spot.getStayMinutes()) * MINUTES_TO_SECONDS)
+                .sum();
     }
 
     private double safe(Double value) {

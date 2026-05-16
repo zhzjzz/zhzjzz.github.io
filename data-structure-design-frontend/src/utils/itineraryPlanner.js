@@ -5,6 +5,7 @@ export const defaultPlannerSelection = (spots = []) => {
     orderIndex,
     selected: hasPreferred ? ['must', 'want'].includes(spot?.consensus) : true,
     transportMode: spot?.transportMode || 'walk',
+    stayMinutes: Number.isFinite(Number(spot?.stayMinutes)) ? Number(spot.stayMinutes) : 120,
   }))
 }
 
@@ -25,6 +26,7 @@ export const buildPlannerPayload = ({
     longitude: spot.longitude,
     transportMode: spot.transportMode || 'walk',
     selected: Boolean(spot.selected),
+    stayMinutes: Number.isFinite(Number(spot.stayMinutes)) ? Number(spot.stayMinutes) : 120,
   })),
 })
 

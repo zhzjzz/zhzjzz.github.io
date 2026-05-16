@@ -53,18 +53,25 @@ class ItineraryPlannerServiceTest {
         request.setStrategy("SHORTEST_TIME");
         request.setOptimizeVisitOrder(true);
         request.setSpots(List.of(
-                new ItineraryPlannerPreviewRequest.PlannerSpot(1L, 1L, "Spot A", 39.9, 116.3, "walk", true),
-                new ItineraryPlannerPreviewRequest.PlannerSpot(2L, 2L, "Spot B", 39.95, 116.4, "walk", true)
+                new ItineraryPlannerPreviewRequest.PlannerSpot(1L, 1L, "Spot A", 39.9, 116.3, "walk", true, 60),
+                new ItineraryPlannerPreviewRequest.PlannerSpot(2L, 2L, "Spot B", 39.95, 116.4, "walk", true, 30)
         ));
 
         ItineraryPlannerPreviewResponse response = service.preview(request);
 
         assertThat(response.getTotalDistance()).isEqualTo(1200.0);
-        assertThat(response.getTotalTime()).isEqualTo(1800.0);
-        assertThat(response.getArrivalTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 9, 30));
-        assertThat(response.getTimeline()).hasSize(1);
+        assertThat(response.getTotalTime()).isEqualTo(7200.0);
+        assertThat(response.getArrivalTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 11, 0));
+        assertThat(response.getTimeline()).hasSize(3);
         assertThat(response.getTimeline().get(0).getStartTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 9, 0));
-        assertThat(response.getTimeline().get(0).getEndTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 9, 30));
+        assertThat(response.getTimeline().get(0).getType()).isEqualTo("stay");
+        assertThat(response.getTimeline().get(0).getEndTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 0));
+        assertThat(response.getTimeline().get(1).getType()).isEqualTo("city");
+        assertThat(response.getTimeline().get(1).getStartTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 0));
+        assertThat(response.getTimeline().get(1).getEndTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 30));
+        assertThat(response.getTimeline().get(2).getType()).isEqualTo("stay");
+        assertThat(response.getTimeline().get(2).getStartTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 30));
+        assertThat(response.getTimeline().get(2).getEndTime()).isEqualTo(LocalDateTime.of(2026, 5, 15, 11, 0));
         assertThat(response.getOrderedSpots())
                 .extracting(ItineraryPlannerPreviewResponse.OrderedSpot::getSpotName)
                 .containsExactly("Spot A", "Spot B");
@@ -80,7 +87,7 @@ class ItineraryPlannerServiceTest {
 
         ItineraryPlannerPreviewRequest request = new ItineraryPlannerPreviewRequest();
         request.setSpots(List.of(
-                new ItineraryPlannerPreviewRequest.PlannerSpot(1L, 1L, "Missing Spot", null, null, "walk", true)
+                new ItineraryPlannerPreviewRequest.PlannerSpot(1L, 1L, "Missing Spot", null, null, "walk", true, 120)
         ));
 
         ItineraryPlannerPreviewResponse response = service.preview(request);

@@ -1,16 +1,16 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Calendar, Connection, Copy, Edit, Info, ListAdd, People, Plus, Refresh, Search, Timer } from '@icon-park/vue-next'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Connection, Copy, Refresh, Search } from '@icon-park/vue-next'
 import {
   addItinerarySpotCandidate,
   createItinerary,
+  deleteItinerary,
   getItinerary,
   listItineraries,
   listItineraryMapSpots,
   searchDestinations,
   submitItinerarySpotVote,
-  updateItinerary,
 } from '../api/travel'
 import { useAppStore } from '../stores/app'
 import { useItineraryCollaboration } from '../composables/useItineraryCollaboration'
@@ -25,14 +25,8 @@ import itineraryDefaultImage from '../assets/defaults/itinerary-default.png'
 
 const appStore = useAppStore()
 const loading = ref(false)
-const saving = ref(false)
 const rows = ref([])
 const keyword = ref('')
-const selectedRow = ref(null)
-const detailOpen = ref(false)
-const editOpen = ref(false)
-const editMode = ref('create')
-const editId = ref(null)
 const collabOpen = ref(false)
 const collabLoading = ref(false)
 const collabRow = ref(null)
@@ -40,37 +34,26 @@ const collabVersion = ref('')
 const mapSpots = ref([])
 const selectedNode = ref(null)
 const plannerOpen = ref(false)
+const plannerPreview = ref(null)
 const voteSaving = ref(false)
 const pingEvents = ref([])
 const spotSearchKeyword = ref('')
 const spotSearchResults = ref([])
 const spotSearchLoading = ref(false)
 const spotAddingId = ref(null)
-const patchTimers = new Map()
+const duplicatingId = ref(null)
+const deletingId = ref(null)
 
 const {
   connected,
   connecting,
   onlineUsers,
-  activeEditors,
   lastError,
   events,
   connect,
   disconnect,
-  sendEditing,
-  sendPatch,
   sendSpotVote,
 } = useItineraryCollaboration()
-
-const form = reactive({
-  name: '',
-  owner: '',
-  collaborators: '',
-  strategy: '',
-  transportMode: '',
-  notes: '',
-  updatedAt: null,
-})
 
 const collabForm = reactive({
   name: '',
@@ -80,26 +63,6 @@ const collabForm = reactive({
   transportMode: '',
   notes: '',
 })
-
-const collabFields = [
-  { key: 'name', label: '名称' },
-  { key: 'owner', label: '创建者' },
-  { key: 'collaborators', label: '协作者' },
-  { key: 'strategy', label: '策略' },
-  { key: 'transportMode', label: '交通方式' },
-  { key: 'notes', label: '备注', type: 'textarea', rows: 5 },
-]
-
-const resetForm = () => {
-  form.name = ''
-  form.owner = ''
-  form.collaborators = ''
-  form.strategy = ''
-  form.transportMode = ''
-  form.notes = ''
-  form.updatedAt = null
-  editId.value = null
-}
 
 const normalize = (value) => (value || '').toString().trim().toLowerCase()
 
@@ -129,13 +92,6 @@ const filteredRows = computed(() => {
     ].some((field) => normalize(field).includes(q))
   })
 })
-
-const stats = computed(() => ({
-  total: rows.value.length,
-  collaborators: rows.value.filter((item) => (item.collaborators || '').trim()).length,
-  strategies: new Set(rows.value.map((item) => item.strategy).filter(Boolean)).size,
-  latest: formatDateTime(rows.value[0]?.updatedAt),
-}))
 
 const currentEditorName = computed(() => appStore.user.name || collabForm.owner || '协作者')
 
@@ -190,64 +146,61 @@ const updateRowInList = (itinerary) => {
   rows.value.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 }
 
-const openCreate = () => {
-  editMode.value = 'create'
-  resetForm()
-  editOpen.value = true
-}
-
-const openEdit = (row) => {
-  editMode.value = 'edit'
-  editId.value = row.id
-  form.name = row.name || ''
-  form.owner = row.owner || ''
-  form.collaborators = row.collaborators || ''
-  form.strategy = row.strategy || ''
-  form.transportMode = row.transportMode || ''
-  form.notes = row.notes || ''
-  form.updatedAt = row.updatedAt || null
-  editOpen.value = true
-}
-
-const openDetail = (row) => {
-  selectedRow.value = row
-  detailOpen.value = true
-}
-
-const submit = async () => {
-  if (!form.name.trim()) {
-    ElMessage.warning('请输入行程名称')
-    return
-  }
-  saving.value = true
+const duplicateItinerary = async (row) => {
+  if (!row?.id) return
+  duplicatingId.value = row.id
   try {
-    const payload = {
-      name: form.name.trim(),
-      owner: form.owner.trim(),
-      collaborators: form.collaborators.trim(),
-      strategy: form.strategy.trim(),
-      transportMode: form.transportMode.trim(),
-      notes: form.notes.trim(),
-    }
-    if (editMode.value === 'edit') {
-      payload.updatedAt = form.updatedAt
-      await updateItinerary(editId.value, payload)
-      ElMessage.success('行程已更新')
-    } else {
-      await createItinerary(payload)
-      ElMessage.success('行程已创建')
-    }
-    editOpen.value = false
+    const { data: created } = await createItinerary({
+      name: `${row.name || '行程'} 副本`,
+      owner: row.owner || '',
+      collaborators: row.collaborators || '',
+      strategy: row.strategy || '',
+      transportMode: row.transportMode || '',
+      notes: row.notes || '',
+    })
+    const { data: spots } = await listItineraryMapSpots(row.id)
+    await Promise.all((Array.isArray(spots) ? spots : [])
+      .filter((spot) => spot.destinationId)
+      .map((spot) => addItinerarySpotCandidate(created.id, { destinationId: spot.destinationId })))
+    ElMessage.success('已新增相同行程')
     await loadRows()
   } finally {
-    saving.value = false
+    duplicatingId.value = null
   }
 }
 
-const copySummary = async (row) => {
-  const text = `名称: ${row.name || '-'}\n创建者: ${row.owner || '-'}\n协作者: ${row.collaborators || '-'}\n策略: ${row.strategy || '-'}\n交通: ${row.transportMode || '-'}\n备注: ${row.notes || '-'}`
-  await navigator.clipboard.writeText(text)
-  ElMessage.success('已复制摘要')
+const removeItinerary = async (row) => {
+  if (!row?.id) return
+  const confirmed = await ElMessageBox.confirm(
+    `Delete "${row.name || 'Untitled itinerary'}"? This itinerary will be removed from the list.`,
+    'Delete itinerary',
+    {
+      type: 'warning',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel',
+      distinguishCancelAndClose: true,
+    }
+  ).catch(() => false)
+  if (!confirmed) return
+
+  deletingId.value = row.id
+  try {
+    await deleteItinerary(row.id)
+    rows.value = rows.value.filter((item) => item.id !== row.id)
+    if (collabRow.value?.id === row.id) {
+      closeCollaboration()
+    }
+    ElMessage.success('Itinerary deleted')
+  } catch (error) {
+    const status = error?.response?.status
+    if (status === 404) {
+      ElMessage.error('Delete API is not available or itinerary no longer exists. Restart the backend and retry.')
+    } else {
+      ElMessage.error(error?.response?.data?.message || error?.message || 'Delete failed')
+    }
+  } finally {
+    deletingId.value = null
+  }
 }
 
 const syncSelectedNode = () => {
@@ -298,6 +251,7 @@ const addRealSpot = async (spot) => {
   try {
     await addItinerarySpotCandidate(collabRow.value.id, { destinationId: spot.id })
     await loadMapSpots(collabRow.value)
+    plannerPreview.value = null
     ElMessage.success('景点已加入协作地图')
   } finally {
     spotAddingId.value = null
@@ -306,6 +260,10 @@ const addRealSpot = async (spot) => {
 
 const selectNode = (node) => {
   selectedNode.value = node
+}
+
+const applyPlannerPreview = (preview) => {
+  plannerPreview.value = preview
 }
 
 const pushPing = (payload) => {
@@ -364,6 +322,7 @@ const openCollaboration = async (row) => {
   collabOpen.value = true
   collabLoading.value = true
   plannerOpen.value = false
+  plannerPreview.value = null
   try {
     const { data } = await getItinerary(row.id)
     collabRow.value = data
@@ -398,41 +357,16 @@ const openCollaboration = async (row) => {
 }
 
 const closeCollaboration = () => {
-  patchTimers.forEach((timer) => clearTimeout(timer))
-  patchTimers.clear()
   disconnect()
   collabOpen.value = false
   collabRow.value = null
   mapSpots.value = []
   selectedNode.value = null
   plannerOpen.value = false
+  plannerPreview.value = null
   pingEvents.value = []
   spotSearchKeyword.value = ''
   spotSearchResults.value = []
-}
-
-const fieldEditor = (fieldKey) => {
-  return activeEditors.value.find((item) => item.field === fieldKey)
-}
-
-const markEditing = (fieldKey) => {
-  sendEditing(fieldKey)
-}
-
-const queuePatch = (fieldKey) => {
-  if (!collabRow.value?.id) return
-  clearTimeout(patchTimers.get(fieldKey))
-  const timer = setTimeout(() => {
-    const ok = sendPatch({
-      field: fieldKey,
-      value: collabForm[fieldKey],
-      expectedUpdatedAt: collabVersion.value,
-    })
-    if (!ok) {
-      ElMessage.warning('协作连接未建立，暂不能实时同步')
-    }
-  }, 700)
-  patchTimers.set(fieldKey, timer)
 }
 
 const refresh = async () => {
@@ -447,14 +381,10 @@ onMounted(loadRows)
     <el-card class="module-card hero-card">
       <div class="hero-copy">
         <div class="eyebrow">协作行程</div>
-        <h2>行程管理与多人同步编辑</h2>
-        <p>把路线策略、交通方式、备注和协作者信息集中维护。</p>
+        <h2>行程协作与地图联动</h2>
+        <p>围绕协作标注、真实景点和一键规划统一操作。</p>
       </div>
       <div class="hero-actions">
-        <el-button type="primary" size="large" @click="openCreate">
-          <Plus theme="outline" size="17" fill="currentColor" />
-          新建行程
-        </el-button>
         <el-button size="large" @click="refresh">
           <Refresh theme="outline" size="17" fill="currentColor" />
           刷新
@@ -463,33 +393,6 @@ onMounted(loadRows)
       <img class="itinerary-hero-image" :src="itineraryDefaultImage" alt="行程默认封面" />
     </el-card>
 
-    <el-row :gutter="16" class="stats-row">
-      <el-col :md="6" :xs="12">
-        <div class="stat-card stat-coral">
-          <span><ListAdd theme="outline" size="15" fill="currentColor" /> 总行程</span>
-          <strong>{{ stats.total }}</strong>
-        </div>
-      </el-col>
-      <el-col :md="6" :xs="12">
-        <div class="stat-card stat-rose">
-          <span><People theme="outline" size="15" fill="currentColor" /> 有协作者</span>
-          <strong>{{ stats.collaborators }}</strong>
-        </div>
-      </el-col>
-      <el-col :md="6" :xs="12">
-        <div class="stat-card stat-sand">
-          <span><Calendar theme="outline" size="15" fill="currentColor" /> 策略数</span>
-          <strong>{{ stats.strategies }}</strong>
-        </div>
-      </el-col>
-      <el-col :md="6" :xs="12">
-        <div class="stat-card stat-ink">
-          <span><Timer theme="outline" size="15" fill="currentColor" /> 最近更新</span>
-          <strong class="truncate">{{ stats.latest }}</strong>
-        </div>
-      </el-col>
-    </el-row>
-
     <el-card class="module-card">
       <el-row :gutter="12" class="toolbar-row">
         <el-col :md="16" :xs="24">
@@ -497,7 +400,7 @@ onMounted(loadRows)
             v-model="keyword"
             size="large"
             clearable
-            placeholder="搜索名称、策略、备注、协作者"
+            placeholder="搜索名称、创建者、备注"
           />
         </el-col>
         <el-col :md="8" :xs="24" class="toolbar-actions">
@@ -513,9 +416,6 @@ onMounted(loadRows)
         <div class="itinerary-row itinerary-row-head">
           <span>名称</span>
           <span>创建者</span>
-          <span>协作者</span>
-          <span>策略</span>
-          <span>交通</span>
           <span>更新时间</span>
           <span>操作</span>
         </div>
@@ -525,60 +425,17 @@ onMounted(loadRows)
             <small>{{ row.notes || '暂无备注' }}</small>
           </div>
           <span>{{ row.owner || '-' }}</span>
-          <span>{{ row.collaborators || '-' }}</span>
-          <span class="itinerary-chip">{{ row.strategy || '未设置' }}</span>
-          <span>{{ row.transportMode || '-' }}</span>
           <strong class="itinerary-time">{{ formatDateTime(row.updatedAt) }}</strong>
           <div class="itinerary-actions">
-            <button type="button" @click="openDetail(row)"><Info theme="outline" size="14" fill="currentColor" /> 详情</button>
-            <button type="button" @click="openEdit(row)"><Edit theme="outline" size="14" fill="currentColor" /> 编辑</button>
-            <button type="button" @click="openCollaboration(row)"><Connection theme="outline" size="14" fill="currentColor" /> 协作</button>
-            <button type="button" @click="copySummary(row)"><Copy theme="outline" size="14" fill="currentColor" /> 复制</button>
+            <button type="button" class="collab-entry-button" @click="openCollaboration(row)"><Connection theme="outline" size="15" fill="currentColor" /> 协作</button>
+            <button type="button" :disabled="duplicatingId === row.id" @click="duplicateItinerary(row)"><Copy theme="outline" size="14" fill="currentColor" /> {{ duplicatingId === row.id ? '生成中' : '复制' }}</button>
+            <button type="button" class="delete-itinerary-button" :disabled="deletingId === row.id" @click="removeItinerary(row)">
+              {{ deletingId === row.id ? '删除中' : '删除' }}
+            </button>
           </div>
         </article>
       </div>
     </el-card>
-
-    <el-drawer v-model="detailOpen" title="行程详情" size="420px">
-      <template v-if="selectedRow">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="名称">{{ selectedRow.name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="创建者">{{ selectedRow.owner || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="协作者">{{ selectedRow.collaborators || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="策略">{{ selectedRow.strategy || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="交通方式">{{ selectedRow.transportMode || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ formatDateTime(selectedRow.updatedAt) }}</el-descriptions-item>
-          <el-descriptions-item label="备注">{{ selectedRow.notes || '-' }}</el-descriptions-item>
-        </el-descriptions>
-      </template>
-    </el-drawer>
-
-    <el-dialog v-model="editOpen" :title="editMode === 'create' ? '新建行程' : '编辑行程'" width="620px">
-      <el-form label-width="90px">
-        <el-form-item label="名称">
-          <el-input v-model="form.name" />
-        </el-form-item>
-        <el-form-item label="创建者">
-          <el-input v-model="form.owner" />
-        </el-form-item>
-        <el-form-item label="协作者">
-          <el-input v-model="form.collaborators" placeholder="逗号分隔" />
-        </el-form-item>
-        <el-form-item label="策略">
-          <el-input v-model="form.strategy" />
-        </el-form-item>
-        <el-form-item label="交通方式">
-          <el-input v-model="form.transportMode" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="form.notes" type="textarea" :rows="5" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="editOpen = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
-      </template>
-    </el-dialog>
 
     <el-drawer
       v-model="collabOpen"
@@ -588,18 +445,24 @@ onMounted(loadRows)
       @closed="closeCollaboration"
     >
       <div class="collab-panel" v-loading="collabLoading">
-        <div class="collab-status">
-          <el-tag :type="connected ? 'success' : connecting ? 'warning' : 'info'" effect="plain">
-            {{ connected ? '已连接' : connecting ? '连接中' : '未连接' }}
-          </el-tag>
-          <span>当前身份：{{ currentEditorName }}</span>
-          <span>版本：{{ formatDateTime(collabVersion) }}</span>
-        </div>
-
-        <div class="online-strip">
-          <strong>在线协作者</strong>
-          <el-tag v-for="user in onlineUsers" :key="user" size="small">{{ user }}</el-tag>
-          <span v-if="!onlineUsers.length" class="muted">暂无在线成员</span>
+        <div class="collab-command">
+          <div>
+            <span class="command-kicker">Live itinerary board</span>
+            <h3>{{ collabRow?.name || '协作行程' }}</h3>
+            <p>{{ tacticalNodes.length }} 个真实景点 · {{ connected ? '实时在线' : connecting ? '连接中' : '离线模式' }}</p>
+          </div>
+          <div class="command-meta">
+            <el-tag :type="connected ? 'success' : connecting ? 'warning' : 'info'" effect="dark">
+              {{ connected ? '已连接' : connecting ? '连接中' : '未连接' }}
+            </el-tag>
+            <span>{{ currentEditorName }}</span>
+            <small>{{ formatDateTime(collabVersion) }}</small>
+          </div>
+          <div class="online-strip">
+            <strong>在线协作者</strong>
+            <el-tag v-for="user in onlineUsers" :key="user" size="small" effect="dark">{{ user }}</el-tag>
+            <span v-if="!onlineUsers.length" class="muted">暂无在线成员</span>
+          </div>
         </div>
 
         <el-alert
@@ -621,6 +484,7 @@ onMounted(loadRows)
             <TacticalMapPanel
               :nodes="tacticalNodes"
               :selected-spot-id="selectedSpotId"
+              :route-segments="plannerPreview?.segments || []"
               @select-node="selectNode"
             />
           </div>
@@ -633,7 +497,7 @@ onMounted(loadRows)
               @search="searchRealSpots"
               @add="addRealSpot"
             />
-            <ItineraryPlannerPanel v-if="plannerOpen" :spots="tacticalNodes" />
+            <ItineraryPlannerPanel v-if="plannerOpen" :spots="tacticalNodes" @planned="applyPlannerPreview" />
             <ConsensusProgress :nodes="tacticalNodes" />
             <SpotDecisionCard
               :node="selectedNode"
@@ -644,23 +508,6 @@ onMounted(loadRows)
             <SquadPingFeed :events="pingEvents" />
           </div>
         </div>
-
-        <el-form label-width="96px" class="collab-form">
-          <el-form-item v-for="field in collabFields" :key="field.key" :label="field.label">
-            <div class="collab-input-wrap">
-              <el-input
-                v-model="collabForm[field.key]"
-                :type="field.type || 'text'"
-                :rows="field.rows"
-                @focus="markEditing(field.key)"
-                @input="queuePatch(field.key)"
-              />
-              <small v-if="fieldEditor(field.key)" class="editing-hint">
-                {{ fieldEditor(field.key).username }} 正在编辑
-              </small>
-            </div>
-          </el-form-item>
-        </el-form>
 
         <div class="event-feed">
           <strong>同步记录</strong>
@@ -679,6 +526,36 @@ onMounted(loadRows)
 .itinerary-page {
   display: grid;
   gap: 18px;
+}
+
+.itinerary-page :deep(.el-drawer.rtl) {
+  width: min(1180px, 88vw) !important;
+  background:
+    linear-gradient(135deg, rgba(13, 18, 27, 0.98), rgba(18, 29, 43, 0.96)),
+    #111827;
+  color: #e5edf7;
+  border-left: 1px solid rgba(56, 189, 248, 0.18);
+  box-shadow: -30px 0 90px rgba(0, 0, 0, 0.46);
+}
+
+.itinerary-page :deep(.el-drawer__header) {
+  margin: 0;
+  padding: 18px 22px 12px;
+  color: #f8fafc;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.itinerary-page :deep(.el-drawer__title) {
+  color: #f8fafc;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.itinerary-page :deep(.el-drawer__body) {
+  padding: 16px 20px 22px;
+  background:
+    linear-gradient(120deg, rgba(255, 56, 92, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.64), rgba(2, 6, 23, 0.88));
 }
 
 .hero-card {
@@ -783,69 +660,6 @@ onMounted(loadRows)
   background: #ff5475;
 }
 
-.stats-row {
-  margin-top: 2px;
-  align-items: stretch;
-}
-
-.stats-row :deep(.el-col) {
-  display: flex;
-}
-
-.stat-card {
-  width: 100%;
-  min-height: 116px;
-  padding: 16px;
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.stat-card span {
-  display: block;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.stat-card strong {
-  display: block;
-  margin-top: 8px;
-  color: #222222;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.stat-coral {
-  background: linear-gradient(135deg, #fff8f8 0%, #fff1f4 100%);
-  border-color: #ffd8e1;
-}
-
-.stat-rose {
-  background: linear-gradient(135deg, #fff8fb 0%, #ffeef4 100%);
-  border-color: #ffd9e6;
-}
-
-.stat-sand {
-  background: linear-gradient(135deg, #fffaf1 0%, #fff4de 100%);
-  border-color: #ffe5b3;
-}
-
-.stat-ink {
-  background: linear-gradient(135deg, #f8f8fa 0%, #f1f1f4 100%);
-  border-color: #e6e6ea;
-}
-
-.truncate {
-  font-size: 16px !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .toolbar-row {
   margin-bottom: 16px;
 }
@@ -866,7 +680,7 @@ onMounted(loadRows)
 
 .itinerary-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.25fr) minmax(76px, 0.44fr) minmax(98px, 0.62fr) minmax(88px, 0.56fr) minmax(70px, 0.42fr) 138px 284px;
+  grid-template-columns: minmax(280px, 1fr) minmax(92px, 140px) minmax(150px, 190px) minmax(190px, 240px);
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
@@ -926,7 +740,9 @@ onMounted(loadRows)
 
 .itinerary-actions {
   display: flex;
+  width: 100%;
   gap: 7px;
+  justify-self: end;
   justify-content: flex-end;
   flex-wrap: nowrap;
 }
@@ -954,42 +770,129 @@ onMounted(loadRows)
   color: #ff8ba0;
 }
 
-.collab-panel {
-  display: grid;
-  gap: 16px;
+.itinerary-actions button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
-.collab-status,
+.itinerary-actions .collab-entry-button {
+  position: relative;
+  min-width: 78px;
+  border-color: rgba(255, 56, 92, 0.82);
+  background: linear-gradient(135deg, #ff385c 0%, #ff7a18 100%);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 28px rgba(255, 56, 92, 0.28);
+}
+
+.itinerary-actions .collab-entry-button:hover,
+.itinerary-actions .collab-entry-button:focus-visible {
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 16px 36px rgba(255, 56, 92, 0.42);
+}
+
+.itinerary-actions .delete-itinerary-button {
+  border-color: rgba(248, 113, 113, 0.46);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fca5a5;
+}
+
+.itinerary-actions .delete-itinerary-button:hover,
+.itinerary-actions .delete-itinerary-button:focus-visible {
+  color: #ffffff;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  box-shadow: 0 12px 30px rgba(220, 38, 38, 0.26);
+}
+
+.collab-panel {
+  display: grid;
+  gap: 14px;
+  animation: collab-rise 360ms ease-out both;
+}
+
+.collab-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.86)),
+    rgba(15, 23, 42, 0.9);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.25);
+}
+
+.command-kicker {
+  color: #ff6b86;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.collab-command h3 {
+  margin: 4px 0 4px;
+  color: #f8fafc;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.collab-command p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.command-meta {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  color: #f8fafc;
+  font-weight: 800;
+}
+
+.command-meta small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
 .online-strip {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.collab-status {
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #f8fafc;
-  color: #475569;
+  grid-column: 1 / -1;
 }
 
 .online-strip {
-  padding: 12px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  padding-top: 2px;
+  color: #cbd5e1;
 }
 
 .tactical-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 12px;
   align-items: stretch;
 }
 
 .tactical-side {
   display: grid;
   gap: 14px;
+}
+
+.tactical-side :deep(.real-spot-card),
+.tactical-side :deep(.planner-panel),
+.tactical-side :deep(.consensus-progress),
+.tactical-side :deep(.decision-card),
+.tactical-side :deep(.ping-feed) {
+  border-color: rgba(148, 163, 184, 0.16);
+  background:
+    linear-gradient(145deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.9));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+  animation: collab-card-pop 420ms ease-out both;
 }
 
 .tactical-map-stack {
@@ -1002,46 +905,33 @@ onMounted(loadRows)
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(15, 23, 42, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .planner-action-row span {
-  color: #64748b;
+  color: #cbd5e1;
   font-size: 13px;
   font-weight: 800;
-}
-
-.collab-form {
-  padding-top: 4px;
-}
-
-.collab-input-wrap {
-  width: 100%;
-  display: grid;
-  gap: 6px;
-}
-
-.editing-hint {
-  color: #ff5f7b;
-  font-size: 12px;
 }
 
 .event-feed {
   display: grid;
   gap: 8px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #f8fafc;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.74);
 }
 
 .event-item {
   display: flex;
   gap: 10px;
   align-items: center;
-  color: #475569;
+  color: #cbd5e1;
 }
 
 .event-item span {
@@ -1057,6 +947,30 @@ onMounted(loadRows)
 .muted {
   color: #94a3b8;
   font-size: 13px;
+}
+
+@keyframes collab-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes collab-card-pop {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (max-width: 900px) {

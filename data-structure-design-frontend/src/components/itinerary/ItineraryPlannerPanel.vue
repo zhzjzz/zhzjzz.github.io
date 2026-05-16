@@ -17,6 +17,8 @@ const props = defineProps({
   },
 })
 
+const emit = defineEmits(['planned'])
+
 const plannerSpots = ref([])
 const departureTime = ref('')
 const strategy = ref('SHORTEST_TIME')
@@ -42,12 +44,13 @@ const moveSpot = (index, delta) => {
 }
 
 const submit = async () => {
-  await generatePreview({
+  const result = await generatePreview({
     departureTime: departureTime.value,
     strategy: strategy.value,
     optimizeVisitOrder: optimizeVisitOrder.value,
     spots: plannerSpots.value,
   })
+  if (result) emit('planned', result)
 }
 </script>
 
@@ -85,6 +88,18 @@ const submit = async () => {
         <div>
           <strong>{{ spot.spotName }}</strong>
           <span>{{ spot.consensus || 'backup' }}</span>
+        </div>
+        <div class="stay-control">
+          <small>停留</small>
+          <el-input-number
+            v-model="spot.stayMinutes"
+            :min="0"
+            :max="720"
+            :step="15"
+            size="small"
+            controls-position="right"
+          />
+          <small>分钟</small>
         </div>
         <div class="spot-actions">
           <el-button text :disabled="index === 0" @click="moveSpot(index, -1)">
@@ -207,6 +222,18 @@ const submit = async () => {
 .planner-spot > div:nth-child(2) {
   flex: 1;
   min-width: 0;
+}
+
+.stay-control {
+  display: grid;
+  grid-template-columns: auto 92px auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.stay-control small {
+  color: #64748b;
+  font-size: 12px;
 }
 
 .planner-spot strong {

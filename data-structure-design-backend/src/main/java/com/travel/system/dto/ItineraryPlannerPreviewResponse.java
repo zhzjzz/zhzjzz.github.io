@@ -31,6 +31,7 @@ public class ItineraryPlannerPreviewResponse {
         private Double latitude;
         private Double longitude;
         private String transportMode;
+        private Integer stayMinutes;
         private Integer orderIndex;
         private Boolean routable;
     }

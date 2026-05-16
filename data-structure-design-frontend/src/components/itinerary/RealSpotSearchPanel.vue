@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 defineProps({
   keyword: {
     type: String,
@@ -37,8 +37,7 @@ const addSpot = (spot) => {
   <section class="real-spot-card">
     <div class="real-spot-head">
       <div>
-        <strong>真实景点补给</strong>
-        <span>从目的地库选择有经纬度的景点加入协作地图。</span>
+        <strong>添加景点</strong>
       </div>
     </div>
 

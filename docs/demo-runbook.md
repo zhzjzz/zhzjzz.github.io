@@ -47,7 +47,9 @@ npm.cmd run dev
 11. Stop WebSocket connectivity or refresh during reconnect, submit another vote, and confirm REST fallback saves it.
 12. Click `一键规划`.
 13. Confirm the planner panel preselects `must` and `want` spots.
-14. Choose a departure time and keep automatic ordering enabled.
-15. Click `生成`.
-16. Confirm the preview shows total distance, total travel time, estimated arrival time, and segment timeline.
-17. Note that future one-click itinerary replication can reuse the same `POST /api/itinerary-planner/preview` endpoint and `ItineraryPlannerPanel` by passing replicated destination spots into the same input shape.
+14. Confirm each selected spot defaults to a 120-minute stay and can be edited before planning.
+15. Choose a departure time and keep automatic ordering enabled.
+16. Click `生成`.
+17. Confirm the preview shows total distance, total travel time, estimated arrival time, stay entries, and segment timeline.
+18. Confirm the collaboration map draws the generated itinerary route using the same segment data as navigation planning.
+19. Note that future one-click itinerary replication can reuse the same `POST /api/itinerary-planner/preview` endpoint, `ItineraryPlannerPanel`, and per-spot `stayMinutes` input shape by passing replicated destination spots into the planner.

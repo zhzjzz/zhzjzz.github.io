@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +62,28 @@ class ItineraryServiceTest {
         assertThat(broadcast.getValue().getUsername()).isEqualTo("李四");
         assertThat(broadcast.getValue().getField()).isEqualTo("notes");
         assertThat(broadcast.getValue().getItinerary()).isSameAs(existing);
+    }
+
+    @Test
+    void deleteRemovesExistingItinerary() {
+        LocalDateTime updatedAt = LocalDateTime.of(2026, 5, 16, 16, 8);
+        Itinerary existing = itinerary("行程副本", "演示用户", "", "", "", "", updatedAt);
+        when(itineraryMapper.findById(7L)).thenReturn(existing);
+
+        boolean deleted = service.delete(7L);
+
+        assertThat(deleted).isTrue();
+        verify(itineraryMapper).deleteById(7L);
+    }
+
+    @Test
+    void deleteReturnsFalseWhenItineraryDoesNotExist() {
+        when(itineraryMapper.findById(404L)).thenReturn(null);
+
+        boolean deleted = service.delete(404L);
+
+        assertThat(deleted).isFalse();
+        verify(itineraryMapper, never()).deleteById(404L);
     }
 
     private Itinerary itinerary(String name,
