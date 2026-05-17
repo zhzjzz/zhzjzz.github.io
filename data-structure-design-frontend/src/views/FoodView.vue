@@ -278,11 +278,25 @@ const normalizeAmapPoi = (poi) => {
     longitude: lng,
     sourceType: 'amap-js',
     sourceId: poi.id,
+    imageUrl: firstAmapPhotoUrl(poi.photos),
     rating: Number(poi.biz_ext?.rating) || null,
     averagePrice: Number(poi.biz_ext?.cost) || null,
     heat: Number(poi.biz_ext?.rating) ? Math.round(Number(poi.biz_ext.rating) * 18) : 70,
     distanceMeters: Number(poi.distance) || null,
   }
+}
+
+const firstAmapPhotoUrl = (photos) => {
+  if (!Array.isArray(photos)) return null
+  const photo = photos.find((item) => typeof item?.url === 'string' && item.url.trim())
+  if (!photo) return null
+  return normalizeImageUrl(photo.url)
+}
+
+const normalizeImageUrl = (url) => {
+  const value = String(url || '').trim()
+  if (!value) return null
+  return value.replace(/^http:\/\/store\.is\.autonavi\.com/i, 'https://store.is.autonavi.com')
 }
 
 const cuisineFromAmapType = (type) => {
@@ -324,7 +338,7 @@ const haversineMeters = (from, to) => {
 
 const applyNearbyClientFilters = (items) => {
   const anchor = resolvePlace()
-  if (!anchor) return items
+  if (!anchor) return prioritizeImageResults(items)
   const radius = Number(form.value.radiusMeters) || 3000
   const priceRange = selectedPriceRange.value
   const withDistance = items
@@ -344,21 +358,36 @@ const applyNearbyClientFilters = (items) => {
     })
 
   if (form.value.sort === 'rating') {
-    return withDistance.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+    return prioritizeImageResults(withDistance.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0)))
   }
   if (form.value.sort === 'averagePrice') {
-    return withDistance.sort((a, b) => {
+    return prioritizeImageResults(withDistance.sort((a, b) => {
       const priceDiff = Number(a.averagePrice || Infinity) - Number(b.averagePrice || Infinity)
       return priceDiff || Number(b.rating || 0) - Number(a.rating || 0)
-    })
+    }))
   }
   if (form.value.sort === 'destinationHeat') {
-    return withDistance.sort((a, b) => Number(b.destination?.heat || 0) - Number(a.destination?.heat || 0))
+    return prioritizeImageResults(withDistance.sort((a, b) => Number(b.destination?.heat || 0) - Number(a.destination?.heat || 0)))
   }
-  return withDistance.sort((a, b) => {
+  return prioritizeImageResults(withDistance.sort((a, b) => {
     const distanceDiff = Number(a.distanceMeters || Infinity) - Number(b.distanceMeters || Infinity)
     return distanceDiff || Number(b.rating || 0) - Number(a.rating || 0)
+  }))
+}
+
+const hasRealImage = (item) => typeof item?.imageUrl === 'string' && item.imageUrl.trim()
+
+const prioritizeImageResults = (items) => {
+  const withImage = []
+  const withoutImage = []
+  items.forEach((item) => {
+    if (hasRealImage(item)) {
+      withImage.push(item)
+    } else {
+      withoutImage.push(item)
+    }
   })
+  return [...withImage, ...withoutImage]
 }
 
 const ratingText = (item) => {

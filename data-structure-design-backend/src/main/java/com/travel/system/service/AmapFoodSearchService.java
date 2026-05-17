@@ -135,6 +135,7 @@ public class AmapFoodSearchService {
             food.setLongitude(location.lng());
             food.setSourceType("amap-live");
             food.setSourceId(id);
+            food.setImageUrl(firstPhotoUrl(poi.path("photos")));
             food.setRating(number(poi.path("biz_ext").path("rating")));
             food.setAveragePrice(number(poi.path("biz_ext").path("cost")));
             food.setHeat(food.getRating() == null ? 70d : Math.round(food.getRating() * 18));
@@ -148,6 +149,27 @@ public class AmapFoodSearchService {
             }
         }
         return foods;
+    }
+
+    private String firstPhotoUrl(JsonNode photos) {
+        if (photos == null || !photos.isArray()) {
+            return null;
+        }
+        for (JsonNode photo : photos) {
+            String url = normalizeImageUrl(text(photo.path("url")));
+            if (url != null) {
+                return url;
+            }
+        }
+        return null;
+    }
+
+    private String normalizeImageUrl(String url) {
+        String value = normalize(url);
+        if (value == null) {
+            return null;
+        }
+        return value.replaceFirst("(?i)^http://store\\.is\\.autonavi\\.com", "https://store.is.autonavi.com");
     }
 
     private String fetchAround(String key, LatLng anchor, String keyword, int radius, int page) {
