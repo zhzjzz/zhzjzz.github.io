@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import AMapLoader from '@amap/amap-jsapi-loader'
 import {
   Bowl,
   Bread,
@@ -21,14 +22,23 @@ import {
   Star,
   Tea,
 } from '@icon-park/vue-next'
-import { listDestinations, listFoodCuisines, searchFoods } from '../api/travel'
+import { listDestinations, listFoodCuisines, searchAmapFoods, searchFoods } from '../api/travel'
 import { foodIconLabel, foodIconName } from '../utils/foodIcon'
+
+const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
+if (amapSecret) {
+  window._AMapSecurityConfig = { securityJsCode: amapSecret }
+}
+
+const AMAP_VERSION = '2.0'
+const AMAP_PLUGINS = ['AMap.PlaceSearch']
 
 const loading = ref(false)
 const optionLoading = ref(false)
 const foods = ref([])
 const destinations = ref([])
 const cuisines = ref([])
+const amapApi = ref(null)
 
 const form = ref({
   place: '天安门',
@@ -38,7 +48,8 @@ const form = ref({
   sort: 'distance',
   radiusMeters: 3000,
   priceRange: 'all',
-  limit: 30,
+  dataSource: 'amap',
+  limit: 100,
 })
 
 const quickPlaces = ['天安门', '前门', '南锣鼓巷', '北京邮电大学']
@@ -56,6 +67,12 @@ const radiusOptions = [
   { label: '3 公里', value: 3000 },
   { label: '5 公里', value: 5000 },
   { label: '10 公里', value: 10000 },
+  { label: '20 公里', value: 20000 },
+]
+
+const dataSourceOptions = [
+  { label: '高德实时', value: 'amap' },
+  { label: '本地缓存', value: 'local' },
 ]
 
 const sortOptions = [
@@ -102,6 +119,7 @@ const visualPalettes = [
 const resultTitle = computed(() => `${foods.value.length} 个餐馆结果`)
 const activePlace = computed(() => form.value.place.trim() || '当前位置')
 const selectedPriceRange = computed(() => priceRanges.find((item) => item.value === form.value.priceRange) || priceRanges[0])
+const activeDataSourceLabel = computed(() => dataSourceOptions.find((item) => item.value === form.value.dataSource)?.label || '高德实时')
 
 const loadOptions = async () => {
   optionLoading.value = true
@@ -134,12 +152,38 @@ const search = async () => {
       maxAveragePrice: selectedPriceRange.value.max ?? undefined,
       limit: form.value.limit,
     }
-    const { data } = await searchFoods(params)
+    const data = form.value.dataSource === 'amap'
+      ? await searchAmapJsFoods(params)
+      : (await searchFoods(params)).data
     foods.value = applyNearbyClientFilters(Array.isArray(data) ? data : [])
   } catch (error) {
     console.error(error)
-    foods.value = []
-    ElMessage.error('美食数据加载失败，请稍后重试')
+    if (form.value.dataSource === 'amap') {
+      try {
+        const fallbackParams = {
+          place: form.value.place.trim() || undefined,
+          keyword: form.value.keyword.trim() || undefined,
+          cuisine: form.value.cuisine || undefined,
+          destinationId: form.value.destinationId || undefined,
+          sort: form.value.sort,
+          radiusMeters: form.value.radiusMeters,
+          minAveragePrice: selectedPriceRange.value.min ?? undefined,
+          maxAveragePrice: selectedPriceRange.value.max ?? undefined,
+          limit: form.value.limit,
+        }
+        const backendAmap = await searchAmapFoods(fallbackParams).catch(() => null)
+        const { data } = backendAmap || await searchFoods(fallbackParams)
+        foods.value = applyNearbyClientFilters(Array.isArray(data) ? data : [])
+        ElMessage.warning(backendAmap ? '浏览器高德搜索暂不可用，已显示服务端高德结果' : '高德实时搜索暂不可用，已显示本地缓存餐馆')
+      } catch (fallbackError) {
+        console.error(fallbackError)
+        foods.value = []
+        ElMessage.error('美食数据加载失败，请稍后重试')
+      }
+    } else {
+      foods.value = []
+      ElMessage.error('美食数据加载失败，请稍后重试')
+    }
   } finally {
     loading.value = false
   }
@@ -154,7 +198,8 @@ const reset = async () => {
     sort: 'distance',
     radiusMeters: 3000,
     priceRange: 'all',
-    limit: 30,
+    dataSource: 'amap',
+    limit: 100,
   }
   await search()
 }
@@ -172,6 +217,21 @@ const selectCuisine = async (cuisine) => {
 }
 
 const destinationName = (item) => item.destination?.name || '附近目的地'
+const itemPlaceLabel = (item) => item.address || destinationName(item)
+
+const loadAmapApi = async () => {
+  if (amapApi.value) return amapApi.value
+  const amapKey = (import.meta.env.VITE_AMAP_KEY || '').trim()
+  if (!amapKey) {
+    throw new Error('未配置 VITE_AMAP_KEY')
+  }
+  amapApi.value = await AMapLoader.load({
+    key: amapKey,
+    version: AMAP_VERSION,
+    plugins: AMAP_PLUGINS,
+  })
+  return amapApi.value
+}
 
 const normalizePlace = (value) => value.trim().toLowerCase().replace(/\s+/g, '')
 
@@ -186,6 +246,80 @@ const resolvePlace = () => {
     return nameKey.includes(key) || key.includes(nameKey)
   })
   return entry?.[1] || null
+}
+
+const searchAmapJsFoods = async (params) => {
+  const anchor = resolvePlace()
+  if (!anchor) {
+    throw new Error('暂不支持该地点的高德实时搜索，请选择常用地点或本地缓存')
+  }
+  const AMap = await loadAmapApi()
+  const safeLimit = Math.max(25, Math.min(Number(params.limit) || 100, 200))
+  const pageSize = 25
+  const pages = Math.ceil(safeLimit / pageSize)
+  const all = []
+  for (let pageIndex = 1; pageIndex <= pages; pageIndex += 1) {
+    const pois = await amapPlaceSearchPage(AMap, anchor, params, pageIndex, pageSize)
+    all.push(...pois)
+    if (pois.length < pageSize || all.length >= safeLimit) break
+  }
+  return all.slice(0, safeLimit)
+}
+
+const amapPlaceSearchPage = (AMap, anchor, params, pageIndex, pageSize) => new Promise((resolve, reject) => {
+  const placeSearch = new AMap.PlaceSearch({
+    type: '餐饮服务',
+    city: '北京',
+    pageSize,
+    pageIndex,
+    extensions: 'all',
+  })
+  const keyword = params.keyword || ''
+  const radius = Number(params.radiusMeters) || 5000
+  placeSearch.searchNearBy(keyword, [anchor.longitude, anchor.latitude], radius, (status, result) => {
+    if (status !== 'complete') {
+      reject(new Error(result?.info || '高德餐饮搜索失败'))
+      return
+    }
+    const pois = result?.poiList?.pois || []
+    resolve(pois.map((poi) => normalizeAmapPoi(poi)).filter(Boolean))
+  })
+})
+
+const normalizeAmapPoi = (poi) => {
+  const lng = Number(poi.location?.lng)
+  const lat = Number(poi.location?.lat)
+  if (!poi.id || !poi.name || !Number.isFinite(lng) || !Number.isFinite(lat)) {
+    return null
+  }
+  return {
+    id: `amap-${poi.id}`,
+    name: poi.name,
+    storeName: poi.name,
+    cuisine: cuisineFromAmapType(poi.type),
+    address: typeof poi.address === 'string' ? poi.address : '',
+    latitude: lat,
+    longitude: lng,
+    sourceType: 'amap-js',
+    sourceId: poi.id,
+    rating: Number(poi.biz_ext?.rating) || null,
+    averagePrice: Number(poi.biz_ext?.cost) || null,
+    heat: Number(poi.biz_ext?.rating) ? Math.round(Number(poi.biz_ext.rating) * 18) : 70,
+    distanceMeters: Number(poi.distance) || null,
+  }
+}
+
+const cuisineFromAmapType = (type) => {
+  const detail = String(type || '').split(';').filter(Boolean).pop() || ''
+  if (detail.includes('北京菜')) return '京菜'
+  if (detail.includes('中餐')) return '中餐'
+  if (detail.includes('快餐')) return '快餐'
+  if (detail.includes('咖啡')) return '咖啡'
+  if (detail.includes('火锅')) return '火锅'
+  if (detail.includes('甜品') || detail.includes('冷饮')) return '甜品'
+  if (detail.includes('清真')) return '清真菜'
+  if (detail.includes('西餐') || detail.includes('外国')) return '西式简餐'
+  return detail || '餐饮'
 }
 
 const foodLocation = (item) => {
@@ -369,6 +503,13 @@ onMounted(async () => {
             </el-form-item>
           </el-col>
           <el-col :lg="4" :md="8" :xs="24">
+            <el-form-item label="数据源">
+              <el-select v-model="form.dataSource" class="full-width">
+                <el-option v-for="item in dataSourceOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :lg="4" :md="8" :xs="24">
             <el-form-item label="人均价格">
               <el-select v-model="form.priceRange" class="full-width">
                 <el-option v-for="item in priceRanges" :key="item.value" :label="item.label" :value="item.value" />
@@ -377,10 +518,10 @@ onMounted(async () => {
           </el-col>
           <el-col :lg="4" :md="8" :xs="24">
             <el-form-item label="数量">
-              <el-input-number v-model="form.limit" :min="6" :max="60" :step="6" class="full-width" />
+              <el-input-number v-model="form.limit" :min="25" :max="200" :step="25" class="full-width" />
             </el-form-item>
           </el-col>
-          <el-col :lg="8" :md="24" :xs="24">
+          <el-col :lg="4" :md="24" :xs="24">
             <div class="toolbar-actions">
               <el-button @click="reset">
                 <Refresh theme="outline" size="16" fill="currentColor" />
@@ -430,6 +571,10 @@ onMounted(async () => {
         {{ activePlace }}附近 {{ formatDistance(form.radiusMeters) }}
       </span>
       <span>
+        <Shop theme="outline" size="16" fill="currentColor" />
+        {{ activeDataSourceLabel }}
+      </span>
+      <span>
         <Star theme="outline" size="16" fill="currentColor" />
         显示评分与距离
       </span>
@@ -460,7 +605,7 @@ onMounted(async () => {
           </div>
           <div class="food-tags">
             <span>{{ item.cuisine || '综合餐饮' }}</span>
-            <span>{{ destinationName(item) }}</span>
+            <span>{{ itemPlaceLabel(item) }}</span>
           </div>
           <div class="food-metrics">
             <span>

@@ -20,6 +20,8 @@ public class Food {
     private Double longitude;
     private String sourceType;
     private String sourceId;
+    @Transient
+    private String address;
     private String imageUrl;
     @Transient
     private Double distanceMeters;
