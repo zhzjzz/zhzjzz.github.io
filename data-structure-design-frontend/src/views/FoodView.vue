@@ -2,28 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AMapLoader from '@amap/amap-jsapi-loader'
-import {
-  Bowl,
-  Bread,
-  Cake,
-  ChickenLeg,
-  ChopsticksFork,
-  CoffeeMachine,
-  Cup,
-  Fire,
-  ForkSpoon,
-  Hamburger,
-  KnifeFork,
-  MapDistance,
-  Noodles,
-  Refresh,
-  Search,
-  Shop,
-  Star,
-  Tea,
-} from '@icon-park/vue-next'
+import { Bowl, Fire, MapDistance, Refresh, Search, Shop, Star } from '@icon-park/vue-next'
 import { listDestinations, listFoodCuisines, listFoodPlaceAnchors, searchAmapFoods, searchFoods } from '../api/travel'
-import { foodIconLabel, foodIconName } from '../utils/foodIcon'
+import foodDefaultImage from '../assets/defaults/food-default.png'
 
 const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
 if (amapSecret) {
@@ -92,32 +73,7 @@ const priceRanges = [
   { label: '¥200 以上', value: '200+', min: 200, max: null },
 ]
 
-const foodIconComponents = {
-  Bread,
-  Cake,
-  ChickenLeg,
-  ChopsticksFork,
-  CoffeeMachine,
-  Cup,
-  ForkSpoon,
-  Hamburger,
-  KnifeFork,
-  Noodles,
-  Tea,
-}
-
-const visualPalettes = [
-  ['#18212f', '#f97316'],
-  ['#102820', '#22c55e'],
-  ['#241a12', '#eab308'],
-  ['#16213f', '#38bdf8'],
-  ['#2a173d', '#d946ef'],
-  ['#2b1618', '#ef4444'],
-  ['#102329', '#14b8a6'],
-  ['#232016', '#a3e635'],
-]
-
-const resultTitle = computed(() => `${foods.value.length} 个餐馆结果`)
+const resultTitle = computed(() => `${foods.value.length} 条餐馆结果`)
 const activePlace = computed(() => form.value.place.trim() || '当前位置')
 const selectedPriceRange = computed(() => priceRanges.find((item) => item.value === form.value.priceRange) || priceRanges[0])
 const activeDataSourceLabel = computed(() => dataSourceOptions.find((item) => item.value === form.value.dataSource)?.label || '高德实时')
@@ -157,17 +113,7 @@ const loadOptions = async () => {
 const search = async () => {
   loading.value = true
   try {
-    const params = {
-      place: form.value.place.trim() || undefined,
-      keyword: form.value.keyword.trim() || undefined,
-      cuisine: form.value.cuisine || undefined,
-      destinationId: form.value.destinationId || undefined,
-      sort: form.value.sort,
-      radiusMeters: form.value.radiusMeters,
-      minAveragePrice: selectedPriceRange.value.min ?? undefined,
-      maxAveragePrice: selectedPriceRange.value.max ?? undefined,
-      limit: form.value.limit,
-    }
+    const params = searchParams()
     const data = form.value.dataSource === 'amap'
       ? await searchAmapJsFoods(params)
       : (await searchFoods(params)).data
@@ -175,27 +121,7 @@ const search = async () => {
   } catch (error) {
     console.error(error)
     if (form.value.dataSource === 'amap') {
-      try {
-        const fallbackParams = {
-          place: form.value.place.trim() || undefined,
-          keyword: form.value.keyword.trim() || undefined,
-          cuisine: form.value.cuisine || undefined,
-          destinationId: form.value.destinationId || undefined,
-          sort: form.value.sort,
-          radiusMeters: form.value.radiusMeters,
-          minAveragePrice: selectedPriceRange.value.min ?? undefined,
-          maxAveragePrice: selectedPriceRange.value.max ?? undefined,
-          limit: form.value.limit,
-        }
-        const backendAmap = await searchAmapFoods(fallbackParams).catch(() => null)
-        const { data } = backendAmap || await searchFoods(fallbackParams)
-        foods.value = applyNearbyClientFilters(Array.isArray(data) ? data : [])
-        ElMessage.warning(backendAmap ? '浏览器高德搜索暂不可用，已显示服务端高德结果' : '高德实时搜索暂不可用，已显示本地缓存餐馆')
-      } catch (fallbackError) {
-        console.error(fallbackError)
-        foods.value = []
-        ElMessage.error('美食数据加载失败，请稍后重试')
-      }
+      await searchWithFallback()
     } else {
       foods.value = []
       ElMessage.error('美食数据加载失败，请稍后重试')
@@ -204,6 +130,32 @@ const search = async () => {
     loading.value = false
   }
 }
+
+const searchWithFallback = async () => {
+  try {
+    const fallbackParams = searchParams()
+    const backendAmap = await searchAmapFoods(fallbackParams).catch(() => null)
+    const { data } = backendAmap || await searchFoods(fallbackParams)
+    foods.value = applyNearbyClientFilters(Array.isArray(data) ? data : [])
+    ElMessage.warning(backendAmap ? '浏览器高德搜索暂不可用，已显示服务端高德结果' : '高德实时搜索暂不可用，已显示本地缓存餐馆')
+  } catch (fallbackError) {
+    console.error(fallbackError)
+    foods.value = []
+    ElMessage.error('美食数据加载失败，请稍后重试')
+  }
+}
+
+const searchParams = () => ({
+  place: form.value.place.trim() || undefined,
+  keyword: form.value.keyword.trim() || undefined,
+  cuisine: form.value.cuisine || undefined,
+  destinationId: form.value.destinationId || undefined,
+  sort: form.value.sort,
+  radiusMeters: form.value.radiusMeters,
+  minAveragePrice: selectedPriceRange.value.min ?? undefined,
+  maxAveragePrice: selectedPriceRange.value.max ?? undefined,
+  limit: form.value.limit,
+})
 
 const reset = async () => {
   form.value = {
@@ -232,7 +184,7 @@ const selectCuisine = async (cuisine) => {
   await search()
 }
 
-const destinationName = (item) => item.destination?.name || '附近目的地'
+const destinationName = (item) => item.destination?.name || activePlace.value || '附近目的地'
 const itemPlaceLabel = (item) => item.address || destinationName(item)
 
 const loadAmapApi = async () => {
@@ -275,7 +227,7 @@ const resolvePlace = () => {
 const searchAmapJsFoods = async (params) => {
   const anchor = resolvePlace()
   if (!anchor) {
-    throw new Error('暂不支持该地点的高德实时搜索，请选择常用地点或本地缓存')
+    throw new Error('暂不支持该地点的高德实时搜索，请选择下拉中的景点或切到本地缓存')
   }
   const AMap = await loadAmapApi()
   const safeLimit = Math.max(25, Math.min(Number(params.limit) || 100, 200))
@@ -409,6 +361,44 @@ const applyNearbyClientFilters = (items) => {
   })
 }
 
+const ratingText = (item) => {
+  const rating = Number(item?.rating)
+  if (!Number.isFinite(rating) || rating <= 0) return '-'
+  return rating.toFixed(1)
+}
+
+const heatText = (item) => Math.round(item?.heat || 0)
+
+const foodExcerpt = (item) => {
+  const storeName = String(item?.storeName || '').trim()
+  if (!storeName) return itemPlaceLabel(item)
+  return `${storeName} · ${itemPlaceLabel(item)}`
+}
+
+const foodTags = (item) => {
+  const tags = []
+  if (item?.cuisine) tags.push(item.cuisine)
+  if (item?.sourceType) tags.push(sourceLabel(item.sourceType))
+  if (Number.isFinite(Number(item.averagePrice))) tags.push(formatPrice(item.averagePrice))
+  return tags.length ? tags : ['本地风味']
+}
+
+const foodCardRatio = (index) => {
+  const ratios = ['1 / 1', '4 / 5', '5 / 4', '3 / 4']
+  return ratios[index % ratios.length]
+}
+
+const foodRankText = (item) => {
+  const rating = ratingText(item)
+  return rating === '-' ? '热度推荐' : `${rating} 分`
+}
+
+const sourceLabel = (sourceType) => {
+  if (sourceType === 'amap-js' || sourceType === 'amap-live') return '高德实时'
+  if (sourceType === 'osm') return '开放地图'
+  return sourceType || '本地缓存'
+}
+
 const formatPrice = (price) => {
   const value = Number(price)
   if (!Number.isFinite(value) || value <= 0) return '人均待补充'
@@ -422,17 +412,6 @@ const formatDistance = (meters) => {
   return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)} km`
 }
 
-const visualKey = (item) => `${item.cuisine || ''}${item.storeName || ''}${item.name || ''}`
-
-const paletteFor = (item) => {
-  const key = visualKey(item)
-  const seed = Array.from(key).reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const [bg, accent] = visualPalettes[seed % visualPalettes.length]
-  return { '--food-bg': bg, '--food-accent': accent }
-}
-
-const foodIconComponent = (item) => foodIconComponents[foodIconName(item)] || ChopsticksFork
-
 onMounted(async () => {
   await loadOptions()
   await search()
@@ -441,22 +420,22 @@ onMounted(async () => {
 
 <template>
   <section class="food-page">
-    <div class="food-header">
-      <div>
+    <section class="food-hero reveal-in">
+      <div class="hero-copy">
         <p class="demo-eyebrow">Local Taste</p>
         <h2>附近美食</h2>
-        <p class="module-subtitle">按地点、距离、评分和店铺类型找餐馆。</p>
+        <p class="module-subtitle">搜索真实餐馆，按景点、距离、人均价格和店铺类型快速筛选。</p>
       </div>
       <div class="food-count">
         <Bowl theme="outline" size="20" fill="currentColor" />
         <strong>{{ resultTitle }}</strong>
       </div>
-    </div>
+    </section>
 
-    <el-card class="module-card food-filter-card">
-      <el-form :model="form" label-width="92px" @submit.prevent>
+    <section class="search-board reveal-in">
+      <el-form :model="form" label-width="78px" @submit.prevent>
         <el-row :gutter="12">
-          <el-col :lg="7" :md="12" :xs="24">
+          <el-col :lg="6" :md="12" :xs="24">
             <el-form-item label="附近地点">
               <el-select
                 v-model="form.place"
@@ -491,7 +470,7 @@ onMounted(async () => {
               />
             </el-form-item>
           </el-col>
-          <el-col :lg="4" :md="8" :xs="24">
+          <el-col :lg="4" :md="12" :xs="24">
             <el-form-item label="店铺类型">
               <el-select
                 v-model="form.cuisine"
@@ -505,14 +484,14 @@ onMounted(async () => {
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :lg="4" :md="8" :xs="24">
+          <el-col :lg="4" :md="12" :xs="24">
             <el-form-item label="范围">
               <el-select v-model="form.radiusMeters" class="full-width">
                 <el-option v-for="item in radiusOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :lg="4" :md="8" :xs="24">
+          <el-col :lg="5" :md="12" :xs="24">
             <el-form-item label="排序">
               <el-select v-model="form.sort" class="full-width">
                 <el-option v-for="item in sortOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -522,7 +501,7 @@ onMounted(async () => {
         </el-row>
 
         <el-row :gutter="12">
-          <el-col :lg="8" :md="12" :xs="24">
+          <el-col :lg="6" :md="12" :xs="24">
             <el-form-item label="目的地">
               <el-select
                 v-model="form.destinationId"
@@ -548,7 +527,7 @@ onMounted(async () => {
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :lg="4" :md="8" :xs="24">
+          <el-col :lg="5" :md="8" :xs="24">
             <el-form-item label="人均价格">
               <el-select v-model="form.priceRange" class="full-width">
                 <el-option v-for="item in priceRanges" :key="item.value" :label="item.label" :value="item.value" />
@@ -560,7 +539,7 @@ onMounted(async () => {
               <el-input-number v-model="form.limit" :min="25" :max="200" :step="25" class="full-width" />
             </el-form-item>
           </el-col>
-          <el-col :lg="4" :md="24" :xs="24">
+          <el-col :lg="5" :md="24" :xs="24">
             <div class="toolbar-actions">
               <el-button @click="reset">
                 <Refresh theme="outline" size="16" fill="currentColor" />
@@ -588,7 +567,7 @@ onMounted(async () => {
           </button>
         </div>
 
-        <div class="quick-row cuisine-row" aria-label="店铺类型快捷筛选">
+        <div class="quick-row" aria-label="店铺类型快捷筛选">
           <button
             v-for="item in cuisines.slice(0, 10)"
             :key="item"
@@ -602,7 +581,7 @@ onMounted(async () => {
           </button>
         </div>
       </el-form>
-    </el-card>
+    </section>
 
     <div class="result-context">
       <span>
@@ -615,50 +594,44 @@ onMounted(async () => {
       </span>
       <span>
         <Star theme="outline" size="16" fill="currentColor" />
-        显示评分与距离
+        评分、距离、人均价
       </span>
-      <span>
-        <Shop theme="outline" size="16" fill="currentColor" />
-        {{ selectedPriceRange.label }}
-      </span>
+      <span>{{ selectedPriceRange.label }}</span>
     </div>
 
-    <el-empty v-if="!foods.length && !loading" description="暂无匹配餐馆" />
+    <div v-if="!foods.length && !loading" class="food-empty">
+      <el-empty description="暂无匹配美食" />
+    </div>
 
-    <div v-else class="food-list" v-loading="loading">
-      <article v-for="item in foods" :key="item.id || `${item.name}-${item.storeName}`" class="food-card">
-        <div class="food-media">
-          <div class="food-icon-visual" :style="paletteFor(item)">
-            <component :is="foodIconComponent(item)" theme="filled" size="70" fill="currentColor" />
-            <span>{{ foodIconLabel(item) }}</span>
+    <div v-else class="food-grid" v-loading="loading">
+      <article
+        v-for="(item, index) in foods"
+        :key="item.id || `${item.name}-${item.storeName}`"
+        class="food-card reveal-in"
+      >
+        <div class="food-media" :style="{ '--card-ratio': foodCardRatio(index) }">
+          <img :src="item.imageUrl || foodDefaultImage" :alt="item.name || '美食图片'" loading="lazy" />
+          <div class="food-media__overlay">
+            <span class="food-rank">{{ foodRankText(item) }}</span>
+            <span class="food-hot">
+              <Fire theme="outline" size="14" fill="currentColor" />
+              {{ heatText(item) }}
+            </span>
           </div>
-          <small>真实图标</small>
         </div>
         <div class="food-body">
-          <div class="food-title-row">
-            <div>
-              <h3>{{ item.storeName || item.name }}</h3>
-              <p>{{ item.name }}</p>
-            </div>
-            <strong>{{ item.rating || '-' }}</strong>
+          <div class="food-topline">
+            <span class="food-cuisine">{{ item.cuisine || '地方风味' }}</span>
+            <span class="food-destination">{{ formatDistance(item.distanceMeters) }}</span>
           </div>
+          <h3>{{ item.storeName || item.name }}</h3>
+          <p>{{ foodExcerpt(item) }}</p>
           <div class="food-tags">
-            <span>{{ item.cuisine || '综合餐饮' }}</span>
-            <span>{{ itemPlaceLabel(item) }}</span>
+            <span v-for="tag in foodTags(item)" :key="tag" class="food-chip">{{ tag }}</span>
           </div>
-          <div class="food-metrics">
-            <span>
-              <MapDistance theme="outline" size="15" fill="currentColor" />
-              {{ formatDistance(item.distanceMeters) }}
-            </span>
-            <span>
-              <Fire theme="outline" size="15" fill="currentColor" />
-              热度 {{ Math.round(item.heat || 0) }}
-            </span>
-            <span>
-              <Shop theme="outline" size="15" fill="currentColor" />
-              {{ formatPrice(item.averagePrice) }}
-            </span>
+          <div class="food-stats">
+            <span>评分 {{ ratingText(item) }}</span>
+            <span>{{ formatPrice(item.averagePrice) }}</span>
           </div>
         </div>
       </article>
@@ -668,40 +641,99 @@ onMounted(async () => {
 
 <style scoped>
 .food-page {
+  --el-color-primary: #ff385c;
+  --el-fill-color-blank: #17191d;
+  --el-text-color-primary: #f8fafc;
+  --el-text-color-regular: #a7b0bf;
+  --el-border-color: rgba(255, 255, 255, 0.12);
+  --el-border-radius-base: 8px;
   display: grid;
   gap: 18px;
   color: #f8fafc;
+  background:
+    linear-gradient(135deg, rgba(255, 56, 92, 0.11), transparent 30%),
+    linear-gradient(180deg, rgba(23, 25, 29, 0.96), #0d0f12 56%);
 }
 
-.food-header {
+.food-hero,
+.search-board,
+.food-card,
+.food-empty {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(23, 25, 29, 0.86);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.food-hero::before,
+.search-board::before,
+.food-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(120deg, transparent 8%, rgba(255, 255, 255, 0.16) 18%, transparent 30%);
+  opacity: 0;
+  transform: translateX(-80%);
+}
+
+.food-hero:hover::before,
+.search-board:hover::before,
+.food-card:hover::before {
+  animation: feedSheen 960ms var(--motion-ease);
+}
+
+.food-hero {
   display: flex;
   align-items: end;
   justify-content: space-between;
   gap: 18px;
-  flex-wrap: wrap;
+  padding: 28px;
 }
 
-.food-header h2 {
-  margin-top: 4px;
-  font-size: 32px;
-  line-height: 1.2;
+.hero-copy {
+  max-width: 720px;
+}
+
+.food-hero h2 {
+  margin-top: 8px;
+  color: #f8fafc;
+  font-size: clamp(28px, 3vw, 42px);
+  line-height: 1.08;
   font-weight: 900;
+  letter-spacing: 0;
+}
+
+.module-subtitle {
+  margin-top: 12px;
+  color: #a7b0bf;
+  font-size: 15px;
+  line-height: 1.75;
 }
 
 .food-count {
-  min-height: 46px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
+  border: 1px solid rgba(255, 56, 92, 0.28);
+  border-radius: 999px;
+  color: #ff8ba0;
+  background: rgba(255, 56, 92, 0.12);
 }
 
-.food-filter-card {
-  border-radius: 8px;
+.food-count strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.search-board {
+  padding: 18px 20px;
 }
 
 .full-width {
@@ -711,15 +743,12 @@ onMounted(async () => {
 .toolbar-actions {
   min-height: 32px;
   display: flex;
-  align-items: flex-start;
   justify-content: flex-end;
   gap: 10px;
 }
 
 .quick-row,
-.result-context,
-.food-tags,
-.food-metrics {
+.result-context {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -728,10 +757,6 @@ onMounted(async () => {
 
 .quick-row {
   margin-top: 12px;
-}
-
-.cuisine-row {
-  padding-top: 2px;
 }
 
 .quick-chip {
@@ -750,8 +775,8 @@ onMounted(async () => {
 
 .quick-chip.active,
 .quick-chip:hover {
-  border-color: rgba(56, 189, 248, 0.7);
-  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(255, 56, 92, 0.54);
+  background: rgba(255, 56, 92, 0.14);
   color: #f8fafc;
 }
 
@@ -775,162 +800,230 @@ onMounted(async () => {
   font-weight: 800;
 }
 
-.food-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  min-height: 220px;
+.food-grid {
+  column-count: 3;
+  column-gap: 16px;
+  padding-top: 8px;
 }
 
 .food-card {
+  width: 100%;
   display: grid;
-  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 0;
+  margin: 0 0 16px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: #17191d;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+  break-inside: avoid;
+  transform: translateZ(0);
+  transition: transform 220ms var(--motion-spring), box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.food-card:nth-child(3n + 2) {
+  margin-top: 32px;
+}
+
+.food-card:nth-child(3n) {
+  margin-top: 16px;
+}
+
+.food-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  border-color: rgba(255, 56, 92, 0.36);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 56, 92, 0.12);
 }
 
 .food-media {
   position: relative;
-  min-height: 170px;
+  aspect-ratio: var(--card-ratio, 4 / 5);
+  overflow: hidden;
   background: #24272d;
 }
 
-.food-icon-visual {
+.food-media img {
   width: 100%;
   height: 100%;
-  min-height: 170px;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 10px;
-  place-items: center;
-  align-content: center;
-  background:
-    radial-gradient(circle at 70% 18%, rgba(255, 255, 255, 0.24), transparent 30%),
-    linear-gradient(135deg, var(--food-bg), var(--food-accent));
-  color: #ffffff;
+  display: block;
+  object-fit: cover;
+  transition: transform 520ms ease, filter 520ms ease;
 }
 
-.food-icon-visual :deep(.i-icon) {
-  width: 72px;
-  height: 72px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.2);
-  color: #ffffff;
+.food-card:hover .food-media img {
+  transform: scale(1.04);
+  filter: saturate(1.08) contrast(1.02);
 }
 
-.food-icon-visual span {
-  min-height: 26px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.22);
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.food-media small {
+.food-media::after {
+  content: '';
   position: absolute;
-  left: 12px;
-  bottom: 12px;
-  padding: 5px 8px;
-  border-radius: 8px;
-  background: rgba(13, 15, 18, 0.78);
-  color: #f8fafc;
-  font-size: 12px;
-  font-weight: 900;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 48%, rgba(255, 56, 92, 0.14) 50%, transparent 52%),
+    linear-gradient(180deg, transparent, rgba(13, 15, 18, 0.72));
+  opacity: 0;
+  transform: translateY(-18%);
 }
 
-.food-body {
-  min-width: 0;
-  display: grid;
-  gap: 16px;
-  padding: 16px;
+.food-card:hover .food-media::after {
+  animation: scanLine 920ms var(--motion-ease);
 }
 
-.food-title-row {
+.food-media__overlay {
+  position: absolute;
+  inset: auto 12px 12px 12px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.food-title-row h3 {
-  color: #f8fafc;
-  font-size: 19px;
-  line-height: 1.28;
-  font-weight: 900;
-}
-
-.food-title-row p {
-  margin-top: 6px;
-  color: #a7b0bf;
-  font-size: 14px;
-}
-
-.food-title-row strong {
-  min-width: 52px;
-  height: 34px;
+.food-rank,
+.food-hot,
+.food-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: rgba(250, 204, 21, 0.14);
-  color: #fde68a;
-  font-weight: 900;
-}
-
-.food-tags span,
-.food-metrics span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  padding: 0 9px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #cbd5e1;
-  font-size: 13px;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 800;
 }
 
-.food-metrics span:first-child {
-  color: #bfdbfe;
+.food-rank {
+  color: #ffffff;
+  background: rgba(13, 15, 18, 0.78);
+  backdrop-filter: blur(10px);
 }
 
-@media (max-width: 1128px) {
-  .food-list {
-    grid-template-columns: 1fr;
+.food-hot {
+  color: #ff8ba0;
+  background: rgba(13, 15, 18, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.food-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 18px;
+}
+
+.food-topline,
+.food-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.food-cuisine {
+  color: #ff8ba0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.food-destination {
+  color: #a7b0bf;
+  font-size: 12px;
+}
+
+.food-body h3 {
+  color: #f8fafc;
+  font-size: 18px;
+  line-height: 1.28;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.food-body p {
+  color: #d7dce5;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.food-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.food-chip {
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.food-stats {
+  color: #a7b0bf;
+  font-size: 12px;
+}
+
+.food-empty {
+  padding: 16px;
+}
+
+@media (max-width: 1120px) {
+  .food-grid {
+    column-count: 2;
   }
 }
 
-@media (max-width: 744px) {
-  .food-header {
+@media (max-width: 860px) {
+  .food-hero {
+    flex-direction: column;
     align-items: stretch;
   }
 
-  .food-count,
   .toolbar-actions {
     width: 100%;
-  }
-
-  .toolbar-actions {
     flex-direction: column;
   }
+}
 
-  .toolbar-actions .el-button {
-    width: 100%;
+@media (max-width: 640px) {
+  .food-grid {
+    column-count: 1;
   }
 
-  .food-card {
-    grid-template-columns: 1fr;
+  .food-card:nth-child(n) {
+    margin-top: 0;
+  }
+
+  .food-hero,
+  .search-board {
+    padding: 18px;
+  }
+
+  .food-hero h2 {
+    font-size: 28px;
+  }
+}
+
+@keyframes feedSheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-80%);
+  }
+  24%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(80%);
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    opacity: 0;
+    transform: translateY(-22%);
+  }
+  30%,
+  68% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(22%);
   }
 }
 </style>

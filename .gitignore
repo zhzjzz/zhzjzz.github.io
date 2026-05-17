@@ -1,4 +1,4 @@
-﻿.vscode/
+.vscode/
 data/
 *.log
 *.pid
@@ -6,6 +6,8 @@ data/
 __pycache__/
 .m2/
 .tools/
+.worktrees
+.worktrees/
 data-structure-design-frontend/.tmp-vite-build/
 
 # Local IDE state/backups

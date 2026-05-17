@@ -57,6 +57,16 @@ public class ItineraryService {
         return itineraryMapper.findById(id);
     }
 
+    public boolean delete(Long id) {
+        Itinerary existing = itineraryMapper.findById(id);
+        if (existing == null) {
+            return false;
+        }
+        itineraryMapper.deleteById(id);
+        onlineUsersByItinerary.remove(id);
+        return true;
+    }
+
     public void handleEdit(ItineraryEditMessage msg) {
         handleEdit(msg.getItineraryId(), msg);
     }

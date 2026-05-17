@@ -1,7 +1,21 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Fire, Globe, Like, Lock, MagicWand, Message, Refresh, Search, Send, Share, Star, UploadPicture } from '@icon-park/vue-next'
+import {
+  Delete,
+  Fire,
+  Globe,
+  Like,
+  Lock,
+  MagicWand,
+  Message,
+  Refresh,
+  Search,
+  Send,
+  Share,
+  Star,
+  UploadPicture,
+} from '@icon-park/vue-next'
 import { useRoute } from 'vue-router'
 import {
   createDiary,
@@ -38,6 +52,9 @@ const DIARY_IMAGE_MAX_EDGE = 1600
 const DIARY_IMAGE_QUALITY = 0.86
 const appStore = useAppStore()
 const route = useRoute()
+const showComposer = ref(false)
+const composerRef = ref(null)
+const detailRef = ref(null)
 const form = ref({
   title: '',
   content: '',
@@ -88,6 +105,16 @@ const resetForm = () => {
   mediaPreview.value = ''
 }
 
+const openComposer = async () => {
+  showComposer.value = true
+  await nextTick()
+  composerRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const closeComposer = () => {
+  showComposer.value = false
+}
+
 const load = async () => {
   loading.value = true
   try {
@@ -98,7 +125,10 @@ const load = async () => {
     seedDiaryCache(diaries.value)
     seedDiaryCache(hotDiaries.value)
     selectedDiaryId.value = diaries.value.some((item) => item.id === previousId) ? previousId : diaries.value[0]?.id || null
-    loadDiaryDetail(selectedDiaryId.value)
+    if (selectedDiaryId.value) {
+      void loadDiaryDetail(selectedDiaryId.value)
+      void loadComments(selectedDiary.value)
+    }
   } catch (error) {
     console.error(error)
     ElMessage.error('日记数据加载失败')
@@ -129,7 +159,9 @@ const submit = async () => {
   } finally {
     submitting.value = false
   }
+
   resetForm()
+  closeComposer()
   const compressionSummary = data?.originalSizeBytes
     ? `旅游日记已发布，媒体优化完成：${formatSize(originalSizeBytes(data))} -> ${formatSize(compressedSizeBytes(data))}，${compressionText(data)}`
     : '旅游日记已发布'
@@ -142,7 +174,10 @@ const submit = async () => {
     }
     cacheDiary(data)
     selectedDiaryId.value = data.id
-    loadDiaryDetail(data.id)
+    void loadDiaryDetail(data.id)
+    void loadComments(data)
+    await nextTick()
+    detailRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 }
 
@@ -226,7 +261,10 @@ const fullText = async () => {
     diaries.value = Array.isArray(data) ? data : []
     seedDiaryCache(diaries.value)
     selectedDiaryId.value = diaries.value[0]?.id || null
-    loadDiaryDetail(selectedDiaryId.value)
+    if (selectedDiaryId.value) {
+      void loadDiaryDetail(selectedDiaryId.value)
+      void loadComments(selectedDiary.value)
+    }
   } catch (error) {
     console.error(error)
     ElMessage.error('搜索失败')
@@ -248,8 +286,10 @@ const applyRouteKeyword = async () => {
 const selectDiary = async (diary) => {
   selectedDiaryId.value = diary.id
   cacheDiary(diary)
-  loadDiaryDetail(diary.id)
-  loadComments(diary)
+  void loadDiaryDetail(diary.id)
+  void loadComments(diary)
+  await nextTick()
+  detailRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 const loadDiaryDetail = async (id) => {
@@ -297,7 +337,10 @@ const removeDiary = async (diary) => {
   diaries.value = diaries.value.filter((item) => item.id !== deletedId)
   hotDiaries.value = hotDiaries.value.filter((item) => item.id !== deletedId)
   selectedDiaryId.value = diaries.value[0]?.id || null
-  loadDiaryDetail(selectedDiaryId.value)
+  if (selectedDiaryId.value) {
+    void loadDiaryDetail(selectedDiaryId.value)
+    void loadComments(selectedDiary.value)
+  }
 }
 
 const interact = async (diary, type) => {
@@ -345,20 +388,20 @@ const formatSize = (bytes) => {
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
-const originalSizeBytes = (diary) => diary?.['originalSizeBytes'] ?? diary?.['original_size_bytes'] ?? 0
+const originalSizeBytes = (diary) => diary?.originalSizeBytes ?? diary?.original_size_bytes ?? 0
 
-const compressedSizeBytes = (diary) => diary?.['compressedSizeBytes'] ?? diary?.['compressed_size_bytes'] ?? 0
+const compressedSizeBytes = (diary) => diary?.compressedSizeBytes ?? diary?.compressed_size_bytes ?? 0
+
+const compressionSizeText = (diary) => `${formatSize(originalSizeBytes(diary))} -> ${formatSize(compressedSizeBytes(diary))}`
 
 const compressionText = (diary) => {
-  if (diary?.compressionStatus === 'lossless_optimized') return '旧版模拟结果'
+  if (diary?.compressionStatus === 'lossless_optimized') return '复刻图文压缩结果'
   const originalBytes = originalSizeBytes(diary)
   const optimizedBytes = compressedSizeBytes(diary)
   if (!originalBytes || !optimizedBytes) return '未上传媒体'
   const saved = 100 - (Number(optimizedBytes) / Number(originalBytes)) * 100
   return `节省 ${Math.max(0, saved).toFixed(0)}%`
 }
-
-const compressionSizeText = (diary) => `${formatSize(originalSizeBytes(diary))} -> ${formatSize(compressedSizeBytes(diary))}`
 
 const compressionStatusText = (status) => {
   if (status === 'lossless_deflate') return 'DEFLATE 无损压缩'
@@ -378,6 +421,58 @@ const diaryCover = (diary) => (diary?.mediaType === 'image' && diary?.mediaUrl ?
 const revokeSelectedDiaryImage = () => {
   selectedDiaryImageUrl.value = ''
 }
+
+const diaryAuthor = (diary) => diary?.authorName || appStore.user.name || '旅行者'
+
+const diaryDestinationName = (diary) => diary?.destination?.name || '无指定目的地'
+
+const diaryMediaBadge = (diary) => {
+  if (diary?.mediaType === 'video') return '视频笔记'
+  if (diary?.mediaType === 'image') return '图文笔记'
+  return '纯文字'
+}
+
+const diaryTags = (diary) => {
+  const tags = []
+  if (diary?.destination?.name) tags.push(diary.destination.name)
+  tags.push(diary?.isPublic === false ? '私密' : '公开')
+  tags.push(diary?.mediaType === 'video' ? '视频' : diary?.mediaType === 'image' ? '图文' : '文字')
+  return tags
+}
+
+const diaryExcerpt = (content) => {
+  const text = String(content || '').replace(/\s+/g, ' ').trim()
+  if (!text) return '还没有填写具体内容。'
+  return text.length > 88 ? `${text.slice(0, 88)}…` : text
+}
+
+const formatPublishedAt = (value) => {
+  if (!value) return '刚刚'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '刚刚'
+  const diff = Date.now() - date.getTime()
+  if (diff < 60 * 1000) return '刚刚'
+  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / (60 * 1000))} 分钟前`
+  if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / (60 * 60 * 1000))} 小时前`
+  if (diff < 7 * 24 * 60 * 60 * 1000) return `${Math.floor(diff / (24 * 60 * 60 * 1000))} 天前`
+  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date)
+}
+
+const diaryCardRatio = (index) => {
+  const ratios = ['4 / 5', '1 / 1', '5 / 4', '3 / 4']
+  return ratios[index % ratios.length]
+}
+
+const selectedDiaryStats = computed(() => {
+  const diary = selectedDiary.value
+  if (!diary) return []
+  return [
+    { label: '浏览', value: diary.views || 0 },
+    { label: '点赞', value: diary.likeCount || 0 },
+    { label: '评论', value: diary.commentCount || 0 },
+    { label: '收藏', value: diary.favoriteCount || 0 },
+  ]
+})
 
 watch(
   () => [selectedDiary.value?.id, selectedDiary.value?.mediaUrl],
@@ -417,19 +512,32 @@ onBeforeUnmount(() => {
 <template>
   <section class="diary-page">
     <section class="diary-hero reveal-in">
-      <div>
-        <p class="section-kicker">Travel Diary</p>
-        <h1>把旅行记忆变成可分享的动态游记</h1>
-        <p>支持创作存储、媒体优化、AIGC 动画、热度评分和交流分享。</p>
+      <div class="hero-copy">
+        <p class="section-kicker">Travel Diary · Xiaohongshu Flow</p>
+        <h1>把旅行日记做成更像小红书的图文瀑布流</h1>
+        <p class="module-subtitle">
+          图文卡片、热门笔记、收藏与评论都保留，发布入口改成点击后再展开编辑。
+        </p>
+        <div class="hero-actions">
+          <el-button type="primary" size="large" @click="openComposer">
+            <Send theme="outline" size="18" fill="currentColor" />
+            发布旅游日记
+          </el-button>
+          <el-button size="large" @click="load">
+            <Refresh theme="outline" size="18" fill="currentColor" />
+            刷新内容
+          </el-button>
+        </div>
       </div>
+
       <div class="hero-stats">
         <article>
           <strong>{{ diaries.length }}</strong>
-          <span>已收录游记</span>
+          <span>旅行笔记</span>
         </article>
         <article>
           <strong>{{ hotDiaries.length }}</strong>
-          <span>热门内容</span>
+          <span>热门推荐</span>
         </article>
         <article>
           <strong>AIGC</strong>
@@ -438,272 +546,412 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="diary-layout">
-      <el-card class="module-card composer-card reveal-in">
-        <template #header>发布旅游日记</template>
-        <el-form :model="form" label-width="110px">
-          <el-row :gutter="12">
-            <el-col :md="12" :xs="24">
-              <el-form-item label="日记标题">
-                <el-input v-model="form.title" placeholder="例如：海边黄昏的旅行记忆" />
-              </el-form-item>
-            </el-col>
-            <el-col :md="12" :xs="24">
-              <el-form-item label="媒体类型">
-                <el-select v-model="form.mediaType" class="full-width" @change="handleMediaTypeChange">
-                  <el-option label="文字" value="text" />
-                  <el-option label="图片" value="image" />
-                  <el-option label="视频" value="video" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-form-item label="媒体素材">
-            <div class="media-field">
-              <el-upload
-                v-if="form.mediaType === 'image'"
-                accept="image/*"
-                :auto-upload="false"
-                :show-file-list="false"
-                :on-change="handleMediaFileChange"
-              >
-                <div class="upload-drop">
-                  <UploadPicture theme="outline" size="28" fill="currentColor" />
-                  <span>上传图片</span>
-                  <small>选择本地照片后会自动生成预览，并用于压缩演示</small>
-                </div>
-              </el-upload>
-              <el-input
-                v-if="form.mediaType !== 'image' || !mediaPreview"
-                v-model="form.mediaUrl"
-                placeholder="也可粘贴图片或视频 URL，用于压缩与 AIGC 演示"
-              />
-              <div v-if="mediaPreview || selectedMediaName" class="media-preview">
-                <img v-if="mediaPreview" :src="mediaPreview" alt="已选择的日记图片预览" />
-                <div>
-                  <strong>{{ selectedMediaName || '外部媒体地址' }}</strong>
-                  <span>{{ form.originalSizeBytes ? formatSize(form.originalSizeBytes) : '发布后生成压缩对比' }}</span>
-                </div>
-              </div>
-            </div>
-          </el-form-item>
-          <el-row :gutter="12">
-            <el-col :md="12" :xs="24">
-              <el-form-item label="用户评分">
-                <el-input-number v-model="form.score" :min="0" :max="5" :step="0.1" class="full-width" />
-              </el-form-item>
-            </el-col>
-            <el-col :md="12" :xs="24">
-              <el-form-item label="公开分享">
-                <el-switch v-model="form.isPublic" active-text="公开" inactive-text="私密" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-form-item label="内容描述">
-            <el-input v-model="form.content" type="textarea" :rows="5" placeholder="记录你的旅行故事、路线体验和推荐理由..." />
-          </el-form-item>
-          <el-button type="primary" :loading="submitting" @click="submit">
-            <Send theme="outline" size="16" fill="currentColor" />
-            发布并生成动态游记
-          </el-button>
-        </el-form>
-      </el-card>
+    <section class="diary-stage">
+      <div class="diary-main-column">
+        <section ref="composerRef" class="composer-anchor reveal-in">
+          <button v-if="!showComposer" type="button" class="composer-trigger" @click="openComposer">
+            <span class="composer-trigger__icon">
+              <Send theme="outline" size="18" fill="currentColor" />
+            </span>
+            <span>
+              <strong>发布旅游日记</strong>
+              <small>点开后再展开编辑，不占首屏位置</small>
+            </span>
+          </button>
 
-      <el-card class="module-card insight-card reveal-in">
-        <template #header>热门游记</template>
-        <div class="hot-list">
+          <div v-else class="composer-card">
+            <div class="composer-card__header">
+              <div>
+                <p class="section-kicker">Publish Note</p>
+                <h2>发布旅游日记</h2>
+              </div>
+              <el-button text @click="closeComposer">收起</el-button>
+            </div>
+
+            <el-form :model="form" label-position="top" class="composer-form">
+              <div class="composer-grid">
+                <el-form-item label="日记标题">
+                  <el-input v-model="form.title" placeholder="例如：海边黄昏的旅行记忆" />
+                </el-form-item>
+                <el-form-item label="媒体类型">
+                  <el-select v-model="form.mediaType" class="full-width" @change="handleMediaTypeChange">
+                    <el-option label="文字" value="text" />
+                    <el-option label="图片" value="image" />
+                    <el-option label="视频" value="video" />
+                  </el-select>
+                </el-form-item>
+              </div>
+
+              <el-form-item label="媒体素材">
+                <div class="media-field">
+                  <el-upload
+                    v-if="form.mediaType === 'image'"
+                    accept="image/*"
+                    :auto-upload="false"
+                    :show-file-list="false"
+                    :on-change="handleMediaFileChange"
+                  >
+                    <div class="upload-drop">
+                      <UploadPicture theme="outline" size="28" fill="currentColor" />
+                      <span>上传图片</span>
+                      <small>选择本地照片后会自动生成预览，并用于压缩演示</small>
+                    </div>
+                  </el-upload>
+                  <el-input
+                    v-if="form.mediaType !== 'image' || !mediaPreview"
+                    v-model="form.mediaUrl"
+                    placeholder="也可以粘贴图片或视频 URL，后续用于压缩与 AIGC 演示"
+                  />
+                  <div v-if="mediaPreview || selectedMediaName" class="media-preview">
+                    <img v-if="mediaPreview" :src="mediaPreview" alt="已选择的日记图片预览" />
+                    <div>
+                      <strong>{{ selectedMediaName || '外部媒体地址' }}</strong>
+                      <span>{{ form.originalSizeBytes ? formatSize(form.originalSizeBytes) : '发布后生成压缩对比' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </el-form-item>
+
+              <div class="composer-grid">
+                <el-form-item label="用户评分">
+                  <el-input-number v-model="form.score" :min="0" :max="5" :step="0.1" class="full-width" />
+                </el-form-item>
+                <el-form-item label="公开分享">
+                  <el-switch v-model="form.isPublic" active-text="公开" inactive-text="私密" />
+                </el-form-item>
+              </div>
+
+              <el-form-item label="内容描述">
+                <el-input
+                  v-model="form.content"
+                  type="textarea"
+                  :rows="5"
+                  placeholder="记录你的旅行故事、路线体验和推荐理由..."
+                />
+              </el-form-item>
+
+              <div class="composer-actions">
+                <el-button @click="closeComposer">取消</el-button>
+                <el-button type="primary" :loading="submitting" @click="submit">
+                  <Send theme="outline" size="16" fill="currentColor" />
+                  发布笔记
+                </el-button>
+              </div>
+            </el-form>
+          </div>
+        </section>
+
+        <section class="feed-toolbar reveal-in">
+          <div class="toolbar-copy">
+            <p class="section-kicker">Discovery Feed</p>
+            <h2>灵感流</h2>
+            <span>{{ diaries.length }} 篇日记</span>
+          </div>
+          <div class="toolbar-actions">
+            <el-input v-model="searchKeyword" class="search-input" placeholder="搜索标题或内容" clearable @keyup.enter="fullText" />
+            <el-button type="primary" @click="fullText">
+              <Search theme="outline" size="16" fill="currentColor" />
+              搜索
+            </el-button>
+            <el-button @click="load">
+              <Refresh theme="outline" size="16" fill="currentColor" />
+              重置
+            </el-button>
+          </div>
+        </section>
+
+        <section class="diary-flow reveal-in" v-loading="loading">
           <button
-            v-for="item in hotDiaries"
+            v-for="(item, index) in diaries"
             :key="item.id"
             type="button"
-            class="hot-card"
+            class="note-card"
             :class="{ active: selectedDiary?.id === item.id }"
             @click="selectDiary(item)"
           >
-            <span><Fire theme="outline" size="14" fill="currentColor" /> 热度 {{ item.heatScore || 0 }}</span>
-            <strong>{{ item.title }}</strong>
-            <small>{{ item.views || 0 }} 浏览 / {{ item.likeCount || 0 }} 喜欢 / {{ item.shareCount || 0 }} 分享</small>
+            <div class="note-media" :style="{ '--card-ratio': diaryCardRatio(index) }">
+              <img :src="diaryCover(item)" :alt="item.title || '旅游日记封面'" loading="lazy" />
+              <div class="note-media__overlay">
+                <span class="note-badge">{{ diaryMediaBadge(item) }}</span>
+                <span class="note-badge note-badge--soft">{{ diaryDestinationName(item) }}</span>
+              </div>
+            </div>
+            <div class="note-body">
+              <div class="note-topline">
+                <span class="note-author">{{ diaryAuthor(item) }}</span>
+                <span class="note-time">{{ formatPublishedAt(item.publishedAt) }}</span>
+              </div>
+              <h3>{{ item.title }}</h3>
+              <p>{{ diaryExcerpt(item.content) }}</p>
+              <div class="note-tags">
+                <span v-for="tag in diaryTags(item)" :key="tag" class="note-chip">{{ tag }}</span>
+              </div>
+              <div class="note-stats">
+                <span><Like theme="outline" size="14" fill="currentColor" /> {{ item.likeCount || 0 }}</span>
+                <span><Message theme="outline" size="14" fill="currentColor" /> {{ item.commentCount || 0 }}</span>
+                <span><Share theme="outline" size="14" fill="currentColor" /> {{ item.shareCount || 0 }}</span>
+              </div>
+            </div>
           </button>
-          <el-empty v-if="!hotDiaries.length" description="暂无热门游记" />
-        </div>
-      </el-card>
-    </section>
+          <el-empty v-if="!diaries.length && !loading" description="暂无日记内容" />
+        </section>
+      </div>
 
-    <section class="diary-feed">
-      <el-card class="module-card reveal-in">
-        <div class="feed-tools">
-          <el-input v-model="searchKeyword" placeholder="搜索标题或内容" clearable @keyup.enter="fullText" />
-          <el-button type="primary" @click="fullText">
-            <Search theme="outline" size="16" fill="currentColor" />
-            搜索
-          </el-button>
-          <el-button @click="load">
-            <Refresh theme="outline" size="16" fill="currentColor" />
-            重置
-          </el-button>
-        </div>
-
-        <div class="diary-content-grid">
-          <aside class="diary-list">
+      <aside class="diary-side-column">
+        <div class="side-panel side-panel--hot reveal-in">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Hot Picks</p>
+              <h2>热门笔记</h2>
+            </div>
+            <span>{{ hotDiaries.length }}</span>
+          </div>
+          <div class="hot-note-list">
             <button
-              v-for="item in diaries"
+              v-for="item in hotDiaries"
               :key="item.id"
               type="button"
-              class="diary-list-item"
+              class="hot-note-card"
               :class="{ active: selectedDiary?.id === item.id }"
               @click="selectDiary(item)"
             >
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.content }}</span>
+              <img :src="diaryCover(item)" :alt="item.title || '热门日记封面'" loading="lazy" />
+              <div class="hot-note-card__body">
+                <strong>{{ item.title }}</strong>
+                <small>{{ diaryDestinationName(item) }} · {{ formatPublishedAt(item.publishedAt) }}</small>
+              </div>
+              <span class="heat-pill">
+                <Fire theme="outline" size="14" fill="currentColor" />
+                {{ Math.round(item.heatScore || 0) }}
+              </span>
             </button>
-            <el-empty v-if="!diaries.length" description="暂无日记数据" />
-          </aside>
-
-          <article v-if="selectedDiary" class="diary-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-kicker">Selected Story</p>
-                <h2>{{ selectedDiary.title }}</h2>
-              </div>
-              <span class="heat-badge"><Fire theme="outline" size="14" fill="currentColor" /> 热度 {{ selectedDiary.heatScore || 0 }}</span>
-            </div>
-            <p class="diary-story">{{ selectedDiary.content }}</p>
-
-            <div class="story-media">
-              <img :src="selectedDiaryImageUrl || diaryCover(selectedDiary)" :alt="selectedDiary.mediaUrl ? '日记图片' : '日记默认封面'" />
-            </div>
-
-            <div class="metadata-grid">
-              <article>
-                <span><Star theme="outline" size="15" fill="currentColor" /> 媒体优化</span>
-                <strong>{{ compressionStatusText(selectedDiary.compressionStatus) }}</strong>
-                <small>{{ compressionSizeText(selectedDiary) }} / {{ compressionText(selectedDiary) }}</small>
-              </article>
-              <article>
-                <span><MagicWand theme="outline" size="15" fill="currentColor" /> AIGC 动画</span>
-                <img class="metadata-cover" :src="aigcDefaultImage" alt="AIGC 动画占位图" loading="lazy" />
-                <strong>{{ selectedDiary.aigcStatus || 'pending' }}</strong>
-                <small>{{ selectedDiary.aigcAnimationUrl || '等待生成' }}</small>
-              </article>
-              <article>
-                <span><Share theme="outline" size="15" fill="currentColor" /> 分享链接</span>
-                <strong>
-                  <Lock v-if="selectedDiary.isPublic === false" theme="outline" size="16" fill="currentColor" />
-                  <Globe v-else theme="outline" size="16" fill="currentColor" />
-                  {{ selectedDiary.isPublic === false ? '私密' : '公开' }}
-                </strong>
-                <small>{{ shareLink(selectedDiary) }}</small>
-              </article>
-            </div>
-
-            <div class="diary-actions">
-              <el-button type="primary" @click="interact(selectedDiary, 'like')">
-                <Like theme="outline" size="16" fill="currentColor" />
-                喜欢 {{ selectedDiary.likeCount || 0 }}
-              </el-button>
-              <el-button @click="interact(selectedDiary, 'favorite')">
-                <Star theme="outline" size="16" fill="currentColor" />
-                收藏 {{ selectedDiary.favoriteCount || 0 }}
-              </el-button>
-              <el-button @click="interact(selectedDiary, 'share')">
-                <Share theme="outline" size="16" fill="currentColor" />
-                分享 {{ selectedDiary.shareCount || 0 }}
-              </el-button>
-              <el-button @click="loadComments(selectedDiary)">
-                <Message theme="outline" size="16" fill="currentColor" />
-                查看评论 {{ selectedDiary.commentCount || 0 }}
-              </el-button>
-              <el-button v-if="canDeleteSelectedDiary" type="danger" @click="removeDiary(selectedDiary)">
-                <Delete theme="outline" size="16" fill="currentColor" />
-                删除日记
-              </el-button>
-            </div>
-
-            <div class="comment-box">
-              <div class="comment-form">
-                <el-input v-model="commentForm.authorName" placeholder="昵称" />
-                <el-input v-model="commentForm.content" placeholder="写下你的旅行交流..." />
-                <el-button type="primary" @click="submitComment(selectedDiary)">
-                  <Message theme="outline" size="16" fill="currentColor" />
-                  评论
-                </el-button>
-              </div>
-              <div class="comment-list">
-                <article v-for="comment in comments[selectedDiary.id] || []" :key="comment.id">
-                  <strong>{{ comment.authorName }}</strong>
-                  <span>{{ comment.content }}</span>
-                </article>
-                <el-empty v-if="!(comments[selectedDiary.id] || []).length" description="暂无评论" />
-              </div>
-            </div>
-          </article>
+            <el-empty v-if="!hotDiaries.length" description="暂无热门日记" />
+          </div>
         </div>
-      </el-card>
+
+        <article v-if="selectedDiary" ref="detailRef" class="detail-panel reveal-in">
+          <div class="detail-hero">
+            <div class="detail-title">
+              <p class="section-kicker">Selected Story</p>
+              <h2>{{ selectedDiary.title }}</h2>
+              <div class="detail-meta">
+                <span>{{ diaryAuthor(selectedDiary) }}</span>
+                <span>{{ formatPublishedAt(selectedDiary.publishedAt) }}</span>
+                <span>{{ diaryDestinationName(selectedDiary) }}</span>
+              </div>
+            </div>
+            <span class="heat-badge">
+              <Fire theme="outline" size="14" fill="currentColor" />
+              热度 {{ Math.round(selectedDiary.heatScore || 0) }}
+            </span>
+          </div>
+
+          <div class="detail-cover">
+            <img
+              :src="selectedDiaryImageUrl || diaryCover(selectedDiary)"
+              :alt="selectedDiary.mediaUrl ? '日记图片' : '日记默认封面'"
+            />
+          </div>
+
+          <p class="detail-story">{{ selectedDiary.content }}</p>
+
+          <div class="detail-badges">
+            <span v-for="tag in diaryTags(selectedDiary)" :key="tag">{{ tag }}</span>
+            <span>{{ compressionStatusText(selectedDiary.compressionStatus) }}</span>
+          </div>
+
+          <div class="stats-grid">
+            <article v-for="item in selectedDiaryStats" :key="item.label">
+              <strong>{{ item.value }}</strong>
+              <span>{{ item.label }}</span>
+            </article>
+          </div>
+
+          <div class="metadata-grid">
+            <article>
+              <span><Star theme="outline" size="15" fill="currentColor" /> 媒体优化</span>
+              <strong>{{ compressionStatusText(selectedDiary.compressionStatus) }}</strong>
+              <small>{{ compressionSizeText(selectedDiary) }} / {{ compressionText(selectedDiary) }}</small>
+            </article>
+            <article>
+              <span><MagicWand theme="outline" size="15" fill="currentColor" /> AIGC 动画</span>
+              <img class="metadata-cover" :src="aigcDefaultImage" alt="AIGC 动画占位图" loading="lazy" />
+              <strong>{{ selectedDiary.aigcStatus || 'pending' }}</strong>
+              <small>{{ selectedDiary.aigcAnimationUrl || '等待生成' }}</small>
+            </article>
+            <article>
+              <span><Share theme="outline" size="15" fill="currentColor" /> 分享链接</span>
+              <strong>
+                <Lock v-if="selectedDiary.isPublic === false" theme="outline" size="16" fill="currentColor" />
+                <Globe v-else theme="outline" size="16" fill="currentColor" />
+                {{ selectedDiary.isPublic === false ? '私密' : '公开' }}
+              </strong>
+              <small>{{ shareLink(selectedDiary) }}</small>
+            </article>
+          </div>
+
+          <div class="diary-actions">
+            <el-button type="primary" @click="interact(selectedDiary, 'like')">
+              <Like theme="outline" size="16" fill="currentColor" />
+              点赞 {{ selectedDiary.likeCount || 0 }}
+            </el-button>
+            <el-button @click="interact(selectedDiary, 'favorite')">
+              <Star theme="outline" size="16" fill="currentColor" />
+              收藏 {{ selectedDiary.favoriteCount || 0 }}
+            </el-button>
+            <el-button @click="interact(selectedDiary, 'share')">
+              <Share theme="outline" size="16" fill="currentColor" />
+              分享 {{ selectedDiary.shareCount || 0 }}
+            </el-button>
+            <el-button @click="loadComments(selectedDiary)">
+              <Message theme="outline" size="16" fill="currentColor" />
+              评论 {{ selectedDiary.commentCount || 0 }}
+            </el-button>
+            <el-button v-if="canDeleteSelectedDiary" type="danger" @click="removeDiary(selectedDiary)">
+              <Delete theme="outline" size="16" fill="currentColor" />
+              删除日记
+            </el-button>
+          </div>
+
+          <div class="comment-box">
+            <div class="comment-form">
+              <el-input v-model="commentForm.authorName" placeholder="昵称" />
+              <el-input v-model="commentForm.content" placeholder="写下你的旅行交流..." />
+              <el-button type="primary" @click="submitComment(selectedDiary)">
+                <Message theme="outline" size="16" fill="currentColor" />
+                评论
+              </el-button>
+            </div>
+            <div class="comment-list">
+              <article v-for="comment in comments[selectedDiary.id] || []" :key="comment.id">
+                <strong>{{ comment.authorName }}</strong>
+                <span>{{ comment.content }}</span>
+              </article>
+              <el-empty v-if="!(comments[selectedDiary.id] || []).length" description="暂无评论" />
+            </div>
+          </div>
+        </article>
+      </aside>
     </section>
   </section>
 </template>
 
 <style scoped>
 .diary-page {
+  --el-color-primary: #ff385c;
+  --el-fill-color-blank: #17191d;
+  --el-text-color-primary: #f8fafc;
+  --el-text-color-regular: #a7b0bf;
+  --el-border-color: rgba(255, 255, 255, 0.12);
+  --el-border-radius-base: 8px;
+  color: #f8fafc;
   display: grid;
-  gap: 22px;
+  gap: 18px;
+  padding: 6px 0 10px;
+  background:
+    linear-gradient(135deg, rgba(255, 56, 92, 0.11), transparent 30%),
+    linear-gradient(180deg, rgba(23, 25, 29, 0.96), #0d0f12 56%);
 }
 
 .diary-hero,
-.diary-panel {
+.composer-card,
+.composer-trigger,
+.feed-toolbar,
+.note-card,
+.side-panel,
+.hot-note-card,
+.detail-panel {
+  position: relative;
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 18px;
-  background: #17191d;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+  background: rgba(23, 25, 29, 0.86);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.diary-hero::before,
+.composer-card::before,
+.composer-trigger::before,
+.feed-toolbar::before,
+.note-card::before,
+.side-panel::before,
+.hot-note-card::before,
+.detail-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(120deg, transparent 8%, rgba(255, 255, 255, 0.16) 18%, transparent 30%);
+  opacity: 0;
+  transform: translateX(-80%);
+}
+
+.diary-hero:hover::before,
+.composer-card:hover::before,
+.composer-trigger:hover::before,
+.feed-toolbar:hover::before,
+.note-card:hover::before,
+.side-panel:hover::before,
+.hot-note-card:hover::before,
+.detail-panel:hover::before {
+  animation: feedSheen 960ms var(--motion-ease);
 }
 
 .diary-hero {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
-  padding: 32px;
+  gap: 22px;
+  padding: 28px;
+}
+
+.hero-copy {
+  max-width: 720px;
 }
 
 .diary-hero h1 {
   margin-top: 8px;
   color: #f8fafc;
-  font-size: 38px;
-  line-height: 1.16;
+  font-size: clamp(30px, 3vw, 44px);
+  line-height: 1.08;
   font-weight: 900;
+  letter-spacing: 0;
 }
 
-.diary-hero p:last-child {
-  margin-top: 10px;
+.module-subtitle {
+  margin-top: 12px;
   color: #a7b0bf;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.75;
 }
 
-.section-kicker {
-  color: #f3d08a;
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 .hero-stats {
-  min-width: 320px;
+  min-width: 290px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .hero-stats article,
+.stats-grid article,
 .metadata-grid article,
-.hot-card,
-.diary-list-item,
-.comment-list article {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+.note-chip,
+.detail-badges span {
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
 }
 
 .hero-stats article {
   padding: 16px;
+  border-radius: 18px;
 }
 
 .hero-stats strong,
@@ -712,7 +960,7 @@ onBeforeUnmount(() => {
 }
 
 .hero-stats strong {
-  color: #f8fafc;
+  color: #ff8ba0;
   font-size: 24px;
   font-weight: 900;
 }
@@ -723,10 +971,94 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.diary-layout {
+.diary-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
   gap: 18px;
+  align-items: start;
+}
+
+.diary-main-column,
+.diary-side-column {
+  display: grid;
+  gap: 16px;
+}
+
+.composer-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 220ms var(--motion-spring), box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.composer-trigger:hover,
+.composer-trigger:focus-visible {
+  transform: translateY(-4px);
+  border-color: rgba(255, 56, 92, 0.36);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 56, 92, 0.12);
+}
+
+.composer-trigger__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ff385c, #f3d08a);
+  color: #ffffff;
+  box-shadow: 0 16px 36px rgba(255, 56, 92, 0.24);
+}
+
+.composer-trigger strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.composer-trigger small {
+  display: block;
+  margin-top: 4px;
+  color: #a7b0bf;
+  font-size: 12px;
+}
+
+.composer-card {
+  padding: 22px;
+}
+
+.composer-card__header,
+.panel-heading,
+.detail-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.composer-card__header h2,
+.panel-heading h2,
+.detail-title h2 {
+  margin-top: 6px;
+  color: #f8fafc;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.composer-form {
+  margin-top: 12px;
+}
+
+.composer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .full-width {
@@ -745,13 +1077,13 @@ onBeforeUnmount(() => {
 
 .upload-drop {
   width: 100%;
-  min-height: 92px;
+  min-height: 104px;
   display: grid;
   place-items: center;
   gap: 6px;
   padding: 18px;
-  border: 1px dashed rgba(255, 255, 255, 0.22);
-  border-radius: 14px;
+  border: 1px dashed rgba(255, 36, 66, 0.28);
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.045);
   color: #f8fafc;
   cursor: pointer;
@@ -760,7 +1092,7 @@ onBeforeUnmount(() => {
 
 .upload-drop:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 56, 92, 0.7);
+  border-color: rgba(255, 56, 92, 0.58);
   background: rgba(255, 56, 92, 0.08);
 }
 
@@ -780,14 +1112,14 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .media-preview img {
-  width: 78px;
-  height: 58px;
-  border-radius: 10px;
+  width: 82px;
+  height: 64px;
+  border-radius: 14px;
   object-fit: cover;
 }
 
@@ -801,133 +1133,363 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.hot-list,
-.diary-feed,
-.diary-list,
-.comment-list {
-  display: grid;
-  gap: 12px;
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
-.hot-card,
-.diary-list-item {
-  width: 100%;
-  padding: 16px;
-  text-align: left;
+.feed-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.toolbar-copy h2 {
+  margin-top: 6px;
   color: #f8fafc;
+  font-size: 28px;
+  line-height: 1.18;
+  font-weight: 900;
+}
+
+.toolbar-copy span {
+  display: inline-flex;
+  margin-top: 6px;
+  color: #a7b0bf;
+  font-size: 13px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-input {
+  width: min(420px, 100%);
+}
+
+.diary-flow {
+  column-count: 2;
+  column-gap: 16px;
+  padding-top: 8px;
+}
+
+.note-card {
+  width: 100%;
+  display: grid;
+  gap: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
   cursor: pointer;
+  break-inside: avoid;
+  transform: translateZ(0);
+  transition: transform 220ms var(--motion-spring), box-shadow 220ms ease, border-color 220ms ease;
 }
 
-.hot-card.active,
-.diary-list-item.active {
-  border-color: rgba(255, 56, 92, 0.5);
-  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.12);
+.note-card:nth-child(2n) {
+  margin-top: 28px;
 }
 
-.hot-card span,
-.hot-card small,
-.diary-list-item span {
+.note-card:nth-child(3n) {
+  margin-top: 14px;
+}
+
+.note-card:hover,
+.note-card:focus-visible,
+.hot-note-card:hover,
+.hot-note-card:focus-visible {
+  transform: translateY(-8px) scale(1.01);
+  border-color: rgba(255, 56, 92, 0.36);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 56, 92, 0.12);
+}
+
+.note-card.active,
+.hot-note-card.active {
+  border-color: rgba(255, 56, 92, 0.42);
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.08), 0 30px 80px rgba(255, 56, 92, 0.12);
+}
+
+.note-media {
+  position: relative;
+  aspect-ratio: var(--card-ratio, 4 / 5);
+  overflow: hidden;
+  background: #24272d;
+}
+
+.note-media img {
+  width: 100%;
+  height: 100%;
   display: block;
+  object-fit: cover;
+  transition: transform 520ms ease, filter 520ms ease;
+}
+
+.note-card:hover .note-media img {
+  transform: scale(1.04);
+  filter: saturate(1.08) contrast(1.02);
+}
+
+.note-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 48%, rgba(255, 56, 92, 0.14) 50%, transparent 52%),
+    linear-gradient(180deg, transparent, rgba(13, 15, 18, 0.72));
+  opacity: 0;
+  transform: translateY(-18%);
+}
+
+.note-card:hover .note-media::after {
+  animation: scanLine 920ms var(--motion-ease);
+}
+
+.note-media__overlay {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-badge,
+.heat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.note-badge {
+  color: #ffffff;
+  background: rgba(17, 24, 39, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.note-badge--soft {
+  background: rgba(13, 15, 18, 0.72);
+  color: #ff8ba0;
+}
+
+.note-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 18px;
+}
+
+.note-topline,
+.note-stats,
+.detail-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.note-topline {
+  justify-content: space-between;
   color: #a7b0bf;
   font-size: 12px;
 }
 
-.hot-card strong,
-.diary-list-item strong {
-  display: block;
-  margin: 8px 0;
+.note-body h3 {
   color: #f8fafc;
-  font-size: 16px;
-  line-height: 1.4;
+  font-size: 18px;
+  line-height: 1.28;
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
-.feed-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 10px;
-  margin-bottom: 16px;
+.note-body p {
+  color: #d7dce5;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
-.diary-content-grid {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr);
-  gap: 18px;
-}
-
-.diary-list-item span {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.diary-panel {
-  padding: 22px;
-}
-
-.panel-header {
+.note-tags {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-chip,
+.detail-badges span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.note-stats {
   justify-content: space-between;
+  color: #a7b0bf;
+  font-size: 12px;
+}
+
+.note-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.side-panel,
+.detail-panel {
+  padding: 20px;
+}
+
+.panel-heading span,
+.heat-pill {
+  color: #ff8ba0;
+}
+
+.hot-note-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.hot-note-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 220ms var(--motion-spring), box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.hot-note-card img {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.hot-note-card__body {
+  min-width: 0;
+}
+
+.hot-note-card__body strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 800;
+}
+
+.hot-note-card__body small {
+  display: block;
+  margin-top: 4px;
+  color: #a7b0bf;
+  font-size: 12px;
+}
+
+.heat-pill {
+  justify-self: end;
+  background: rgba(255, 56, 92, 0.12);
+}
+
+.detail-panel {
+  display: grid;
   gap: 16px;
 }
 
-.panel-header h2 {
-  margin-top: 6px;
-  color: #f8fafc;
-  font-size: 28px;
-  line-height: 1.2;
+.detail-hero {
+  align-items: flex-start;
+}
+
+.detail-title {
+  min-width: 0;
+}
+
+.detail-meta {
+  margin-top: 10px;
+  color: #a7b0bf;
+  font-size: 12px;
 }
 
 .heat-badge {
-  border-radius: 999px;
-  background: rgba(255, 56, 92, 0.14);
-  color: #ff8ba0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 56, 92, 0.12);
+  color: #ff8ba0;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 800;
   white-space: nowrap;
 }
 
-.diary-story {
-  margin-top: 18px;
-  color: #d7dce5;
-  line-height: 1.8;
-}
-
-.story-media {
-  margin-top: 18px;
+.detail-cover {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
 }
 
-.story-media img {
+.detail-cover img {
   display: block;
   width: 100%;
   max-height: 360px;
   object-fit: cover;
 }
 
+.detail-story {
+  color: #d7dce5;
+  line-height: 1.8;
+}
+
+.detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stats-grid article,
+.metadata-grid article,
+.comment-list article {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.stats-grid strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.stats-grid span {
+  display: block;
+  margin-top: 6px;
+  color: #a7b0bf;
+  font-size: 12px;
+}
+
 .metadata-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 18px;
-}
-
-.metadata-grid article {
-  min-width: 0;
-  padding: 14px;
-}
-
-.metadata-cover {
-  width: 100%;
-  aspect-ratio: 16 / 8;
-  margin-top: 10px;
-  border-radius: 10px;
-  object-fit: cover;
 }
 
 .metadata-grid span,
@@ -954,17 +1516,23 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
+.metadata-cover {
+  width: 100%;
+  aspect-ratio: 16 / 8;
+  margin-top: 10px;
+  border-radius: 14px;
+  object-fit: cover;
+}
+
 .diary-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 18px;
 }
 
 .comment-box {
   display: grid;
   gap: 12px;
-  margin-top: 18px;
 }
 
 .comment-form {
@@ -973,8 +1541,13 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.comment-list {
+  display: grid;
+  gap: 10px;
+}
+
 .comment-list article {
-  padding: 12px;
+  padding: 12px 14px;
 }
 
 .comment-list strong,
@@ -985,47 +1558,107 @@ onBeforeUnmount(() => {
 .comment-list strong {
   color: #f8fafc;
   font-size: 14px;
+  font-weight: 800;
 }
 
 .comment-list span {
   margin-top: 4px;
-  color: #a7b0bf;
+  color: #d7dce5;
   line-height: 1.6;
 }
 
-@media (max-width: 1000px) {
-  .diary-hero,
-  .diary-layout,
-  .diary-content-grid,
-  .metadata-grid {
+@media (max-width: 1120px) {
+  .diary-stage {
     grid-template-columns: 1fr;
   }
 
-  .diary-hero {
-    display: grid;
-  }
-
-  .hero-stats {
-    min-width: 0;
+  .diary-flow {
+    column-count: 2;
   }
 }
 
-@media (max-width: 640px) {
-  .feed-tools,
+@media (max-width: 860px) {
+  .diary-hero,
+  .feed-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-stats,
+  .composer-grid,
+  .metadata-grid,
+  .stats-grid,
   .comment-form {
     grid-template-columns: 1fr;
   }
 
-  .hero-stats {
-    grid-template-columns: 1fr;
+  .toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .diary-hero {
-    padding: 24px;
+  .search-input {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .diary-page {
+    gap: 14px;
   }
 
-  .diary-hero h1 {
-    font-size: 30px;
+  .diary-hero,
+  .composer-card,
+  .feed-toolbar,
+  .side-panel,
+  .detail-panel {
+    padding: 18px;
+  }
+
+  .diary-flow {
+    column-count: 1;
+  }
+
+  .note-card:nth-child(n) {
+    margin-top: 0;
+  }
+
+  .note-body h3 {
+    font-size: 17px;
+  }
+
+  .toolbar-copy h2 {
+    font-size: 24px;
+  }
+}
+
+@keyframes feedSheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-80%);
+  }
+  24%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(80%);
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    opacity: 0;
+    transform: translateY(-22%);
+  }
+  30%,
+  68% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(22%);
   }
 }
 </style>

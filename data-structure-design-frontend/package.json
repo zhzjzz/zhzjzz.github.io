@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "npx vite",
     "build": "npx vite build",
-    "preview": "npx vite preview"
+    "preview": "npx vite preview",
+    "test": "node --test src/**/*.test.js"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",

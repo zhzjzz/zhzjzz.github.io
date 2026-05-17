@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.travel.system.mapper.ItinerarySpotCandidateMapper">
+    <select id="findByItineraryId" parameterType="long" resultType="com.travel.system.model.ItinerarySpotCandidate">
+        SELECT id,
+               itinerary_id AS itineraryId,
+               destination_id AS destinationId,
+               spot_name AS spotName,
+               latitude,
+               longitude,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM itinerary_spot_candidate
+        WHERE itinerary_id = #{itineraryId}
+        ORDER BY updated_at DESC, id DESC
+    </select>
+
+    <select id="findByUnique" resultType="com.travel.system.model.ItinerarySpotCandidate">
+        SELECT id,
+               itinerary_id AS itineraryId,
+               destination_id AS destinationId,
+               spot_name AS spotName,
+               latitude,
+               longitude,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM itinerary_spot_candidate
+        WHERE itinerary_id = #{itineraryId}
+          AND destination_id = #{destinationId}
+    </select>
+
+    <insert id="insert" parameterType="com.travel.system.model.ItinerarySpotCandidate"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO itinerary_spot_candidate(
+            itinerary_id, destination_id, spot_name, latitude, longitude, created_at, updated_at
+        )
+        VALUES(
+            #{itineraryId}, #{destinationId}, #{spotName}, #{latitude}, #{longitude}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <update id="updateByUnique" parameterType="com.travel.system.model.ItinerarySpotCandidate">
+        UPDATE itinerary_spot_candidate
+        SET spot_name = #{spotName},
+            latitude = #{latitude},
+            longitude = #{longitude},
+            updated_at = #{updatedAt}
+        WHERE itinerary_id = #{itineraryId}
+          AND destination_id = #{destinationId}
+    </update>
+</mapper>

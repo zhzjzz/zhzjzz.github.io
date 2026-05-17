@@ -26,6 +26,8 @@ public interface ItineraryMapper {
     /** 更新行程记录。 */
     void update(Itinerary itinerary);
 
+    int deleteById(Long id);
+
     /** 乐观锁更新：仅当更新时间与客户端期望值一致时更新。 */
     int updateIfUnchanged(@Param("itinerary") Itinerary itinerary,
                           @Param("expectedUpdatedAt") LocalDateTime expectedUpdatedAt);
