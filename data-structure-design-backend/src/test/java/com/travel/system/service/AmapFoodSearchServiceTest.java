@@ -32,6 +32,12 @@ class AmapFoodSearchServiceTest {
                       "address": "南池子大街11号",
                       "location": "116.397800,39.908900",
                       "distance": "120",
+                      "photos": [
+                        {
+                          "title": "storefront",
+                          "url": "https://store.is.autonavi.com/showpic/example.jpg"
+                        }
+                      ],
                       "biz_ext": {
                         "rating": "4.7",
                         "cost": "142.00"
@@ -51,6 +57,7 @@ class AmapFoodSearchServiceTest {
         assertThat(food.getAddress()).isEqualTo("南池子大街11号");
         assertThat(food.getRating()).isEqualTo(4.7);
         assertThat(food.getAveragePrice()).isEqualTo(142d);
+        assertThat(food.getImageUrl()).isEqualTo("https://store.is.autonavi.com/showpic/example.jpg");
         assertThat(food.getSourceType()).isEqualTo("amap-live");
         assertThat(food.getSourceId()).isEqualTo("B000A8UIN8");
         assertThat(food.getDistanceMeters()).isEqualTo(120d);
