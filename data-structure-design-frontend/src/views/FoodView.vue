@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Bowl, Refresh, Search } from '@icon-park/vue-next'
+import { Bowl, Fire, Refresh, Search } from '@icon-park/vue-next'
 import { listDestinations, listFoodCuisines, searchFoods } from '../api/travel'
 import foodDefaultImage from '../assets/defaults/food-default.png'
 
@@ -19,7 +19,7 @@ const form = ref({
   limit: 30,
 })
 
-const resultTitle = computed(() => `${foods.value.length} 个美食结果`)
+const resultTitle = computed(() => `${foods.value.length} 条美食推荐`)
 
 const sortOptions = [
   { label: '综合推荐', value: 'recommend' },
@@ -30,10 +30,7 @@ const sortOptions = [
 const loadOptions = async () => {
   optionLoading.value = true
   try {
-    const [destinationResponse, cuisineResponse] = await Promise.all([
-      listDestinations(),
-      listFoodCuisines(),
-    ])
+    const [destinationResponse, cuisineResponse] = await Promise.all([listDestinations(), listFoodCuisines()])
     destinations.value = Array.isArray(destinationResponse.data) ? destinationResponse.data : []
     cuisines.value = Array.isArray(cuisineResponse.data) ? cuisineResponse.data.filter(Boolean) : []
   } catch (error) {
@@ -78,6 +75,38 @@ const reset = async () => {
 
 const destinationName = (item) => item.destination?.name || '附近目的地'
 
+const ratingText = (item) => {
+  const rating = Number(item?.rating)
+  if (!Number.isFinite(rating) || rating <= 0) return '-'
+  return rating.toFixed(1)
+}
+
+const heatText = (item) => Math.round(item?.heat || 0)
+
+const foodExcerpt = (item) => {
+  const storeName = String(item?.storeName || '').trim()
+  if (!storeName) return '为旅途补一口好味道。'
+  return `${storeName} · ${destinationName(item)}`
+}
+
+const foodTags = (item) => {
+  const tags = []
+  if (item?.cuisine) tags.push(item.cuisine)
+  if (item?.destination?.name) tags.push(item.destination.name)
+  if (item?.sourceType) tags.push(item.sourceType)
+  return tags.length ? tags : ['本地风味']
+}
+
+const foodCardRatio = (index) => {
+  const ratios = ['1 / 1', '4 / 5', '5 / 4', '3 / 4']
+  return ratios[index % ratios.length]
+}
+
+const foodRankText = (item) => {
+  const rating = ratingText(item)
+  return rating === '-' ? '热度推荐' : `${rating} 分`
+}
+
 onMounted(async () => {
   await loadOptions()
   await search()
@@ -86,20 +115,20 @@ onMounted(async () => {
 
 <template>
   <section class="food-page">
-    <div class="food-header">
-      <div>
+    <section class="food-hero reveal-in">
+      <div class="hero-copy">
         <p class="demo-eyebrow">Local Taste</p>
-        <h2>美食推荐</h2>
-        <p class="module-subtitle">按名称、菜系和目的地查找旅途中的顺路好味道。</p>
+        <h2>把美食结果做成更像小红书的图文种草流</h2>
+        <p class="module-subtitle">保留按关键字、菜系和目的地筛选，但把结果改成图片优先的卡片流。</p>
       </div>
       <div class="food-count">
         <Bowl theme="outline" size="20" fill="currentColor" />
         <strong>{{ resultTitle }}</strong>
       </div>
-    </div>
+    </section>
 
-    <el-card class="module-card food-filter-card">
-      <el-form :model="form" label-width="88px" @submit.prevent>
+    <section class="search-board reveal-in">
+      <el-form :model="form" label-width="78px" @submit.prevent>
         <el-row :gutter="12">
           <el-col :lg="8" :md="12" :xs="24">
             <el-form-item label="关键词">
@@ -159,7 +188,7 @@ onMounted(async () => {
         </el-row>
 
         <div class="toolbar">
-          <el-tag type="info" effect="plain">推荐算法：评分 + 美食热度 + 目的地热度</el-tag>
+          <el-tag type="danger" effect="plain">推荐策略：评分 + 热度 + 目的地热度</el-tag>
           <div class="toolbar-actions">
             <el-button @click="reset">
               <Refresh theme="outline" size="16" fill="currentColor" />
@@ -172,26 +201,42 @@ onMounted(async () => {
           </div>
         </div>
       </el-form>
-    </el-card>
+    </section>
 
-    <el-empty v-if="!foods.length && !loading" description="暂无匹配美食" />
+    <div v-if="!foods.length && !loading" class="food-empty">
+      <el-empty description="暂无匹配美食" />
+    </div>
 
     <div v-else class="food-grid" v-loading="loading">
-      <article v-for="item in foods" :key="item.id || `${item.name}-${item.storeName}`" class="food-card">
-        <div class="food-media">
+      <article
+        v-for="(item, index) in foods"
+        :key="item.id || `${item.name}-${item.storeName}`"
+        class="food-card reveal-in"
+      >
+        <div class="food-media" :style="{ '--card-ratio': foodCardRatio(index) }">
           <img :src="item.imageUrl || foodDefaultImage" :alt="item.name || '美食图片'" loading="lazy" />
-          <span>{{ item.cuisine || '地方风味' }}</span>
+          <div class="food-media__overlay">
+            <span class="food-rank">{{ foodRankText(item) }}</span>
+            <span class="food-hot">
+              <Fire theme="outline" size="14" fill="currentColor" />
+              {{ heatText(item) }}
+            </span>
+          </div>
         </div>
         <div class="food-body">
-          <div>
-            <h3>{{ item.name }}</h3>
-            <p>{{ item.storeName || '推荐店铺' }}</p>
+          <div class="food-topline">
+            <span class="food-cuisine">{{ item.cuisine || '地方风味' }}</span>
+            <span class="food-destination">{{ destinationName(item) }}</span>
           </div>
-          <div class="food-meta">
-            <strong>评分 {{ item.rating || '-' }}</strong>
-            <span>热度 {{ Math.round(item.heat || 0) }}</span>
+          <h3>{{ item.name }}</h3>
+          <p>{{ foodExcerpt(item) }}</p>
+          <div class="food-tags">
+            <span v-for="tag in foodTags(item)" :key="tag" class="food-chip">{{ tag }}</span>
           </div>
-          <div class="food-destination">{{ destinationName(item) }}</div>
+          <div class="food-stats">
+            <span>评分 {{ ratingText(item) }}</span>
+            <span>热度 {{ heatText(item) }}</span>
+          </div>
         </div>
       </article>
     </div>
@@ -200,40 +245,99 @@ onMounted(async () => {
 
 <style scoped>
 .food-page {
+  --el-color-primary: #ff385c;
+  --el-fill-color-blank: #17191d;
+  --el-text-color-primary: #f8fafc;
+  --el-text-color-regular: #a7b0bf;
+  --el-border-color: rgba(255, 255, 255, 0.12);
+  --el-border-radius-base: 8px;
+  color: #f8fafc;
   display: grid;
   gap: 18px;
-  color: #f8fafc;
+  background:
+    linear-gradient(135deg, rgba(255, 56, 92, 0.11), transparent 30%),
+    linear-gradient(180deg, rgba(23, 25, 29, 0.96), #0d0f12 56%);
 }
 
-.food-header {
+.food-hero,
+.search-board,
+.food-card,
+.food-empty {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(23, 25, 29, 0.86);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.food-hero::before,
+.search-board::before,
+.food-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(120deg, transparent 8%, rgba(255, 255, 255, 0.16) 18%, transparent 30%);
+  opacity: 0;
+  transform: translateX(-80%);
+}
+
+.food-hero:hover::before,
+.search-board:hover::before,
+.food-card:hover::before {
+  animation: feedSheen 960ms var(--motion-ease);
+}
+
+.food-hero {
   display: flex;
   align-items: end;
   justify-content: space-between;
   gap: 18px;
-  flex-wrap: wrap;
+  padding: 28px;
 }
 
-.food-header h2 {
-  margin-top: 4px;
-  font-size: 32px;
-  line-height: 1.2;
+.hero-copy {
+  max-width: 720px;
+}
+
+.food-hero h2 {
+  margin-top: 8px;
+  color: #f8fafc;
+  font-size: clamp(28px, 3vw, 42px);
+  line-height: 1.08;
   font-weight: 900;
+  letter-spacing: 0;
+}
+
+.module-subtitle {
+  margin-top: 12px;
+  color: #a7b0bf;
+  font-size: 15px;
+  line-height: 1.75;
 }
 
 .food-count {
-  min-height: 46px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
+  border-radius: 999px;
+  color: #ff8ba0;
+  background: rgba(255, 56, 92, 0.12);
+  border: 1px solid rgba(255, 56, 92, 0.28);
 }
 
-.food-filter-card {
-  border-radius: 8px;
+.food-count strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.search-board {
+  padding: 18px 20px;
 }
 
 .full-width {
@@ -254,23 +358,40 @@ onMounted(async () => {
 }
 
 .food-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  min-height: 220px;
+  column-count: 3;
+  column-gap: 16px;
+  padding-top: 8px;
 }
 
 .food-card {
+  width: 100%;
+  display: grid;
+  gap: 0;
+  margin: 0 0 16px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: #17191d;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+  break-inside: avoid;
+  transform: translateZ(0);
+  transition: transform 220ms var(--motion-spring), box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.food-card:nth-child(3n + 2) {
+  margin-top: 32px;
+}
+
+.food-card:nth-child(3n) {
+  margin-top: 16px;
+}
+
+.food-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  border-color: rgba(255, 56, 92, 0.36);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 56, 92, 0.12);
 }
 
 .food-media {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: var(--card-ratio, 4 / 5);
+  overflow: hidden;
   background: #24272d;
 }
 
@@ -279,83 +400,187 @@ onMounted(async () => {
   height: 100%;
   display: block;
   object-fit: cover;
+  transition: transform 520ms ease, filter 520ms ease;
 }
 
-.food-media span {
+.food-card:hover .food-media img {
+  transform: scale(1.04);
+  filter: saturate(1.08) contrast(1.02);
+}
+
+.food-media::after {
+  content: '';
   position: absolute;
-  left: 12px;
-  bottom: 12px;
-  max-width: calc(100% - 24px);
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 48%, rgba(255, 56, 92, 0.14) 50%, transparent 52%),
+    linear-gradient(180deg, transparent, rgba(13, 15, 18, 0.72));
+  opacity: 0;
+  transform: translateY(-18%);
+}
+
+.food-card:hover .food-media::after {
+  animation: scanLine 920ms var(--motion-ease);
+}
+
+.food-media__overlay {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.food-rank,
+.food-hot,
+.food-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(13, 15, 18, 0.78);
-  color: #f3d08a;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 800;
+}
+
+.food-rank {
+  color: #ffffff;
+  background: rgba(13, 15, 18, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.food-hot {
+  color: #ff8ba0;
+  background: rgba(13, 15, 18, 0.72);
+  backdrop-filter: blur(10px);
 }
 
 .food-body {
-  min-height: 178px;
   display: grid;
-  gap: 14px;
-  padding: 16px;
+  gap: 10px;
+  padding: 16px 16px 18px;
+}
+
+.food-topline,
+.food-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.food-cuisine {
+  color: #ff8ba0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.food-destination {
+  color: #a7b0bf;
+  font-size: 12px;
 }
 
 .food-body h3 {
   color: #f8fafc;
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1.28;
   font-weight: 900;
+  letter-spacing: 0;
 }
 
 .food-body p {
-  margin-top: 6px;
-  color: #a7b0bf;
+  color: #d7dce5;
   font-size: 14px;
+  line-height: 1.7;
 }
 
-.food-meta {
+.food-tags {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.food-chip {
   color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.food-meta span {
-  color: #ff385c;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.food-destination {
-  align-self: end;
+.food-stats {
   color: #a7b0bf;
-  font-size: 13px;
+  font-size: 12px;
 }
 
-@media (max-width: 1128px) {
+.food-empty {
+  padding: 16px;
+}
+
+@media (max-width: 1120px) {
   .food-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-count: 2;
   }
 }
 
-@media (max-width: 744px) {
-  .food-header {
+@media (max-width: 860px) {
+  .food-hero {
+    flex-direction: column;
     align-items: stretch;
   }
 
-  .food-count,
   .toolbar-actions {
     width: 100%;
-  }
-
-  .toolbar-actions {
     flex-direction: column;
   }
+}
 
+@media (max-width: 640px) {
   .food-grid {
-    grid-template-columns: 1fr;
+    column-count: 1;
+  }
+
+  .food-card:nth-child(n) {
+    margin-top: 0;
+  }
+
+  .food-hero,
+  .search-board {
+    padding: 18px;
+  }
+
+  .food-hero h2 {
+    font-size: 28px;
+  }
+}
+
+@keyframes feedSheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-80%);
+  }
+  24%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(80%);
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    opacity: 0;
+    transform: translateY(-22%);
+  }
+  30%,
+  68% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(22%);
   }
 }
 </style>
