@@ -11,6 +11,7 @@
         <result column="store_name" property="storeName"/>
         <result column="rating" property="rating"/>
         <result column="heat" property="heat"/>
+        <result column="average_price" property="averagePrice"/>
         <result column="latitude" property="latitude"/>
         <result column="longitude" property="longitude"/>
         <result column="source_type" property="sourceType"/>
@@ -37,6 +38,7 @@
                f.store_name,
                f.rating,
                f.heat,
+               f.average_price,
                f.latitude,
                f.longitude,
                f.source_type,
@@ -71,6 +73,7 @@
                f.store_name,
                f.rating,
                f.heat,
+               f.average_price,
                f.latitude,
                f.longitude,
                f.source_type,
@@ -108,10 +111,32 @@
         ORDER BY cuisine
     </select>
 
+    <select id="findPlaceAnchors" resultType="com.travel.system.dto.FoodPlaceAnchor">
+        SELECT name, latitude, longitude
+        FROM destination
+        WHERE name IS NOT NULL
+          AND latitude IS NOT NULL
+          AND longitude IS NOT NULL
+        UNION
+        SELECT s.name AS name,
+               nc.latitude AS latitude,
+               nc.longitude AS longitude
+        FROM spots s
+                 JOIN (
+                     SELECT spot_name, AVG(y) AS latitude, AVG(x) AS longitude
+                     FROM nodes
+                     WHERE y IS NOT NULL AND x IS NOT NULL
+                     GROUP BY spot_name
+                 ) nc ON nc.spot_name = s.name
+        WHERE s.name IS NOT NULL
+          AND nc.latitude IS NOT NULL
+          AND nc.longitude IS NOT NULL
+    </select>
+
     <insert id="insert" parameterType="com.travel.system.model.Food"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO food (name, cuisine, store_name, rating, heat, latitude, longitude, source_type, source_id, image_url, destination_id)
-        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{heat}, #{latitude}, #{longitude}, #{sourceType}, #{sourceId}, #{imageUrl}, #{destination.id})
+        INSERT INTO food (name, cuisine, store_name, rating, heat, average_price, latitude, longitude, source_type, source_id, image_url, destination_id)
+        VALUES (#{name}, #{cuisine}, #{storeName}, #{rating}, #{heat}, #{averagePrice}, #{latitude}, #{longitude}, #{sourceType}, #{sourceId}, #{imageUrl}, #{destination.id})
     </insert>
 
     <!-- 更新美食记录 -->
@@ -122,6 +147,7 @@
             store_name = #{storeName},
             rating = #{rating},
             heat = #{heat},
+            average_price = #{averagePrice},
             latitude = #{latitude},
             longitude = #{longitude},
             source_type = #{sourceType},

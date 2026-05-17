@@ -90,6 +90,7 @@ public class DataInitializer implements CommandLineRunner {
     private void ensureFoodSchema() {
         Set<String> columns = tableColumns("food");
         addColumnIfMissing("food", columns, "heat", "REAL");
+        addColumnIfMissing("food", columns, "average_price", "REAL");
         addColumnIfMissing("food", columns, "latitude", "REAL");
         addColumnIfMissing("food", columns, "longitude", "REAL");
         addColumnIfMissing("food", columns, "source_type", "TEXT");
@@ -161,6 +162,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void ensureFood() {
         jdbcTemplate.update("UPDATE food SET heat = 91 WHERE name = ? AND heat IS NULL", "老北京炸酱面");
+        backfillAveragePrices();
 
         if (foodMapper.findAll().size() >= 30) {
             return;
@@ -172,16 +174,59 @@ public class DataInitializer implements CommandLineRunner {
                 continue;
             }
             jdbcTemplate.update("""
-                            INSERT INTO food (name, cuisine, store_name, rating, heat, destination_id)
-                            VALUES (?, ?, ?, ?, ?, ?)
+                            INSERT INTO food (name, cuisine, store_name, rating, heat, average_price, destination_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
                             """,
                     seed.name(),
                     seed.cuisine(),
                     seed.storeName(),
                     seed.rating(),
                     seed.heat(),
+                    estimatedAveragePrice(seed.cuisine(), seed.rating(), seed.heat()),
                     spotId);
         }
+    }
+
+    private void backfillAveragePrices() {
+        List<FoodPriceSeed> rows = jdbcTemplate.query(
+                """
+                SELECT id, cuisine, rating, heat
+                FROM food
+                WHERE average_price IS NULL
+                """,
+                (rs, rowNum) -> new FoodPriceSeed(
+                        rs.getLong("id"),
+                        rs.getString("cuisine"),
+                        rs.getDouble("rating"),
+                        rs.getDouble("heat")
+                ));
+        for (FoodPriceSeed row : rows) {
+            jdbcTemplate.update(
+                    "UPDATE food SET average_price = ? WHERE id = ?",
+                    estimatedAveragePrice(row.cuisine(), row.rating(), row.heat()),
+                    row.id());
+        }
+    }
+
+    private double estimatedAveragePrice(String cuisine, Double rating, Double heat) {
+        String value = cuisine == null ? "" : cuisine.toLowerCase();
+        double base;
+        if (value.contains("咖啡") || value.contains("coffee") || value.contains("饮品")) {
+            base = 32;
+        } else if (value.contains("快餐") || value.contains("fast") || value.contains("早餐")) {
+            base = 28;
+        } else if (value.contains("甜品") || value.contains("烘焙") || value.contains("bakery")) {
+            base = 36;
+        } else if (value.contains("京菜") || value.contains("火锅") || value.contains("农家")) {
+            base = 86;
+        } else if (value.contains("轻食") || value.contains("素食")) {
+            base = 52;
+        } else {
+            base = 58;
+        }
+        double ratingBoost = Math.max(0, (rating == null ? 4.2 : rating) - 4.2) * 18;
+        double heatBoost = Math.max(0, (heat == null ? 70 : heat) - 70) * 0.35;
+        return Math.round(base + ratingBoost + heatBoost);
     }
 
     private boolean foodExists(String name, String storeName) {
@@ -359,5 +404,8 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private record FoodImageSeed(Long id, String name, String cuisine) {
+    }
+
+    private record FoodPriceSeed(Long id, String cuisine, Double rating, Double heat) {
     }
 }

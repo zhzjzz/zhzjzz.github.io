@@ -1,9 +1,14 @@
-﻿.vscode/
+.vscode/
 data/
 *.log
+*.pid
+*.jobid
 __pycache__/
+.m2/
+.tools/
 .worktrees
 .worktrees/
+data-structure-design-frontend/.tmp-vite-build/
 
 # Local IDE state/backups
 .idea/workspace.xml
