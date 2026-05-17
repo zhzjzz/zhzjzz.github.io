@@ -13,6 +13,7 @@ export const getTopFoods = (k = 10) => http.get('/foods/top', { params: { k } })
 export const searchFoods = (params = {}) => http.get('/foods', { params })
 export const searchAmapFoods = (params = {}) => http.get('/foods/amap', { params, timeout: 30000 })
 export const listFoodCuisines = () => http.get('/foods/cuisines')
+export const listFoodPlaceAnchors = () => http.get('/foods/place-anchors')
 
 // 日记管理与全文检索接口。
 export const listDiaries = (limit = 20) => http.get('/diaries', { params: { limit } })

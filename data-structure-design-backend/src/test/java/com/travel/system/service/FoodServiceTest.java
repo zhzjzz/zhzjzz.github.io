@@ -117,6 +117,21 @@ class FoodServiceTest {
     }
 
     @Test
+    void placeAnchorsReturnsDedupedSortedSearchableSpotNames() {
+        when(foodMapper.findPlaceAnchors()).thenReturn(List.of(
+                anchor("故宫博物院", 39.9163, 116.3972),
+                anchor("故宫博物院", 39.9163, 116.3972),
+                anchor("天坛公园", 39.8822, 116.4066),
+                anchor("", 39.9, 116.4),
+                anchor("No Location", null, 116.4)
+        ));
+
+        List<FoodPlaceAnchor> results = service.placeAnchors();
+
+        assertThat(results).extracting(FoodPlaceAnchor::getName).containsExactly("天坛公园", "故宫博物院");
+    }
+
+    @Test
     void searchFiltersAveragePriceRangeAndSortsAscending() {
         Food cheap = food(1L, "Soy milk", "breakfast", "Morning stall", 4.2, 65d,
                 39.9087, 116.3975, null);

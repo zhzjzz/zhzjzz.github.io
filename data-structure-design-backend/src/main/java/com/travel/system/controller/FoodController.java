@@ -1,6 +1,7 @@
 package com.travel.system.controller;
 
 import com.travel.system.model.Food;
+import com.travel.system.dto.FoodPlaceAnchor;
 import com.travel.system.service.AmapFoodSearchService;
 import com.travel.system.service.FoodService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,6 +57,13 @@ public class FoodController {
     @GetMapping("/cuisines")
     public List<String> cuisines() {
         return foodService.cuisines();
+    }
+
+    @Operation(summary = "Food nearby place anchors", description = "Return searchable destinations and scenic spots for nearby food search")
+    @ApiResponse(responseCode = "200", description = "Query succeeded")
+    @GetMapping("/place-anchors")
+    public List<FoodPlaceAnchor> placeAnchors() {
+        return foodService.placeAnchors();
     }
 
     @Operation(summary = "Live AMap food search", description = "Search real restaurant POIs from AMap Web Service around a place")

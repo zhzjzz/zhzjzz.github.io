@@ -22,7 +22,7 @@ import {
   Star,
   Tea,
 } from '@icon-park/vue-next'
-import { listDestinations, listFoodCuisines, searchAmapFoods, searchFoods } from '../api/travel'
+import { listDestinations, listFoodCuisines, listFoodPlaceAnchors, searchAmapFoods, searchFoods } from '../api/travel'
 import { foodIconLabel, foodIconName } from '../utils/foodIcon'
 
 const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
@@ -37,6 +37,7 @@ const loading = ref(false)
 const optionLoading = ref(false)
 const foods = ref([])
 const destinations = ref([])
+const placeAnchors = ref([])
 const cuisines = ref([])
 const amapApi = ref(null)
 
@@ -53,7 +54,7 @@ const form = ref({
 })
 
 const quickPlaces = ['天安门', '前门', '南锣鼓巷', '北京邮电大学']
-const knownPlaces = {
+const fallbackKnownPlaces = {
   天安门: { latitude: 39.9087, longitude: 116.3975 },
   天安门广场: { latitude: 39.9042, longitude: 116.3975 },
   前门: { latitude: 39.8990, longitude: 116.3979 },
@@ -120,16 +121,31 @@ const resultTitle = computed(() => `${foods.value.length} 个餐馆结果`)
 const activePlace = computed(() => form.value.place.trim() || '当前位置')
 const selectedPriceRange = computed(() => priceRanges.find((item) => item.value === form.value.priceRange) || priceRanges[0])
 const activeDataSourceLabel = computed(() => dataSourceOptions.find((item) => item.value === form.value.dataSource)?.label || '高德实时')
+const placeOptions = computed(() => {
+  const seen = new Set()
+  const options = []
+  const addOption = (name, latitude, longitude, source) => {
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    options.push({ name, latitude, longitude, source })
+  }
+  quickPlaces.forEach((name) => addOption(name, fallbackKnownPlaces[name]?.latitude, fallbackKnownPlaces[name]?.longitude, '常用'))
+  placeAnchors.value.forEach((item) => addOption(item.name, item.latitude, item.longitude, '景点'))
+  destinations.value.forEach((item) => addOption(item.name, item.latitude, item.longitude, '目的地'))
+  return options
+})
 
 const loadOptions = async () => {
   optionLoading.value = true
   try {
-    const [destinationResponse, cuisineResponse] = await Promise.all([
+    const [destinationResponse, cuisineResponse, anchorResponse] = await Promise.all([
       listDestinations(),
       listFoodCuisines(),
+      listFoodPlaceAnchors(),
     ])
     destinations.value = Array.isArray(destinationResponse.data) ? destinationResponse.data : []
     cuisines.value = Array.isArray(cuisineResponse.data) ? cuisineResponse.data.filter(Boolean) : []
+    placeAnchors.value = Array.isArray(anchorResponse.data) ? anchorResponse.data.filter((item) => item?.name) : []
   } catch (error) {
     console.error(error)
     ElMessage.warning('筛选项加载失败，仍可直接搜索美食')
@@ -238,14 +254,22 @@ const normalizePlace = (value) => value.trim().toLowerCase().replace(/\s+/g, '')
 const resolvePlace = () => {
   const place = form.value.place.trim()
   if (!place) return null
-  const exact = knownPlaces[place]
-  if (exact) return exact
+  const option = placeOptions.value.find((item) => item.name === place)
+  if (option && Number.isFinite(Number(option.latitude)) && Number.isFinite(Number(option.longitude))) {
+    return { latitude: Number(option.latitude), longitude: Number(option.longitude) }
+  }
   const key = normalizePlace(place)
-  const entry = Object.entries(knownPlaces).find(([name]) => {
-    const nameKey = normalizePlace(name)
-    return nameKey.includes(key) || key.includes(nameKey)
+  const fuzzy = placeOptions.value.find((item) => {
+    const nameKey = normalizePlace(item.name)
+    return (nameKey.includes(key) || key.includes(nameKey))
+      && Number.isFinite(Number(item.latitude))
+      && Number.isFinite(Number(item.longitude))
   })
-  return entry?.[1] || null
+  if (fuzzy) {
+    return { latitude: Number(fuzzy.latitude), longitude: Number(fuzzy.longitude) }
+  }
+  const fallback = fallbackKnownPlaces[place]
+  return fallback || null
 }
 
 const searchAmapJsFoods = async (params) => {
@@ -434,12 +458,27 @@ onMounted(async () => {
         <el-row :gutter="12">
           <el-col :lg="7" :md="12" :xs="24">
             <el-form-item label="附近地点">
-              <el-input
+              <el-select
                 v-model="form.place"
+                class="full-width"
                 clearable
-                placeholder="例如：天安门 / 前门 / 南锣鼓巷"
-                @keyup.enter="search"
-              />
+                filterable
+                allow-create
+                default-first-option
+                :loading="optionLoading"
+                placeholder="搜索或选择所有景点"
+                @change="search"
+              >
+                <el-option
+                  v-for="item in placeOptions"
+                  :key="item.name"
+                  :label="item.name"
+                  :value="item.name"
+                >
+                  <span>{{ item.name }}</span>
+                  <small class="place-source">{{ item.source }}</small>
+                </el-option>
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :lg="5" :md="12" :xs="24">
@@ -714,6 +753,13 @@ onMounted(async () => {
   border-color: rgba(56, 189, 248, 0.7);
   background: rgba(56, 189, 248, 0.16);
   color: #f8fafc;
+}
+
+.place-source {
+  float: right;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .result-context {

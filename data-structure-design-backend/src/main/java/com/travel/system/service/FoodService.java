@@ -117,6 +117,25 @@ public class FoodService {
                 .toList();
     }
 
+    public List<FoodPlaceAnchor> placeAnchors() {
+        Map<String, FoodPlaceAnchor> anchors = new LinkedHashMap<>();
+        List<FoodPlaceAnchor> rows = foodRepository.findPlaceAnchors();
+        if (rows == null) {
+            return List.of();
+        }
+        for (FoodPlaceAnchor row : rows) {
+            if (row.getName() == null || row.getName().isBlank()
+                    || row.getLatitude() == null || row.getLongitude() == null) {
+                continue;
+            }
+            String key = placeKey(row.getName());
+            anchors.putIfAbsent(key, row);
+        }
+        return anchors.values().stream()
+                .sorted(Comparator.comparing(FoodPlaceAnchor::getName))
+                .toList();
+    }
+
     /**
 
      * 按默认或指定推荐策略返回前 k 条数据，k 非法时由 service 内部修正为安全默认值。
