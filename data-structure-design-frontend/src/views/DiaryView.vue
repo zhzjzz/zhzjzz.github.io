@@ -5,6 +5,7 @@ import {
   Delete,
   Fire,
   Globe,
+  Journey,
   Like,
   Lock,
   MagicWand,
@@ -16,8 +17,9 @@ import {
   Star,
   UploadPicture,
 } from '@icon-park/vue-next'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
+  createItineraryFromImport,
   createDiary,
   createDiaryComment,
   deleteDiary,
@@ -52,7 +54,9 @@ const DIARY_IMAGE_MAX_EDGE = 1600
 const DIARY_IMAGE_QUALITY = 0.86
 const appStore = useAppStore()
 const route = useRoute()
+const router = useRouter()
 const showComposer = ref(false)
+const replicatingDiaryId = ref(null)
 const composerRef = ref(null)
 const detailRef = ref(null)
 const form = ref({
@@ -349,6 +353,28 @@ const interact = async (diary, type) => {
   ElMessage.success(type === 'share' ? '分享热度已更新' : '互动成功')
 }
 
+const replicateDiaryAsItinerary = async (diary) => {
+  if (!diary?.id) return
+  replicatingDiaryId.value = diary.id
+  try {
+    const { data } = await createItineraryFromImport({
+      sourceType: 'DIARY',
+      text: null,
+      diaryId: diary.id,
+      owner: appStore.user.name || diaryAuthor(diary),
+    })
+    const itineraryId = data?.itinerary?.id
+    ElMessage.success('已复刻为协作行程')
+    if (itineraryId) {
+      await router.push({ path: '/itineraries', query: { openItinerary: itineraryId } })
+    }
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || error?.message || '复刻行程失败')
+  } finally {
+    replicatingDiaryId.value = null
+  }
+}
+
 const loadComments = async (diary) => {
   if (!diary?.id) return
   if (commentCache.value.has(diary.id)) {
@@ -513,10 +539,10 @@ onBeforeUnmount(() => {
   <section class="diary-page">
     <section class="diary-hero reveal-in">
       <div class="hero-copy">
-        <p class="section-kicker">Travel Diary · Xiaohongshu Flow</p>
-        <h1>把旅行日记做成更像小红书的图文瀑布流</h1>
+        <p class="section-kicker">Travel Diary · Story Flow</p>
+        <h1>看看别人家的精彩游记</h1>
         <p class="module-subtitle">
-          图文卡片、热门笔记、收藏与评论都保留，发布入口改成点击后再展开编辑。
+          一键复刻心仪游记
         </p>
         <div class="hero-actions">
           <el-button type="primary" size="large" @click="openComposer">
@@ -809,7 +835,20 @@ onBeforeUnmount(() => {
             </el-button>
             <el-button v-if="canDeleteSelectedDiary" type="danger" @click="removeDiary(selectedDiary)">
               <Delete theme="outline" size="16" fill="currentColor" />
-              删除日记
+              &#21024;&#38500;&#26085;&#35760;
+            </el-button>
+          </div>
+
+          <div class="replicate-itinerary-row">
+            <el-button
+              class="replicate-itinerary-button"
+              type="primary"
+              size="large"
+              :loading="replicatingDiaryId === selectedDiary.id"
+              @click="replicateDiaryAsItinerary(selectedDiary)"
+            >
+              <Journey theme="outline" size="18" fill="currentColor" />
+              一键复刻行程
             </el-button>
           </div>
 
@@ -1528,6 +1567,38 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.replicate-itinerary-row {
+  display: flex;
+  margin-top: -2px;
+}
+
+.replicate-itinerary-row .replicate-itinerary-button {
+  width: 100%;
+  min-width: 220px;
+  min-height: 46px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.28);
+}
+
+.replicate-itinerary-row .replicate-itinerary-button:hover,
+.replicate-itinerary-row .replicate-itinerary-button:focus-visible {
+  background: linear-gradient(135deg, #1d4ed8 0%, #0e7490 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 20px 42px rgba(37, 99, 235, 0.36);
+}
+
+.replicate-itinerary-row .replicate-itinerary-button:disabled {
+  transform: none;
+  opacity: 0.82;
 }
 
 .comment-box {

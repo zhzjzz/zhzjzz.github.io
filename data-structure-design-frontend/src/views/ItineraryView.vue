@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, Copy, Refresh, Search } from '@icon-park/vue-next'
+import { Connection, Copy, DocAdd, Refresh, Search } from '@icon-park/vue-next'
 import {
   addItinerarySpotCandidate,
   createItinerary,
@@ -12,9 +12,11 @@ import {
   searchDestinations,
   submitItinerarySpotVote,
 } from '../api/travel'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { useItineraryCollaboration } from '../composables/useItineraryCollaboration'
 import ConsensusProgress from '../components/itinerary/ConsensusProgress.vue'
+import GuideImportDialog from '../components/itinerary/GuideImportDialog.vue'
 import ItineraryPlannerPanel from '../components/itinerary/ItineraryPlannerPanel.vue'
 import RealSpotSearchPanel from '../components/itinerary/RealSpotSearchPanel.vue'
 import SpotDecisionCard from '../components/itinerary/SpotDecisionCard.vue'
@@ -24,9 +26,11 @@ import { buildRealSpotNodes, makePingText } from '../utils/itineraryVotes'
 import itineraryDefaultImage from '../assets/defaults/itinerary-default.png'
 
 const appStore = useAppStore()
+const route = useRoute()
 const loading = ref(false)
 const rows = ref([])
 const keyword = ref('')
+const importOpen = ref(false)
 const collabOpen = ref(false)
 const collabLoading = ref(false)
 const collabRow = ref(null)
@@ -266,6 +270,15 @@ const applyPlannerPreview = (preview) => {
   plannerPreview.value = preview
 }
 
+const handleImportCreated = async (response) => {
+  if (!response?.itinerary?.id) return
+  updateRowInList(response.itinerary)
+  await openCollaboration(response.itinerary)
+  plannerOpen.value = true
+  plannerPreview.value = null
+  ElMessage.success('Imported itinerary created')
+}
+
 const pushPing = (payload) => {
   const vote = payload?.vote || payload
   if (!vote?.spotId) return
@@ -373,7 +386,19 @@ const refresh = async () => {
   await loadRows()
 }
 
-onMounted(loadRows)
+const loadInitialRows = async () => {
+  await loadRows()
+  const openItinerary = route.query.openItinerary
+  const requestedId = Array.isArray(openItinerary) ? openItinerary[0] : openItinerary
+  if (!requestedId) return
+  const row = rows.value.find((item) => String(item.id) === String(requestedId))
+  if (row) {
+    await openCollaboration(row)
+    plannerOpen.value = true
+  }
+}
+
+onMounted(loadInitialRows)
 </script>
 
 <template>
@@ -385,6 +410,10 @@ onMounted(loadRows)
         <p>围绕协作标注、真实景点和一键规划统一操作。</p>
       </div>
       <div class="hero-actions">
+        <el-button class="guide-import-hero-button" size="large" @click="importOpen = true">
+          <DocAdd theme="outline" size="19" fill="currentColor" />
+          导入攻略
+        </el-button>
         <el-button size="large" @click="refresh">
           <Refresh theme="outline" size="17" fill="currentColor" />
           刷新
@@ -519,6 +548,12 @@ onMounted(loadRows)
         </div>
       </div>
     </el-drawer>
+
+    <GuideImportDialog
+      v-model="importOpen"
+      :owner="currentEditorName"
+      @created="handleImportCreated"
+    />
   </section>
 </template>
 
@@ -653,6 +688,27 @@ onMounted(loadRows)
   margin-left: 0;
   min-width: 112px;
   height: 46px;
+}
+
+.hero-actions :deep(.guide-import-hero-button) {
+  min-width: 210px;
+  height: 54px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.32);
+}
+
+.hero-actions :deep(.guide-import-hero-button:hover),
+.hero-actions :deep(.guide-import-hero-button:focus-visible) {
+  background: linear-gradient(135deg, #1d4ed8 0%, #0e7490 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 22px 48px rgba(37, 99, 235, 0.4);
 }
 
 .hero-actions :deep(.el-button--primary:hover) {

@@ -27,8 +27,8 @@ server:
   port: ${SERVER_PORT:8080}
 
 llm:
-  base-url: ${SILICONFLOW_BASE_URL:https://api.siliconflow.cn/v1}
-  api-key: ${SILICONFLOW_API_KEY:}
-  model: ${SILICONFLOW_MODEL:}
+  base-url: ${LLM_BASE_URL:${SILICONFLOW_BASE_URL:https://api.siliconflow.cn/v1}}
+  api-key: ${LLM_API_KEY:${SILICONFLOW_API_KEY:}}
+  model: ${LLM_MODEL:${SILICONFLOW_MODEL:}}
   temperature: ${LLM_TEMPERATURE:0.4}
   timeout-seconds: ${LLM_TIMEOUT_SECONDS:90}

@@ -38,6 +38,8 @@ export const submitItinerarySpotVote = (id, payload) => http.post(`/itineraries/
 export const listItineraryMapSpots = (id) => http.get(`/itineraries/${id}/map-spots`)
 export const addItinerarySpotCandidate = (id, payload) => http.post(`/itineraries/${id}/map-spots`, payload)
 export const previewItineraryPlan = (payload) => http.post('/itinerary-planner/preview', payload)
+export const previewItineraryImport = (payload) => http.post('/itinerary-import/preview', payload, { timeout: 90000 })
+export const createItineraryFromImport = (payload) => http.post('/itinerary-import/create', payload, { timeout: 90000 })
 
 // 路线规划接口。
 export const getOsmRoute = (params) => http.get('/route', { params })
