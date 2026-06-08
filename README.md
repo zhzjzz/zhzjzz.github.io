@@ -12,8 +12,6 @@ data-structure-design-backend/    Java 17 + Spring Boot 后端
 docs/                             文档资料
 ```
 
-注意：旧拼写目录 `data-structrue-*` 已废弃，不应再使用。
-
 ## 核心功能
 
 - 目的地推荐 Top10

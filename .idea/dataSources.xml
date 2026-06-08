@@ -7,7 +7,7 @@
       <imported>true</imported>
       <remarks>$PROJECT_DIR$/data-structure-design-backend/src/main/resources/application.yml</remarks>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:D:\gitCode\zhzjzz\data-structure-design-backend\data\tourism_system.gpkg</jdbc-url>
+      <jdbc-url>jdbc:sqlite:D:\gitCode\tourism_system.gpkg</jdbc-url>
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
       </jdbc-additional-properties>

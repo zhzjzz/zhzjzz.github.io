@@ -1,0 +1,66 @@
+<h2>多人协作呈现：先选主方向</h2>
+<p class="subtitle">这一步不是选最终视觉稿，而是决定旅游网页应该优先给用户哪种“多人一起规划”的感觉。</p>
+
+<div class="cards">
+  <div class="card" data-choice="squad-lobby" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">小队大厅</div>
+        <div class="mockup-body">
+          <div style="display:flex; gap:10px; margin-bottom:14px;">
+            <div style="width:46px;height:46px;border-radius:50%;background:#ff385c;"></div>
+            <div style="width:46px;height:46px;border-radius:50%;background:#f3d08a;"></div>
+            <div style="width:46px;height:46px;border-radius:50%;background:#7dd3fc;"></div>
+            <div style="width:46px;height:46px;border-radius:50%;background:#c4b5fd;"></div>
+          </div>
+          <div class="placeholder">队长 / 摄影师 / 美食官 / 路线官</div>
+          <div class="placeholder">在线状态、正在编辑、最后动作</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 小队大厅式</h3>
+      <p>像多人游戏开房间：展示成员头像、身份分工、准备状态和当前动作。适合让“谁在一起计划”一眼可见。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="tactical-map" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">战术地图</div>
+        <div class="mockup-body">
+          <div style="height:120px;border-radius:18px;background:linear-gradient(135deg,#dff7ef,#fff1d6);position:relative;overflow:hidden;">
+            <div style="position:absolute;left:18%;top:25%;width:16px;height:16px;border-radius:50%;background:#ff385c;"></div>
+            <div style="position:absolute;left:50%;top:44%;width:16px;height:16px;border-radius:50%;background:#0f766e;"></div>
+            <div style="position:absolute;right:20%;bottom:22%;width:16px;height:16px;border-radius:50%;background:#f59e0b;"></div>
+            <div style="position:absolute;left:22%;top:31%;right:24%;height:3px;background:#222;transform:rotate(14deg);opacity:.55;"></div>
+          </div>
+          <div class="placeholder">队友标记：想去 / 避开 / 必吃 / 集合点</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 战术地图式</h3>
+      <p>像游戏里 ping 地图：成员在地图和路线节点上打标、投票、提出替代路线。适合突出实时共同决策。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="raid-board" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">副本任务板</div>
+        <div class="mockup-body">
+          <div class="placeholder">主线：三天两夜上海行</div>
+          <div class="placeholder">支线：订票、查饭店、找拍照点</div>
+          <div class="placeholder">奖励：省时 40 分钟 / 预算 -120 元</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 副本任务式</h3>
+      <p>像组队打副本：把行程拆成主线、支线、负责人和进度。适合让多人协作更有目标感和完成反馈。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">建议：如果要快速增强现有行程页，我会优先选 A；如果想最像多人游戏，我会选 B；如果要适合课程演示和功能闭环，我会选 C。</p>
