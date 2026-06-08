@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/nav/buildings")
-@Tag(name = "建筑物查询", description = "教学楼、办公楼、宿舍楼等建筑物查询接口")
+@Tag(name = "建筑物查询", description = "建筑物查询接口")
 public class BuildingController {
 
     private final BuildingService buildingService;

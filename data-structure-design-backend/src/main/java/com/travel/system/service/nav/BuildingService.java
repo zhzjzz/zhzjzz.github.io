@@ -2,6 +2,7 @@ package com.travel.system.service.nav;
 
 import com.travel.system.mapper.nav.BuildingMapper;
 import com.travel.system.model.nav.Building;
+import com.travel.system.service.PlaceVisibilityRules;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -38,7 +39,7 @@ public class BuildingService {
                     .filter(b -> b.getName() != null && b.getName().toLowerCase(Locale.ROOT).contains(kw))
                     .collect(Collectors.toList());
         }
-        return buildings;
+        return visibleBuildings(buildings);
     }
 
     /**
@@ -48,6 +49,7 @@ public class BuildingService {
      */
     public Building getByNearestNodeId(Long nodeId) {
         return buildingMapper.findAll().stream()
+                .filter(BuildingService::isVisibleBuilding)
                 .filter(b -> nodeId.equals(b.getNearestNodeId()))
                 .findFirst()
                 .orElse(null);
@@ -59,7 +61,7 @@ public class BuildingService {
 
      */
     public List<Building> listBySpot(String spotName) {
-        return buildingMapper.findBySpotName(spotName);
+        return visibleBuildings(buildingMapper.findBySpotName(spotName));
     }
 
     /**
@@ -77,6 +79,16 @@ public class BuildingService {
 
      */
     public List<Building> listAll() {
-        return buildingMapper.findAll();
+        return visibleBuildings(buildingMapper.findAll());
+    }
+
+    public static boolean isVisibleBuilding(Building building) {
+        return building != null && PlaceVisibilityRules.isPublicFacility(building.getName(), building.getType());
+    }
+
+    private static List<Building> visibleBuildings(List<Building> buildings) {
+        return buildings.stream()
+                .filter(BuildingService::isVisibleBuilding)
+                .toList();
     }
 }

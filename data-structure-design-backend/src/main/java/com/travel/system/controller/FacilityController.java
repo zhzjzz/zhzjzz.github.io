@@ -17,7 +17,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/facilities")
-@Tag(name = "设施管理", description = "设施查询、附近搜索等相关接口")
+@Tag(name = "Facilities", description = "Facility search APIs")
 public class FacilityController {
 
     private final FacilityMapper facilityMapper;
@@ -29,24 +29,28 @@ public class FacilityController {
         this.facilitySearchService = facilitySearchService;
     }
 
-    @Operation(summary = "查询设施列表", description = "支持设施类型模糊搜索，无关键字则返回所有设施")
-    @ApiResponse(responseCode = "200", description = "查询成功")
+    @Operation(summary = "List facilities", description = "Supports optional facility type fuzzy search")
+    @ApiResponse(responseCode = "200", description = "Query succeeded")
     @GetMapping
     public List<Facility> list(
-            @Parameter(description = "设施类型关键字，用于模糊匹配") @RequestParam(required = false) String type) {
+            @Parameter(description = "Facility type keyword") @RequestParam(required = false) String type) {
         if (type == null || type.isBlank()) {
-            return facilityMapper.findAll();
+            return facilityMapper.findAll().stream()
+                    .filter(FacilitySearchService::isVisibleFacility)
+                    .toList();
         }
-        return facilityMapper.findByFacilityTypeContainingIgnoreCase(type);
+        return facilityMapper.findByFacilityTypeContainingIgnoreCase(type).stream()
+                .filter(FacilitySearchService::isVisibleFacility)
+                .toList();
     }
 
-    @Operation(summary = "查询设施类别候选项", description = "返回去重后的设施类别，用于前端下拉搜索")
-    @ApiResponse(responseCode = "200", description = "查询成功")
+    @Operation(summary = "Facility type options", description = "Returns deduped facility types")
+    @ApiResponse(responseCode = "200", description = "Query succeeded")
     @GetMapping("/types")
     public List<String> types(
-            @Parameter(description = "类别关键字") @RequestParam(required = false) String keyword,
-            @Parameter(description = "目的地类型") @RequestParam(required = false) String sceneType,
-            @Parameter(description = "最大返回数量，默认50，最大200") @RequestParam(defaultValue = "50") int limit) {
+            @Parameter(description = "Type keyword") @RequestParam(required = false) String keyword,
+            @Parameter(description = "Destination scene type") @RequestParam(required = false) String sceneType,
+            @Parameter(description = "Maximum result count") @RequestParam(defaultValue = "50") int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 200));
         String normalizedKeyword = keyword == null ? null : keyword.trim();
         return facilityMapper.findDistinctFacilityTypes(normalizedKeyword, 200).stream()
@@ -55,17 +59,18 @@ public class FacilityController {
                 .toList();
     }
 
-    @Operation(summary = "附近设施搜索", description = "从指定经纬度出发搜索附近设施并按距离排序")
-    @ApiResponse(responseCode = "200", description = "搜索成功")
+    @Operation(summary = "Nearby facilities", description = "Search nearby facilities by straight or road-network distance")
+    @ApiResponse(responseCode = "200", description = "Search succeeded")
     @GetMapping("/nearby")
     public List<FacilityQueryResult> nearby(
-            @Parameter(description = "起点纬度") @RequestParam Double fromLat,
-            @Parameter(description = "起点经度") @RequestParam Double fromLon,
-            @Parameter(description = "设施类型过滤") @RequestParam(required = false) String type,
-            @Parameter(description = "名称或描述关键字过滤") @RequestParam(required = false) String keyword,
-            @Parameter(description = "最大搜索距离，单位米") @RequestParam(required = false) Double maxDistanceMeters,
-            @Parameter(description = "目的地名称") @RequestParam(required = false) String spotName,
-            @Parameter(description = "目的地类型") @RequestParam(required = false) String sceneType) {
-        return facilitySearchService.searchNearby(fromLat, fromLon, type, keyword, maxDistanceMeters, spotName, sceneType);
+            @Parameter(description = "Start latitude") @RequestParam Double fromLat,
+            @Parameter(description = "Start longitude") @RequestParam Double fromLon,
+            @Parameter(description = "Start road node ID") @RequestParam(required = false) Long fromNodeId,
+            @Parameter(description = "Facility type filter") @RequestParam(required = false) String type,
+            @Parameter(description = "Name or description keyword") @RequestParam(required = false) String keyword,
+            @Parameter(description = "Maximum search distance in meters") @RequestParam(required = false) Double maxDistanceMeters,
+            @Parameter(description = "Destination or spot name") @RequestParam(required = false) String spotName,
+            @Parameter(description = "Destination scene type") @RequestParam(required = false) String sceneType) {
+        return facilitySearchService.searchNearby(fromLat, fromLon, fromNodeId, type, keyword, maxDistanceMeters, spotName, sceneType);
     }
 }

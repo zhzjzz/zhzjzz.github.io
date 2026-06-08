@@ -12,6 +12,7 @@ public class Facility {
     private String name;
     private String facilityType;
     private String sourceType;
+    private Long sourceNearestNodeId;
     private Double latitude;
     private Double longitude;
     @ManyToOne(fetch = FetchType.LAZY)

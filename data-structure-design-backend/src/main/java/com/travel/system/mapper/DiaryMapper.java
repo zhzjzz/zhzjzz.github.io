@@ -25,6 +25,10 @@ public interface DiaryMapper {
     /** 按标题或内容进行不区分大小写的模糊查询。 */
     List<Diary> findByTitleOrContentContainingIgnoreCase(@Param("keyword") String keyword, @Param("limit") int limit);
 
+    List<Diary> findByDestinationKeyword(@Param("keyword") String keyword, @Param("limit") int limit);
+
+    Diary findByExactTitle(@Param("title") String title);
+
     /** 查询公开热门日记。 */
     List<Diary> findHotPublic(@Param("limit") int limit);
 
@@ -42,6 +46,8 @@ public interface DiaryMapper {
 
     /** 更新浏览、互动计数和热度。 */
     void updateCounters(Diary diary);
+
+    void updateScore(@Param("id") Long id, @Param("score") Double score, @Param("heatScore") Double heatScore);
 
     void deleteCommentsByDiaryId(@Param("diaryId") Long diaryId);
 

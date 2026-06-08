@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -28,6 +28,10 @@ import {
   listDiaries,
   listDiaryComments,
   listHotDiaries,
+  generateDiaryAigcImage,
+  rateDiary,
+  searchDiariesByDestination,
+  searchDiaryExactTitle,
   searchDiaryFullText,
 } from '../api/travel'
 import { fetchApiAssetBlobUrl, resolveApiAssetUrl } from '../api/http'
@@ -43,6 +47,7 @@ const commentCache = ref(new Map())
 const loading = ref(false)
 const submitting = ref(false)
 const searchKeyword = ref('')
+const searchMode = ref('fullText')
 const selectedDiaryId = ref(null)
 const selectedMediaName = ref('')
 const mediaPreview = ref('')
@@ -57,6 +62,8 @@ const route = useRoute()
 const router = useRouter()
 const showComposer = ref(false)
 const replicatingDiaryId = ref(null)
+const generatingAigcId = ref(null)
+const detailRating = ref(0)
 const composerRef = ref(null)
 const detailRef = ref(null)
 const form = ref({
@@ -261,8 +268,18 @@ const fullText = async () => {
 
   loading.value = true
   try {
-    const { data } = await searchDiaryFullText(searchKeyword.value.trim())
-    diaries.value = Array.isArray(data) ? data : []
+    const keyword = searchKeyword.value.trim()
+    let response
+    if (searchMode.value === 'destination') {
+      response = await searchDiariesByDestination(keyword)
+      diaries.value = Array.isArray(response.data) ? response.data : []
+    } else if (searchMode.value === 'exactTitle') {
+      response = await searchDiaryExactTitle(keyword)
+      diaries.value = response.data ? [response.data] : []
+    } else {
+      response = await searchDiaryFullText(keyword)
+      diaries.value = Array.isArray(response.data) ? response.data : []
+    }
     seedDiaryCache(diaries.value)
     selectedDiaryId.value = diaries.value[0]?.id || null
     if (selectedDiaryId.value) {
@@ -351,6 +368,26 @@ const interact = async (diary, type) => {
   const { data } = await interactDiary(diary.id, type)
   cacheDiary(data)
   ElMessage.success(type === 'share' ? '分享热度已更新' : '互动成功')
+}
+
+const rateSelectedDiary = async (score) => {
+  if (!selectedDiary.value?.id) return
+  const { data } = await rateDiary(selectedDiary.value.id, score)
+  cacheDiary(data)
+  detailRating.value = Number(data?.score || score || 0)
+  ElMessage.success('评分已更新')
+}
+
+const generateSelectedDiaryImage = async () => {
+  if (!selectedDiary.value?.id) return
+  generatingAigcId.value = selectedDiary.value.id
+  try {
+    const { data } = await generateDiaryAigcImage(selectedDiary.value.id)
+    cacheDiary(data)
+    ElMessage.success('旅行图已生成')
+  } finally {
+    generatingAigcId.value = null
+  }
 }
 
 const replicateDiaryAsItinerary = async (diary) => {
@@ -444,6 +481,16 @@ const shareLink = (diary) => {
 
 const diaryCover = (diary) => (diary?.mediaType === 'image' && diary?.mediaUrl ? resolveApiAssetUrl(diary.mediaUrl) : diaryDefaultImage)
 
+const aigcImageUrl = (diary) => {
+  const url = diary?.aigcAnimationUrl || ''
+  if (!url || /\.(mp4|webm|mov)(\?|$)/i.test(url)) return ''
+  return resolveApiAssetUrl(url)
+}
+
+const selectedDiaryAigcImageUrl = computed(() => aigcImageUrl(selectedDiary.value))
+
+const diaryPreviewCover = (diary) => aigcImageUrl(diary) || diaryCover(diary)
+
 const revokeSelectedDiaryImage = () => {
   selectedDiaryImageUrl.value = ''
 }
@@ -501,6 +548,14 @@ const selectedDiaryStats = computed(() => {
 })
 
 watch(
+  () => selectedDiary.value?.score,
+  (score) => {
+    detailRating.value = Number(score || 0)
+  },
+  { immediate: true },
+)
+
+watch(
   () => [selectedDiary.value?.id, selectedDiary.value?.mediaUrl],
   async ([diaryId, mediaUrl]) => {
     revokeSelectedDiaryImage()
@@ -545,10 +600,6 @@ onBeforeUnmount(() => {
           一键复刻心仪游记
         </p>
         <div class="hero-actions">
-          <el-button type="primary" size="large" @click="openComposer">
-            <Send theme="outline" size="18" fill="currentColor" />
-            发布旅游日记
-          </el-button>
           <el-button size="large" @click="load">
             <Refresh theme="outline" size="18" fill="currentColor" />
             刷新内容
@@ -581,7 +632,6 @@ onBeforeUnmount(() => {
             </span>
             <span>
               <strong>发布旅游日记</strong>
-              <small>点开后再展开编辑，不占首屏位置</small>
             </span>
           </button>
 
@@ -674,6 +724,11 @@ onBeforeUnmount(() => {
             <span>{{ diaries.length }} 篇日记</span>
           </div>
           <div class="toolbar-actions">
+            <el-select v-model="searchMode" class="search-mode">
+              <el-option label="全文" value="fullText" />
+              <el-option label="目的地" value="destination" />
+              <el-option label="精确标题" value="exactTitle" />
+            </el-select>
             <el-input v-model="searchKeyword" class="search-input" placeholder="搜索标题或内容" clearable @keyup.enter="fullText" />
             <el-button type="primary" @click="fullText">
               <Search theme="outline" size="16" fill="currentColor" />
@@ -696,7 +751,7 @@ onBeforeUnmount(() => {
             @click="selectDiary(item)"
           >
             <div class="note-media" :style="{ '--card-ratio': diaryCardRatio(index) }">
-              <img :src="diaryCover(item)" :alt="item.title || '旅游日记封面'" loading="lazy" />
+              <img :src="diaryPreviewCover(item)" :alt="item.title || '旅游日记封面'" loading="lazy" />
               <div class="note-media__overlay">
                 <span class="note-badge">{{ diaryMediaBadge(item) }}</span>
                 <span class="note-badge note-badge--soft">{{ diaryDestinationName(item) }}</span>
@@ -741,7 +796,7 @@ onBeforeUnmount(() => {
               :class="{ active: selectedDiary?.id === item.id }"
               @click="selectDiary(item)"
             >
-              <img :src="diaryCover(item)" :alt="item.title || '热门日记封面'" loading="lazy" />
+              <img :src="diaryPreviewCover(item)" :alt="item.title || '热门日记封面'" loading="lazy" />
               <div class="hot-note-card__body">
                 <strong>{{ item.title }}</strong>
                 <small>{{ diaryDestinationName(item) }} · {{ formatPublishedAt(item.publishedAt) }}</small>
@@ -766,16 +821,28 @@ onBeforeUnmount(() => {
                 <span>{{ diaryDestinationName(selectedDiary) }}</span>
               </div>
             </div>
-            <span class="heat-badge">
-              <Fire theme="outline" size="14" fill="currentColor" />
-              热度 {{ Math.round(selectedDiary.heatScore || 0) }}
-            </span>
+            <div class="detail-hero-actions">
+              <span class="heat-badge">
+                <Fire theme="outline" size="14" fill="currentColor" />
+                热度 {{ Math.round(selectedDiary.heatScore || 0) }}
+              </span>
+              <el-button
+                class="aigc-primary-button"
+                type="primary"
+                size="large"
+                :loading="generatingAigcId === selectedDiary.id"
+                @click="generateSelectedDiaryImage"
+              >
+                <MagicWand theme="outline" size="18" fill="currentColor" />
+                生成并展示旅行图
+              </el-button>
+            </div>
           </div>
 
           <div class="detail-cover">
             <img
-              :src="selectedDiaryImageUrl || diaryCover(selectedDiary)"
-              :alt="selectedDiary.mediaUrl ? '日记图片' : '日记默认封面'"
+              :src="selectedDiaryAigcImageUrl || selectedDiaryImageUrl || diaryCover(selectedDiary)"
+              :alt="selectedDiaryAigcImageUrl ? 'AIGC生成旅行图' : selectedDiary.mediaUrl ? '日记图片' : '日记默认封面'"
             />
           </div>
 
@@ -784,6 +851,11 @@ onBeforeUnmount(() => {
           <div class="detail-badges">
             <span v-for="tag in diaryTags(selectedDiary)" :key="tag">{{ tag }}</span>
             <span>{{ compressionStatusText(selectedDiary.compressionStatus) }}</span>
+          </div>
+
+          <div class="detail-rating-row">
+            <span>读后评分</span>
+            <el-rate v-model="detailRating" :max="5" :allow-half="true" @change="rateSelectedDiary" />
           </div>
 
           <div class="stats-grid">
@@ -801,9 +873,13 @@ onBeforeUnmount(() => {
             </article>
             <article>
               <span><MagicWand theme="outline" size="15" fill="currentColor" /> AIGC 动画</span>
-              <img class="metadata-cover" :src="aigcDefaultImage" alt="AIGC 动画占位图" loading="lazy" />
+              <img class="metadata-cover" :src="selectedDiaryAigcImageUrl || aigcDefaultImage" alt="AIGC 旅行图" loading="lazy" />
               <strong>{{ selectedDiary.aigcStatus || 'pending' }}</strong>
               <small>{{ selectedDiary.aigcAnimationUrl || '等待生成' }}</small>
+              <el-button class="aigc-secondary-button" size="small" :loading="generatingAigcId === selectedDiary.id" @click="generateSelectedDiaryImage">
+                <MagicWand theme="outline" size="14" fill="currentColor" />
+                生成旅行图
+              </el-button>
             </article>
             <article>
               <span><Share theme="outline" size="15" fill="currentColor" /> 分享链接</span>
@@ -1211,6 +1287,10 @@ onBeforeUnmount(() => {
   width: min(420px, 100%);
 }
 
+.search-mode {
+  width: 128px;
+}
+
 .diary-flow {
   column-count: 2;
   column-gap: 16px;
@@ -1473,6 +1553,36 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.detail-hero-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.aigc-primary-button {
+  min-height: 46px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ff385c 0%, #f59e0b 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  box-shadow: 0 16px 34px rgba(255, 56, 92, 0.28);
+}
+
+.aigc-primary-button:hover,
+.aigc-primary-button:focus-visible {
+  background: linear-gradient(135deg, #e11d48 0%, #d97706 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 20px 42px rgba(255, 56, 92, 0.36);
+}
+
+.aigc-secondary-button {
+  margin-top: 10px;
+}
+
 .detail-cover {
   overflow: hidden;
   border-radius: 20px;
@@ -1494,6 +1604,15 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.detail-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #a7b0bf;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .stats-grid {
@@ -1670,6 +1789,10 @@ onBeforeUnmount(() => {
 
   .search-input {
     width: 100%;
+  }
+
+  .detail-hero-actions {
+    justify-items: stretch;
   }
 }
 

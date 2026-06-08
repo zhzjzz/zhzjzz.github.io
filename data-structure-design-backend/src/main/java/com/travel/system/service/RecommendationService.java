@@ -66,6 +66,23 @@ public class RecommendationService {
                 .toList();
     }
 
+    public List<Destination> topKDestinations(List<Destination> data, int k, DestinationRankingMode mode, String interest) {
+        String normalizedInterest = interest == null ? "" : interest.trim().toLowerCase();
+        DestinationRankingMode rankingMode = mode == null ? DestinationRankingMode.COMPOSITE : mode;
+        ScoreContext context = ScoreContext.from(data);
+        Comparator<Destination> comparator = destinationComparator(rankingMode, context, normalizedInterest);
+        PriorityQueue<Destination> heap = new PriorityQueue<>(comparator);
+        for (Destination d : data) {
+            heap.offer(d);
+            if (heap.size() > k) {
+                heap.poll();
+            }
+        }
+        return heap.stream()
+                .sorted(comparator.reversed())
+                .toList();
+    }
+
     /**
      * 返回美食的 Top‑K 推荐列表。
      *
@@ -120,6 +137,38 @@ public class RecommendationService {
     private double foodScore(Food f) {
         Double destinationHeat = f.getDestination() == null ? null : f.getDestination().getHeat();
         return safe(f.getRating()) * 20 * 0.55 + safe(f.getHeat()) * 0.30 + safe(destinationHeat) * 0.15;
+    }
+
+    private Comparator<Destination> destinationComparator(
+            DestinationRankingMode rankingMode,
+            ScoreContext context,
+            String interest
+    ) {
+        Comparator<Destination> comparator = Comparator.comparing(destination -> interestMatches(destination, interest));
+        return comparator.thenComparingDouble(destination -> destinationScore(destination, rankingMode, context));
+    }
+
+    private boolean interestMatches(Destination destination, String interest) {
+        if (interest == null || interest.isBlank()) {
+            return false;
+        }
+        String text = String.join(" ",
+                destination.getName() == null ? "" : destination.getName(),
+                destination.getSceneType() == null ? "" : destination.getSceneType(),
+                destination.getCategory() == null ? "" : destination.getCategory(),
+                destination.getDescription() == null ? "" : destination.getDescription()).toLowerCase();
+        return interestKeywords(interest).stream().anyMatch(text::contains);
+    }
+
+    private List<String> interestKeywords(String interest) {
+        return switch (interest) {
+            case "自然" -> List.of("自然", "森林", "公园", "山", "湖", "峡", "湿地", "风景", "水上", "野生");
+            case "历史" -> List.of("历史", "博物馆", "文物", "古代", "古迹", "文化", "遗址", "故宫", "天坛", "寺", "宫", "陵");
+            case "校园" -> List.of("校园", "大学", "学院", "校区", "学校");
+            case "美食" -> List.of("美食", "餐", "小吃", "咖啡", "茶", "饭", "面", "菜");
+            case "亲子" -> List.of("亲子", "儿童", "乐园", "动物园", "水族", "游乐");
+            default -> List.of(interest);
+        };
     }
 
     /**

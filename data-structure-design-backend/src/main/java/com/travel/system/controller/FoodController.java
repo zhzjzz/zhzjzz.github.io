@@ -40,7 +40,7 @@ public class FoodController {
             @Parameter(description = "Search keyword") @RequestParam(required = false) String keyword,
             @Parameter(description = "Cuisine or shop type") @RequestParam(required = false) String cuisine,
             @Parameter(description = "Destination ID") @RequestParam(required = false) Long destinationId,
-            @Parameter(description = "Sort: recommend/rating/destinationHeat/distance") @RequestParam(defaultValue = "recommend") String sort,
+            @Parameter(description = "Sort: recommend/rating/heat/destinationHeat/distance") @RequestParam(defaultValue = "recommend") String sort,
             @Parameter(description = "Result limit") @RequestParam(defaultValue = "30") int limit,
             @Parameter(description = "Nearby place or landmark") @RequestParam(required = false) String place,
             @Parameter(description = "Center latitude") @RequestParam(required = false) Double latitude,

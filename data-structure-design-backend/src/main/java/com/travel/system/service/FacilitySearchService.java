@@ -3,12 +3,18 @@ package com.travel.system.service;
 import com.travel.system.dto.FacilityQueryResult;
 import com.travel.system.model.Facility;
 import com.travel.system.mapper.FacilityMapper;
+import com.travel.system.model.nav.RoadEdge;
+import com.travel.system.service.nav.NavigationDataService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 @Service
@@ -17,9 +23,16 @@ public class FacilitySearchService {
     private static final Set<String> SCENIC_NON_SERVICE_TYPES = Set.of("教学楼", "办公楼", "宿舍楼", "核心景点", "食堂", "图书馆");
 
     private final FacilityMapper facilityMapper;
+    private final NavigationDataService navigationDataService;
 
     public FacilitySearchService(FacilityMapper facilityMapper) {
+        this(facilityMapper, null);
+    }
+
+    @Autowired
+    public FacilitySearchService(FacilityMapper facilityMapper, NavigationDataService navigationDataService) {
         this.facilityMapper = facilityMapper;
+        this.navigationDataService = navigationDataService;
     }
     /**
      * 按用户当前位置搜索附近设施。fromLat/fromLon 是当前位置，facilityType 和 keyword 是过滤条件，maxDistanceMeters 是最大距离限制；返回结果按距离升序排列。
@@ -30,7 +43,7 @@ public class FacilitySearchService {
                                                   String facilityType,
                                                   String keyword,
                                                   Double maxDistanceMeters) {
-        return searchNearby(fromLat, fromLon, facilityType, keyword, maxDistanceMeters, null, null);
+        return searchNearby(fromLat, fromLon, null, facilityType, keyword, maxDistanceMeters, null, null);
     }
 
     public List<FacilityQueryResult> searchNearby(Double fromLat,
@@ -40,14 +53,26 @@ public class FacilitySearchService {
                                                   Double maxDistanceMeters,
                                                   String spotName,
                                                   String sceneType) {
+        return searchNearby(fromLat, fromLon, null, facilityType, keyword, maxDistanceMeters, spotName, sceneType);
+    }
+
+    public List<FacilityQueryResult> searchNearby(Double fromLat,
+                                                  Double fromLon,
+                                                  Long fromNodeId,
+                                                  String facilityType,
+                                                  String keyword,
+                                                  Double maxDistanceMeters,
+                                                  String spotName,
+                                                  String sceneType) {
         List<Facility> facilities = facilityMapper.findAll();
 
         return facilities.stream()
+                .filter(FacilitySearchService::isVisibleFacility)
                 .filter(facility -> matchesSpotName(facility, spotName))
                 .filter(facility -> matchesSceneType(facility, sceneType))
                 .filter(facility -> matchesFacilityType(facility, facilityType))
                 .filter(facility -> matchesKeyword(facility, keyword))
-                .map(facility -> toResult(facility, fromLat, fromLon))
+                .map(facility -> toResult(facility, fromLat, fromLon, fromNodeId, spotName))
                 .filter(Objects::nonNull)
                 .filter(result -> maxDistanceMeters == null || result.getDistanceMeters() <= maxDistanceMeters)
                 .sorted(Comparator.comparingDouble(FacilityQueryResult::getDistanceMeters))
@@ -55,10 +80,17 @@ public class FacilitySearchService {
     }
 
     public static boolean isVisibleFacilityTypeForScene(String facilityType, String sceneType) {
+        if (!PlaceVisibilityRules.isPublicFacilityType(facilityType)) {
+            return false;
+        }
         if (!isScenicScene(sceneType)) {
             return true;
         }
         return facilityType != null && !SCENIC_NON_SERVICE_TYPES.contains(facilityType);
+    }
+
+    public static boolean isVisibleFacility(Facility facility) {
+        return facility != null && PlaceVisibilityRules.isPublicFacility(facility.getName(), facility.getFacilityType());
     }
 
     private boolean matchesSpotName(Facility facility, String spotName) {
@@ -86,9 +118,13 @@ public class FacilitySearchService {
      * 将 Facility 实体转换为前端查询结果 DTO，并在传入用户位置时计算距离。
 
      */
-    private FacilityQueryResult toResult(Facility facility, Double fromLat, Double fromLon) {
+    private FacilityQueryResult toResult(Facility facility, Double fromLat, Double fromLon, Long fromNodeId, String spotName) {
         if (fromLat == null || fromLon == null) {
             return null;
+        }
+        Double routeDistance = routeDistanceMeters(facility, fromNodeId, spotName);
+        if (routeDistance != null && Double.isFinite(routeDistance)) {
+            return new FacilityQueryResult(facility, routeDistance);
         }
         LatLng facilityLocation = resolveFacilityLocation(facility);
         if (facilityLocation == null) {
@@ -96,6 +132,44 @@ public class FacilitySearchService {
         }
         double distanceMeters = haversineMeters(fromLat, fromLon, facilityLocation.lat(), facilityLocation.lon());
         return new FacilityQueryResult(facility, distanceMeters);
+    }
+
+    private Double routeDistanceMeters(Facility facility, Long fromNodeId, String spotName) {
+        if (fromNodeId == null || facility.getSourceNearestNodeId() == null || navigationDataService == null) {
+            return null;
+        }
+        Map<Long, List<RoadEdge>> graph = navigationDataService.buildAdjacencyList(spotName);
+        return shortestRouteDistance(graph, fromNodeId, facility.getSourceNearestNodeId());
+    }
+
+    private Double shortestRouteDistance(Map<Long, List<RoadEdge>> graph, Long startNodeId, Long targetNodeId) {
+        if (graph == null || startNodeId == null || targetNodeId == null) {
+            return null;
+        }
+        Map<Long, Double> distances = new HashMap<>();
+        PriorityQueue<NodeDistance> queue = new PriorityQueue<>(Comparator.comparingDouble(NodeDistance::distance));
+        distances.put(startNodeId, 0.0);
+        queue.offer(new NodeDistance(startNodeId, 0.0));
+        while (!queue.isEmpty()) {
+            NodeDistance current = queue.poll();
+            if (current.distance() > distances.getOrDefault(current.nodeId(), Double.POSITIVE_INFINITY)) {
+                continue;
+            }
+            if (current.nodeId().equals(targetNodeId)) {
+                return current.distance();
+            }
+            for (RoadEdge edge : graph.getOrDefault(current.nodeId(), List.of())) {
+                if (edge.getV() == null) {
+                    continue;
+                }
+                double nextDistance = current.distance() + (edge.getLength() == null ? 0.0 : edge.getLength());
+                if (nextDistance < distances.getOrDefault(edge.getV(), Double.POSITIVE_INFINITY)) {
+                    distances.put(edge.getV(), nextDistance);
+                    queue.offer(new NodeDistance(edge.getV(), nextDistance));
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -177,5 +251,8 @@ public class FacilitySearchService {
 
      */
     private record LatLng(double lat, double lon) {
+    }
+
+    private record NodeDistance(Long nodeId, double distance) {
     }
 }

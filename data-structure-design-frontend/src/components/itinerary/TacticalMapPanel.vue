@@ -232,12 +232,12 @@ onBeforeUnmount(() => {
   background: #dbeafe;
 }
 
-.real-map-stage :global(.amap-container),
-.real-map-stage :global(.amap-maps),
-.real-map-stage :global(.amap-layers),
-.real-map-stage :global(.amap-layer),
-.real-map-stage :global(.amap-tile-container),
-.real-map-stage :global(.amap-tile) {
+.real-map-stage:deep(.amap-container),
+.real-map-stage :deep(.amap-maps),
+.real-map-stage :deep(.amap-layers),
+.real-map-stage :deep(.amap-layer),
+.real-map-stage :deep(.amap-tile-container),
+.real-map-stage :deep(.amap-tile) {
   width: 100% !important;
   height: 100% !important;
 }

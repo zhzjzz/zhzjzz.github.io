@@ -54,16 +54,33 @@ public class MultiSpotRoutePlanner {
         double totalDistance = 0.0;
         double totalTime = 0.0;
 
-        List<List<Long>> orderedVisitNodes = new ArrayList<>();
+        List<VisitPlan> visitPlans = new ArrayList<>();
         for (MultiSpotNavigationRequest.SpotVisit visit : visits) {
-            orderedVisitNodes.add(resolveVisitNodes(visit));
+            List<Long> nodes = resolveVisitNodes(visit);
+            Map<Long, List<RoadEdge>> adj = navigationDataService.buildAdjacencyList(visit.getSpotName());
+            visitPlans.add(new VisitPlan(visit, nodes, adj));
+        }
+        visitPlans = optimizeSpotOrderIfRequested(visitPlans, request.getStrategy(), request.getOptimizeVisitOrder());
+
+        List<List<Long>> orderedVisitNodes = new ArrayList<>();
+        for (int i = 0; i < visitPlans.size(); i++) {
+            VisitPlan visitPlan = visitPlans.get(i);
+            Long startNodeId = i == 0 ? request.getStartNodeId() : null;
+            orderedVisitNodes.add(optimizeNodeOrderIfRequested(
+                    visitPlan.nodes(),
+                    visitPlan.adjacency(),
+                    request.getStrategy(),
+                    normalizeMode(visitPlan.visit().getTransportMode()),
+                    request.getOptimizeVisitOrder(),
+                    startNodeId
+            ));
         }
 
-        for (int i = 0; i < visits.size(); i++) {
-            MultiSpotNavigationRequest.SpotVisit current = visits.get(i);
+        for (int i = 0; i < visitPlans.size(); i++) {
+            MultiSpotNavigationRequest.SpotVisit current = visitPlans.get(i).visit();
             String currentSpot = current.getSpotName();
             String currentMode = normalizeMode(current.getTransportMode());
-            Map<Long, List<RoadEdge>> currentAdj = navigationDataService.buildAdjacencyList(currentSpot);
+            Map<Long, List<RoadEdge>> currentAdj = visitPlans.get(i).adjacency();
             List<Long> currentNodes = orderedVisitNodes.get(i);
 
             if (currentNodes.size() >= 2) {
@@ -88,8 +105,8 @@ public class MultiSpotRoutePlanner {
                 }
             }
 
-            if (i < visits.size() - 1) {
-                MultiSpotNavigationRequest.SpotVisit next = visits.get(i + 1);
+            if (i < visitPlans.size() - 1) {
+                MultiSpotNavigationRequest.SpotVisit next = visitPlans.get(i + 1).visit();
                 String nextSpot = next.getSpotName();
                 if (sameSpot(currentSpot, nextSpot)) {
                     continue;
@@ -106,7 +123,7 @@ public class MultiSpotRoutePlanner {
                 Long toNode = nextNodes.isEmpty() ? toGate.getOsmid() : nextNodes.get(0);
 
                 NavigationResponse exit = planByStrategy(
-                        navigationDataService.buildAdjacencyList(currentSpot),
+                        currentAdj,
                         fromNode,
                         fromGate.getOsmid(),
                         request.getStrategy(),
@@ -131,7 +148,7 @@ public class MultiSpotRoutePlanner {
 
                 String nextMode = normalizeMode(next.getTransportMode());
                 NavigationResponse enter = planByStrategy(
-                        navigationDataService.buildAdjacencyList(nextSpot),
+                        visitPlans.get(i + 1).adjacency(),
                         toGate.getOsmid(),
                         toNode,
                         request.getStrategy(),
@@ -151,9 +168,181 @@ public class MultiSpotRoutePlanner {
             }
         }
 
+        if (Boolean.TRUE.equals(request.getReturnToStart()) && request.getStartNodeId() != null && !visitPlans.isEmpty()) {
+            MultiSpotNavigationRequest.SpotVisit firstVisit = visitPlans.get(0).visit();
+            int lastIndex = visitPlans.size() - 1;
+            MultiSpotNavigationRequest.SpotVisit lastVisit = visitPlans.get(lastIndex).visit();
+            List<Long> lastNodes = orderedVisitNodes.get(lastIndex);
+            if (!lastNodes.isEmpty()) {
+                String lastSpot = lastVisit.getSpotName();
+                String firstSpot = firstVisit.getSpotName();
+                String lastMode = normalizeMode(lastVisit.getTransportMode());
+                Long lastNode = lastNodes.get(lastNodes.size() - 1);
+                if (sameSpot(lastSpot, firstSpot)) {
+                    NavigationResponse back = planByStrategy(
+                            visitPlans.get(lastIndex).adjacency(),
+                            lastNode,
+                            request.getStartNodeId(),
+                            request.getStrategy(),
+                            lastMode
+                    );
+                    MultiSpotNavigationResponse.RouteSegment backSegment = createInnerSegment(
+                            lastSpot,
+                            lastNode,
+                            request.getStartNodeId(),
+                            lastMode,
+                            back
+                    );
+                    backSegment.setType("return_to_start");
+                    resp.getSegments().add(backSegment);
+                    totalDistance += safe(backSegment.getDistance());
+                    totalTime += safe(backSegment.getTime());
+                } else {
+                    RoadNode lastGate = navigationDataService.getGateNode(lastSpot);
+                    RoadNode firstGate = navigationDataService.getGateNode(firstSpot);
+                    if (lastGate != null && firstGate != null) {
+                        NavigationResponse exit = planByStrategy(
+                                visitPlans.get(lastIndex).adjacency(),
+                                lastNode,
+                                lastGate.getOsmid(),
+                                request.getStrategy(),
+                                lastMode
+                        );
+                        MultiSpotNavigationResponse.RouteSegment exitSegment = createInnerSegment(
+                                lastSpot,
+                                lastNode,
+                                lastGate.getOsmid(),
+                                lastMode,
+                                exit
+                        );
+                        exitSegment.setType("spot_exit");
+                        resp.getSegments().add(exitSegment);
+                        totalDistance += safe(exitSegment.getDistance());
+                        totalTime += safe(exitSegment.getTime());
+
+                        MultiSpotNavigationResponse.RouteSegment citySegment = createCitySegment(lastSpot, firstSpot, lastGate, firstGate);
+                        resp.getSegments().add(citySegment);
+                        totalDistance += safe(citySegment.getDistance());
+                        totalTime += safe(citySegment.getTime());
+
+                        String firstMode = normalizeMode(firstVisit.getTransportMode());
+                        NavigationResponse enter = planByStrategy(
+                                visitPlans.get(0).adjacency(),
+                                firstGate.getOsmid(),
+                                request.getStartNodeId(),
+                                request.getStrategy(),
+                                firstMode
+                        );
+                        MultiSpotNavigationResponse.RouteSegment enterSegment = createInnerSegment(
+                                firstSpot,
+                                firstGate.getOsmid(),
+                                request.getStartNodeId(),
+                                firstMode,
+                                enter
+                        );
+                        enterSegment.setType("return_to_start");
+                        resp.getSegments().add(enterSegment);
+                        totalDistance += safe(enterSegment.getDistance());
+                        totalTime += safe(enterSegment.getTime());
+                    }
+                }
+            }
+        }
+
         resp.setTotalDistance(totalDistance);
         resp.setTotalTime(totalTime);
         return resp;
+    }
+
+    private List<VisitPlan> optimizeSpotOrderIfRequested(List<VisitPlan> visitPlans,
+                                                         String strategy,
+                                                         Boolean optimizeVisitOrder) {
+        if (!Boolean.TRUE.equals(optimizeVisitOrder) || visitPlans.size() <= 2) {
+            return visitPlans;
+        }
+        List<VisitPlan> remaining = new ArrayList<>(visitPlans);
+        List<VisitPlan> ordered = new ArrayList<>();
+        VisitPlan current = remaining.remove(0);
+        ordered.add(current);
+        while (!remaining.isEmpty()) {
+            VisitPlan next = nearestVisitPlan(current, remaining, strategy);
+            ordered.add(next);
+            remaining.remove(next);
+            current = next;
+        }
+        return ordered;
+    }
+
+    private VisitPlan nearestVisitPlan(VisitPlan current, List<VisitPlan> remaining, String strategy) {
+        VisitPlan nearest = remaining.get(0);
+        double bestCost = Double.POSITIVE_INFINITY;
+        for (VisitPlan candidate : remaining) {
+            double cost = transitionCost(current, candidate, strategy);
+            if (cost < bestCost) {
+                bestCost = cost;
+                nearest = candidate;
+            }
+        }
+        return nearest;
+    }
+
+    private double transitionCost(VisitPlan current, VisitPlan candidate, String strategy) {
+        if (sameSpot(current.spotName(), candidate.spotName())) {
+            Long fromNode = current.lastNode();
+            Long toNode = candidate.firstNode();
+            if (fromNode == null || toNode == null) {
+                return 0.0;
+            }
+            NavigationResponse route = planByStrategy(
+                    current.adjacency(),
+                    fromNode,
+                    toNode,
+                    strategy,
+                    normalizeMode(current.visit().getTransportMode())
+            );
+            if (route.getPath() == null || route.getPath().isEmpty()) {
+                return Double.POSITIVE_INFINITY;
+            }
+            return strategyCost(route.getTotalDistance(), route.getTotalTime(), strategy);
+        }
+
+        CityRoute cityRoute = cityRouteService.findByFromAndTo(current.spotName(), candidate.spotName());
+        if (cityRoute == null) {
+            cityRoute = cityRouteService.findByFromAndTo(candidate.spotName(), current.spotName());
+        }
+        if (cityRoute != null) {
+            return isShortestTime(strategy)
+                    ? cityRouteTimeSeconds(cityRoute)
+                    : cityRouteDistanceMeters(cityRoute);
+        }
+        RoadNode fromGate = navigationDataService.getGateNode(current.spotName());
+        RoadNode toGate = navigationDataService.getGateNode(candidate.spotName());
+        return gateDistanceMeters(fromGate, toGate);
+    }
+
+    private double strategyCost(Double distance, Double time, String strategy) {
+        return isShortestTime(strategy) ? safe(time) : safe(distance);
+    }
+
+    private boolean isShortestTime(String strategy) {
+        return "SHORTEST_TIME".equalsIgnoreCase(strategy == null ? "" : strategy.trim());
+    }
+
+    private double gateDistanceMeters(RoadNode fromGate, RoadNode toGate) {
+        if (fromGate == null || toGate == null
+                || fromGate.getX() == null || fromGate.getY() == null
+                || toGate.getX() == null || toGate.getY() == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double lat1 = Math.toRadians(fromGate.getY());
+        double lat2 = Math.toRadians(toGate.getY());
+        double deltaLat = Math.toRadians(toGate.getY() - fromGate.getY());
+        double deltaLng = Math.toRadians(toGate.getX() - fromGate.getX());
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(lat1) * Math.cos(lat2)
+                * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return 6371000.0 * c;
     }
 
     private List<Long> resolveVisitNodes(MultiSpotNavigationRequest.SpotVisit visit) {
@@ -182,6 +371,55 @@ public class MultiSpotRoutePlanner {
             case "SHORTEST_TIME" -> shortestTimePath(adj, start, end, transportMode);
             default -> shortestDistancePath(adj, start, end, transportMode);
         };
+    }
+
+    private List<Long> optimizeNodeOrderIfRequested(List<Long> nodes,
+                                                    Map<Long, List<RoadEdge>> adj,
+                                                    String strategy,
+                                                    String transportMode,
+                                                    Boolean optimizeVisitOrder,
+                                                    Long startNodeId) {
+        if (!Boolean.TRUE.equals(optimizeVisitOrder) || nodes.size() <= 1) {
+            if (startNodeId != null && !nodes.contains(startNodeId)) {
+                List<Long> withStart = new ArrayList<>();
+                withStart.add(startNodeId);
+                withStart.addAll(nodes);
+                return withStart;
+            }
+            return nodes;
+        }
+        List<Long> remaining = new ArrayList<>(nodes);
+        List<Long> ordered = new ArrayList<>();
+        Long current = startNodeId != null ? startNodeId : remaining.remove(0);
+        ordered.add(current);
+        remaining.remove(current);
+        while (!remaining.isEmpty()) {
+            Long next = nearestNode(current, remaining, adj, strategy, transportMode);
+            ordered.add(next);
+            remaining.remove(next);
+            current = next;
+        }
+        return ordered;
+    }
+
+    private Long nearestNode(Long current,
+                             List<Long> remaining,
+                             Map<Long, List<RoadEdge>> adj,
+                             String strategy,
+                             String transportMode) {
+        Long nearest = remaining.get(0);
+        double bestDistance = Double.POSITIVE_INFINITY;
+        for (Long candidate : remaining) {
+            NavigationResponse route = planByStrategy(adj, current, candidate, strategy, transportMode);
+            double distance = route.getPath() == null || route.getPath().isEmpty()
+                    ? Double.POSITIVE_INFINITY
+                    : safe(route.getTotalDistance());
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                nearest = candidate;
+            }
+        }
+        return nearest;
     }
 
     private NavigationResponse shortestDistancePath(Map<Long, List<RoadEdge>> adj, Long start, Long end, String mode) {
@@ -379,6 +617,22 @@ public class MultiSpotRoutePlanner {
 
     private String normalizeSpotName(String spotName) {
         return spotName == null ? "" : spotName.trim().toLowerCase();
+    }
+
+    private record VisitPlan(MultiSpotNavigationRequest.SpotVisit visit,
+                             List<Long> nodes,
+                             Map<Long, List<RoadEdge>> adjacency) {
+        private String spotName() {
+            return visit == null ? "" : visit.getSpotName();
+        }
+
+        private Long firstNode() {
+            return nodes == null || nodes.isEmpty() ? null : nodes.get(0);
+        }
+
+        private Long lastNode() {
+            return nodes == null || nodes.isEmpty() ? null : nodes.get(nodes.size() - 1);
+        }
     }
 
     @FunctionalInterface

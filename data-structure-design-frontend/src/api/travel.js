@@ -5,8 +5,9 @@ export const login = (payload) => http.post('/auth/login', payload)
 export const register = (payload) => http.post('/auth/register', payload)
 
 // 目的地推荐与检索相关接口。
-export const getTopDestinations = (k = 10, mode = 'composite') => http.get('/destinations/top', { params: { k, mode } })
-export const searchDestinations = (keyword) => http.get('/destinations', { params: { keyword } })
+export const getTopDestinations = (k = 10, mode = 'composite', interest = '') =>
+  http.get('/destinations/top', { params: { k, mode, interest } })
+export const searchDestinations = (keyword, sort = '') => http.get('/destinations', { params: { keyword, sort } })
 
 // 美食推荐接口。
 export const getTopFoods = (k = 10) => http.get('/foods/top', { params: { k } })
@@ -21,6 +22,11 @@ export const getDiary = (id) => http.get(`/diaries/${id}`)
 export const createDiary = (payload) => http.post('/diaries', payload)
 export const deleteDiary = (id) => http.delete(`/diaries/${id}`)
 export const searchDiaryFullText = (keyword, limit = 20) => http.get('/diaries/search', { params: { keyword, limit } })
+export const searchDiariesByDestination = (keyword, limit = 20) =>
+  http.get('/diaries/by-destination', { params: { keyword, limit } })
+export const searchDiaryExactTitle = (title) => http.get('/diaries/exact-title', { params: { title } })
+export const rateDiary = (id, score) => http.post(`/diaries/${id}/rating`, null, { params: { score } })
+export const generateDiaryAigcImage = (id) => http.post(`/diaries/${id}/aigc-image`)
 export const listHotDiaries = (limit = 6) => http.get('/diaries/hot', { params: { limit } })
 export const getSharedDiary = (token) => http.get(`/diaries/share/${token}`)
 export const interactDiary = (id, type) => http.post(`/diaries/${id}/interactions/${type}`)
@@ -55,6 +61,7 @@ export const listNavPoisBySpot = (spotName) => http.get('/nav/pois/by-spot', { p
 export const planSingleRoute = (payload) => http.post('/nav/route/plan', payload)
 export const planCrossSpotRoute = (payload) => http.post('/nav/route/cross-spot', payload)
 export const planMultiSpotRoute = (payload) => http.post('/nav/route/multi-spot', payload)
+export const planIndoorRoute = (payload) => http.post('/nav/indoor/plan', payload)
 export const getNavNodes = (spotName) => http.get('/nav/route/nodes', { params: { spotName } })
 export const getNavEdges = (spotName) => http.get('/nav/route/edges', { params: { spotName } })
 

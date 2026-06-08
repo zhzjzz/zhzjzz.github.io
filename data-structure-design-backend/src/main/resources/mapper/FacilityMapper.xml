@@ -10,6 +10,7 @@
         <result column="name" property="name"/>
         <result column="facility_type" property="facilityType"/>
         <result column="source_type" property="sourceType"/>
+        <result column="source_nearest_node_id" property="sourceNearestNodeId"/>
         <result column="latitude" property="latitude"/>
         <result column="longitude" property="longitude"/>
         <association property="destination" javaType="com.travel.system.model.Destination">
@@ -30,6 +31,7 @@
                b.name AS name,
                b.type AS facility_type,
                'building' AS source_type,
+               b.nearest_node_id AS source_nearest_node_id,
                n.y AS latitude,
                n.x AS longitude,
                NULL AS destination_id,
@@ -49,6 +51,7 @@
                p.name AS name,
                p.type AS facility_type,
                'poi' AS source_type,
+               p.nearest_node_id AS source_nearest_node_id,
                n.y AS latitude,
                n.x AS longitude,
                NULL AS destination_id,
@@ -73,6 +76,7 @@
                    b.name AS name,
                    b.type AS facility_type,
                    'building' AS source_type,
+                   b.nearest_node_id AS source_nearest_node_id,
                    n.y AS latitude,
                    n.x AS longitude,
                    NULL AS destination_id,
@@ -92,6 +96,7 @@
                    p.name AS name,
                    p.type AS facility_type,
                    'poi' AS source_type,
+                   p.nearest_node_id AS source_nearest_node_id,
                    n.y AS latitude,
                    n.x AS longitude,
                    NULL AS destination_id,
@@ -138,6 +143,8 @@
         SELECT f.id,
                f.name,
                f.facility_type,
+               NULL AS source_type,
+               NULL AS source_nearest_node_id,
                f.latitude,
                f.longitude,
                f.destination_id,

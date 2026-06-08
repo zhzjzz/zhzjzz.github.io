@@ -254,6 +254,11 @@ public class FoodService {
                     .sorted((a, b) -> Double.compare(safe(b.getRating()), safe(a.getRating())))
                     .toList();
         }
+        if ("heat".equalsIgnoreCase(sort)) {
+            return foods.stream()
+                    .sorted((a, b) -> Double.compare(safe(b.getHeat()), safe(a.getHeat())))
+                    .toList();
+        }
         if ("distance".equalsIgnoreCase(sort) || hasAnchor && (sort == null || "recommend".equalsIgnoreCase(sort))) {
             return foods.stream()
                     .sorted(Comparator
@@ -268,7 +273,7 @@ public class FoodService {
                     .sorted((a, b) -> Double.compare(destinationHeat(b), destinationHeat(a)))
                     .toList();
         }
-        return recommendationService.topKFood(foods, foods.size());
+        return recommendationService.topKFood(foods, Math.min(10, foods.size()));
     }
 
     private SearchIntent resolveSearchIntent(String keyword,

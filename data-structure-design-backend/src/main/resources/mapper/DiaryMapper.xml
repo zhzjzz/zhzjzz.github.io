@@ -148,6 +148,23 @@
         LIMIT #{limit}
     </select>
 
+    <select id="findByDestinationKeyword" resultMap="diaryResultMap">
+        SELECT <include refid="diarySummaryColumns"/>
+        FROM diary dr
+        LEFT JOIN destination d ON d.id = dr.destination_id
+        WHERE LOWER(d.name) LIKE '%' || LOWER(#{keyword}) || '%'
+        ORDER BY dr.heat_score DESC, dr.score DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByExactTitle" resultMap="diaryResultMap">
+        SELECT <include refid="diaryColumns"/>
+        FROM diary dr
+        LEFT JOIN destination d ON d.id = dr.destination_id
+        WHERE LOWER(dr.title) = LOWER(#{title})
+        LIMIT 1
+    </select>
+
     <select id="findHotPublic" resultMap="diaryResultMap">
         SELECT <include refid="diarySummaryColumns"/>
         FROM diary dr
@@ -212,6 +229,13 @@
             favorite_count = #{favoriteCount},
             comment_count = #{commentCount},
             share_count = #{shareCount},
+            heat_score = #{heatScore}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateScore">
+        UPDATE diary
+        SET score = #{score},
             heat_score = #{heatScore}
         WHERE id = #{id}
     </update>

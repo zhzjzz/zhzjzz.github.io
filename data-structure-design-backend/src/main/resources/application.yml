@@ -32,3 +32,9 @@ llm:
   model: ${LLM_MODEL:${SILICONFLOW_MODEL:}}
   temperature: ${LLM_TEMPERATURE:0.4}
   timeout-seconds: ${LLM_TIMEOUT_SECONDS:90}
+
+aigc:
+  image:
+    api-url: ${AIGC_IMAGE_API_URL:}
+    api-key: ${AIGC_IMAGE_API_KEY:}
+    model: ${AIGC_IMAGE_MODEL:}

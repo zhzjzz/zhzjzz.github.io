@@ -2,7 +2,7 @@
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, MapDraw, MapRoad, Search, Shop } from '@icon-park/vue-next'
-import { getTopFoods } from '../api/travel'
+import { getTopFoods, searchAmapFoods } from '../api/travel'
 import heroImage from '../assets/workshop-extracted/workshop-2827305814-1.jpg'
 import foodDefaultImage from '../assets/defaults/food-default.png'
 
@@ -10,6 +10,8 @@ const router = useRouter()
 const route = useRoute()
 const foods = ref([])
 const foodError = ref('')
+const homeFoodLimit = 6
+const homeFoodPlace = '天安门'
 
 const heroMetrics = [
   { value: '24h', label: '短途灵感' },
@@ -49,12 +51,29 @@ const editorialCards = [
 
 const loadFoods = async () => {
   try {
-    const { data } = await getTopFoods(6)
-    foods.value = Array.isArray(data) ? data : []
+    const { data } = await searchAmapFoods({
+      place: homeFoodPlace,
+      sort: 'distance',
+      radiusMeters: 5000,
+      limit: homeFoodLimit,
+    })
+    if (Array.isArray(data) && data.length) {
+      foods.value = data
+      foodError.value = ''
+      return
+    }
+    const { data: localData } = await getTopFoods(homeFoodLimit)
+    foods.value = Array.isArray(localData) ? localData : []
     foodError.value = ''
   } catch (error) {
-    foods.value = []
-    foodError.value = '美食推荐暂时不可用'
+    try {
+      const { data } = await getTopFoods(homeFoodLimit)
+      foods.value = Array.isArray(data) ? data : []
+      foodError.value = ''
+    } catch (fallbackError) {
+      foods.value = []
+      foodError.value = '美食推荐暂时不可用'
+    }
   }
 }
 

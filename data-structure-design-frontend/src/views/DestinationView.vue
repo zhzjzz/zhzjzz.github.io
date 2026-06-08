@@ -10,10 +10,15 @@ const keyword = ref('')
 const rows = ref([])
 const loading = ref(false)
 const rankMode = ref('composite')
+const interest = ref('')
+const interestOptions = ['自然', '历史', '校园', '亲子']
+const searchSort = ref('')
+const isSearchMode = ref(false)
 
 const topRows = computed(() => rows.value.slice(0, 10))
 const featured = computed(() => topRows.value[0] || null)
 const maxHeat = computed(() => Math.max(...topRows.value.map((item) => Number(item.heat) || 0), 1))
+const hasSortableSearchResults = computed(() => isSearchMode.value && rows.value.length > 1)
 
 const modeLabel = computed(() => {
   const labels = {
@@ -34,7 +39,9 @@ const destinationImage = (item) => {
 const loadTop = async () => {
   loading.value = true
   try {
-    const { data } = await getTopDestinations(10, rankMode.value)
+    isSearchMode.value = false
+    searchSort.value = ''
+    const { data } = await getTopDestinations(10, rankMode.value, interest.value)
     rows.value = data
   } finally {
     loading.value = false
@@ -48,12 +55,19 @@ const doSearch = async () => {
   }
   loading.value = true
   try {
-    const { data } = await searchDestinations(keyword.value)
+    const { data } = await searchDestinations(keyword.value, searchSort.value)
     rows.value = data
+    isSearchMode.value = true
     ElMessage.success(`已找到 ${data.length} 条结果`)
   } finally {
     loading.value = false
   }
+}
+
+const setSearchSort = async (sort) => {
+  if (searchSort.value === sort) return
+  searchSort.value = sort
+  await doSearch()
 }
 
 onMounted(loadTop)
@@ -87,17 +101,26 @@ onMounted(loadTop)
             <el-option label="热度 Top10" value="heat" />
           </el-select>
         </el-col>
-        <el-col :md="6" :xs="24" class="btn-group">
+        <el-col :md="4" :xs="24">
+          <el-select v-model="interest" size="large" class="full-width" clearable placeholder="兴趣" @change="loadTop">
+            <el-option v-for="option in interestOptions" :key="option" :label="option" :value="option" />
+          </el-select>
+        </el-col>
+        <el-col :md="4" :xs="24" class="btn-group">
           <el-button type="primary" size="large" @click="doSearch">
             <Search theme="outline" size="17" fill="currentColor" />
             检索
           </el-button>
-          <el-button size="large" @click="loadTop">
-            <Ranking theme="outline" size="17" fill="currentColor" />
-            Top10
-          </el-button>
         </el-col>
       </el-row>
+
+      <div v-if="hasSortableSearchResults" class="search-sort-bar">
+        <span>查询结果排序</span>
+        <el-button-group>
+          <el-button :type="searchSort === 'heat' ? 'primary' : 'default'" @click="setSearchSort('heat')">热度优先</el-button>
+          <el-button :type="searchSort === 'rating' ? 'primary' : 'default'" @click="setSearchSort('rating')">评分优先</el-button>
+        </el-button-group>
+      </div>
 
       <section v-if="featured" class="leaderboard-layout reveal-in">
         <article class="featured-destination">
@@ -173,6 +196,20 @@ onMounted(loadTop)
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.search-sort-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin: -4px 0 16px;
+}
+
+.search-sort-bar span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .leaderboard-layout {

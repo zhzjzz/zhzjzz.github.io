@@ -12,7 +12,15 @@ import java.util.List;
 public class MultiSpotNavigationRequest {
     private String strategy;
     private Boolean optimizeVisitOrder;
+    private Long startNodeId;
+    private Boolean returnToStart;
     private List<SpotVisit> visits;
+
+    public MultiSpotNavigationRequest(String strategy, Boolean optimizeVisitOrder, List<SpotVisit> visits) {
+        this.strategy = strategy;
+        this.optimizeVisitOrder = optimizeVisitOrder;
+        this.visits = visits;
+    }
 
     @Data
     @NoArgsConstructor

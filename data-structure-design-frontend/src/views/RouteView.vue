@@ -3,8 +3,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AMapLoader from '@amap/amap-jsapi-loader'
 import { Delete, MapDistance, MapRoad, Plus, PreviewOpen, Ranking, Timer } from '@icon-park/vue-next'
-import { getNavNodes, listNavBuildingsBySpot, listNavPoisBySpot, planMultiSpotRoute, searchNavSpots } from '../api/travel'
+import { getNavNodes, listNavBuildingsBySpot, listNavPoisBySpot, planIndoorRoute, planMultiSpotRoute, searchNavSpots } from '../api/travel'
 import { wgs84ToGcj02, wgs84ToGcj02Batch } from '../utils/coordTransform'
+import { isPublicFacilityPlace } from '../utils/placeVisibility'
 import routeDefaultImage from '../assets/defaults/route-default.png'
 
 const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
@@ -27,12 +28,20 @@ const drivingLayers = ref([])
 const markerOverlays = ref([])
 const loading = ref(false)
 const demoLoading = ref(false)
+const indoorLoading = ref(false)
 const nodeLoading = ref(false)
 const routeResult = ref(null)
+const indoorResult = ref(null)
 const strategy = ref('SHORTEST_TIME')
-const optimizeVisitOrder = ref(false)
+const optimizeVisitOrder = ref(true)
+const returnToStart = ref(true)
 const visits = ref([])
-const demoSpotKeywords = ['西湖', '故宫', '公园', '大学']
+const indoorForm = ref({
+  buildingName: '场馆A',
+  from: '大门',
+  to: '302教室',
+})
+const demoSpotKeywords = ['故宫', '天坛', '公园', '博物馆', '大学']
 
 const newVisit = () => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -286,7 +295,7 @@ const loadVisitData = async (visit) => {
     visit.places = [
       ...(Array.isArray(buildingsRes.data) ? buildingsRes.data : []),
       ...(Array.isArray(poisRes.data) ? poisRes.data : []),
-    ]
+    ].filter((place) => isPublicFacilityPlace(place.name, place.type))
     const defaults = visit.places
       .filter((item) => item.nearestNodeId != null)
       .slice(0, 2)
@@ -321,12 +330,12 @@ const onSpotInput = (visit, value) => {
 const findDemoSpots = async () => {
   const selected = []
   for (const keyword of demoSpotKeywords) {
-    const { data } = await searchNavSpots({ keyword, limit: 4 })
+    const { data } = await searchNavSpots({ keyword, limit: 5 })
     for (const spot of data || []) {
       if (spot?.name && !selected.some((item) => item.name === spot.name)) {
         selected.push(spot)
       }
-      if (selected.length >= 2) return selected
+      if (selected.length >= 3) return selected
     }
   }
   return selected
@@ -334,7 +343,7 @@ const findDemoSpots = async () => {
 
 const chooseDemoNodeIds = (visit) => {
   const options = nodeOptions(visit)
-  return options.slice(0, 2).map((item) => item.value).filter((value) => value != null)
+  return options.slice(0, 3).map((item) => item.value).filter((value) => value != null).reverse()
 }
 
 const applyDemoScenario = async () => {
@@ -344,11 +353,11 @@ const applyDemoScenario = async () => {
   clearMarkers()
   try {
     const spots = await findDemoSpots()
-    if (spots.length < 1) {
-      ElMessage.warning('没有找到可用于演示的景区数据，请手动搜索景区')
+    if (spots.length < 3) {
+      ElMessage.warning('没有找到 3 个可用于演示的景区数据，请手动搜索景区')
       return
     }
-    visits.value = spots.slice(0, 2).map((spot, index) => ({
+    visits.value = spots.slice(0, 3).map((spot, index) => ({
       ...newVisit(),
       spotInput: spot.name,
       spot,
@@ -362,7 +371,7 @@ const applyDemoScenario = async () => {
     optimizeVisitOrder.value = true
     drawSelectedMarkers()
     refreshMapView()
-    ElMessage.success('演示路线参数已填充，可以直接点击规划路线')
+    ElMessage.success('演示路线已填充 3 个景点，并开启景区与地点顺序优化')
   } catch (error) {
     console.error(error)
     ElMessage.error('演示数据填充失败，请检查后端服务和数据库')
@@ -395,6 +404,8 @@ const moveVisit = (index, direction) => {
 const buildPayload = () => ({
   strategy: strategy.value,
   optimizeVisitOrder: optimizeVisitOrder.value,
+  startNodeId: visits.value.find((visit) => visit.nodeIds?.length)?.nodeIds?.[0] || null,
+  returnToStart: returnToStart.value,
   visits: visits.value
     .filter((visit) => visit.spot?.name)
     .map((visit) => ({
@@ -447,6 +458,17 @@ const submit = async () => {
   }
 }
 
+const submitIndoor = async () => {
+  indoorLoading.value = true
+  try {
+    const { data } = await planIndoorRoute(indoorForm.value)
+    indoorResult.value = data
+    ElMessage.success('室内导航已生成')
+  } finally {
+    indoorLoading.value = false
+  }
+}
+
 onMounted(async () => {
   await nextTick()
   await initMap()
@@ -487,10 +509,15 @@ onBeforeUnmount(() => {
         </el-radio-group>
         <el-switch
           v-model="optimizeVisitOrder"
-          active-text="优化景区内地点顺序"
+          active-text="优化景区与地点顺序"
           inactive-text="按选择顺序访问"
         />
         <div class="toolbar-actions">
+          <el-switch
+            v-model="returnToStart"
+            active-text="返回起点"
+            inactive-text="不返回"
+          />
           <el-button :loading="demoLoading" @click="applyDemoScenario">
             <PreviewOpen theme="outline" size="16" fill="currentColor" />
             演示模式
@@ -503,6 +530,19 @@ onBeforeUnmount(() => {
             <MapRoad theme="outline" size="16" fill="currentColor" />
             规划路线
           </el-button>
+        </div>
+      </div>
+
+      <div class="indoor-panel">
+        <div class="indoor-fields">
+          <el-input v-model="indoorForm.buildingName" placeholder="场馆A" />
+          <el-input v-model="indoorForm.from" placeholder="大门" />
+          <el-input v-model="indoorForm.to" placeholder="302教室" />
+          <el-button type="primary" :loading="indoorLoading" @click="submitIndoor">室内导航</el-button>
+        </div>
+        <div v-if="indoorResult" class="indoor-result">
+          <strong>{{ indoorResult.buildingName }} · {{ indoorResult.distanceMeters }} m</strong>
+          <span v-for="step in indoorResult.steps" :key="step">{{ step }}</span>
         </div>
       </div>
 
@@ -534,7 +574,7 @@ onBeforeUnmount(() => {
                   collapse-tags
                   collapse-tags-tooltip
                   :loading="nodeLoading"
-                  placeholder="选择建筑、POI 或路网节点"
+                  placeholder="选择地点、POI 或路网节点"
                   @change="drawSelectedMarkers"
                 >
                   <el-option
@@ -659,7 +699,35 @@ onBeforeUnmount(() => {
 
 .toolbar-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
+}
+
+.indoor-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.indoor-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 10px;
+}
+
+.indoor-result {
+  display: grid;
+  gap: 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.indoor-result strong {
+  color: #111827;
 }
 
 .visit-list {

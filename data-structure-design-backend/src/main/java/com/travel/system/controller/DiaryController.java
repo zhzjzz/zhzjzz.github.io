@@ -72,6 +72,17 @@ public class DiaryController {
         return diaryService.fullTextSearch(keyword);
     }
 
+    @GetMapping("/by-destination")
+    public List<Diary> byDestination(@RequestParam String keyword,
+                                     @RequestParam(defaultValue = "20") int limit) {
+        return diaryService.byDestination(keyword, limit);
+    }
+
+    @GetMapping("/exact-title")
+    public Diary exactTitle(@RequestParam String title) {
+        return diaryService.findExactTitle(title);
+    }
+
     @Operation(summary = "热门公开游记", description = "按热度评分和浏览量返回公开日记")
     @GetMapping("/hot")
     public List<Diary> hot(@RequestParam(defaultValue = "6") int limit) {
@@ -88,6 +99,16 @@ public class DiaryController {
     @PostMapping("/{id}/interactions/{type}")
     public Diary interact(@PathVariable Long id, @PathVariable String type) {
         return diaryService.interact(id, type);
+    }
+
+    @PostMapping("/{id}/rating")
+    public Diary rate(@PathVariable Long id, @RequestParam Double score) {
+        return diaryService.rate(id, score);
+    }
+
+    @PostMapping("/{id}/aigc-image")
+    public Diary generateAigcImage(@PathVariable Long id) {
+        return diaryService.generateAigcImage(id);
     }
 
     @Operation(summary = "查询日记评论")

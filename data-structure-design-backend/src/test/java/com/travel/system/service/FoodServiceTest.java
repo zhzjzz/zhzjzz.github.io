@@ -47,6 +47,30 @@ class FoodServiceTest {
     }
 
     @Test
+    void searchSortsByFoodHeat() {
+        Destination campus = destination(1L, "Campus", 50.0, 39.0, 116.0);
+        Food cool = food(1L, "Noodles", "Jing cuisine", "A", 4.8, 20.0, null, null, campus);
+        Food hot = food(2L, "Rice", "Jing cuisine", "B", 4.1, 95.0, null, null, campus);
+        when(foodMapper.findAll()).thenReturn(List.of(cool, hot));
+
+        List<Food> results = service.search(null, null, null, "heat", 10);
+
+        assertThat(results).extracting(Food::getName).containsExactly("Rice", "Noodles");
+    }
+
+    @Test
+    void recommendSearchUsesRequestedTopKLimit() {
+        Destination campus = destination(1L, "Campus", 99.0, 39.0, 116.0);
+        Food weak = food(1L, "Weak", "Jing cuisine", "A", 3.0, 10.0, null, null, campus);
+        Food strong = food(2L, "Strong", "Jing cuisine", "B", 5.0, 99.0, null, null, campus);
+        when(foodMapper.findAll()).thenReturn(List.of(weak, strong));
+
+        List<Food> results = service.search(null, null, null, "recommend", 1);
+
+        assertThat(results).extracting(Food::getName).containsExactly("Strong");
+    }
+
+    @Test
     void searchNearKnownPlaceFiltersCuisineAndSortsByDistance() {
         Food qianmen = food(1L, "Luzhu", "Jing cuisine", "Qianmen old taste", 4.4, 90d,
                 39.8994, 116.3976, destination(11L, "Dashilar", 80d, 39.8994, 116.3976));

@@ -2,19 +2,22 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MapDistance, Refresh, Search, Shop } from '@icon-park/vue-next'
-import { listDestinations, listFacilityTypes, searchNearbyFacilities } from '../api/travel'
+import { listDestinations, listFacilityTypes, listNavBuildingsBySpot, listNavPoisBySpot, searchNearbyFacilities } from '../api/travel'
 import facilityDefaultImage from '../assets/defaults/facility-default.png'
 import facilityFoodImage from '../assets/defaults/facility-food-default.png'
 import facilityShopImage from '../assets/defaults/facility-shop-default.png'
+import { isPublicFacilityPlace } from '../utils/placeVisibility'
 
 const loading = ref(false)
 const loadingTypeOptions = ref(false)
 const destinations = ref([])
 const results = ref([])
 const facilityTypeOptions = ref([])
+const startPlaces = ref([])
 
 const form = ref({
   fromDestinationId: null,
+  fromNodeId: null,
   type: '',
   keyword: '',
   maxDistanceMeters: 1000,
@@ -25,6 +28,7 @@ const selectedDestination = computed(() => {
 })
 
 const selectedDestinationName = computed(() => selectedDestination.value?.name || '未选择')
+const selectedStartPlace = computed(() => startPlaces.value.find((place) => place.nearestNodeId === form.value.fromNodeId))
 
 const preferredStartNames = ['北京邮电大学沙河校区', '北京邮电大学']
 
@@ -56,7 +60,9 @@ const loadFacilityTypeOptions = async (keyword = '') => {
   loadingTypeOptions.value = true
   try {
     const { data } = await listFacilityTypes(keyword.trim(), 80, currentSceneType())
-    facilityTypeOptions.value = Array.isArray(data) ? data.filter(Boolean) : []
+    facilityTypeOptions.value = Array.isArray(data)
+      ? data.filter((item) => item && isPublicFacilityPlace('', item))
+      : []
   } catch (error) {
     console.error(error)
     ElMessage.error('加载设施类别失败，请稍后重试')
@@ -67,7 +73,31 @@ const loadFacilityTypeOptions = async (keyword = '') => {
 
 const handleDestinationChange = async () => {
   form.value.type = ''
+  form.value.fromNodeId = null
+  await loadStartPlaces()
   await loadFacilityTypeOptions()
+}
+
+const loadStartPlaces = async () => {
+  const destination = selectedDestination.value
+  if (!destination?.name) {
+    startPlaces.value = []
+    return
+  }
+  try {
+    const [buildings, pois] = await Promise.all([
+      listNavBuildingsBySpot(destination.name).catch(() => ({ data: [] })),
+      listNavPoisBySpot(destination.name).catch(() => ({ data: [] })),
+    ])
+    startPlaces.value = [
+      ...(Array.isArray(buildings.data) ? buildings.data : []).map((item) => ({ ...item, kind: '建筑' })),
+      ...(Array.isArray(pois.data) ? pois.data : []).map((item) => ({ ...item, kind: 'POI' })),
+    ].filter((item) => item?.nearestNodeId && isPublicFacilityPlace(item.name, item.type))
+    form.value.fromNodeId = startPlaces.value[0]?.nearestNodeId || null
+  } catch (error) {
+    console.error(error)
+    startPlaces.value = []
+  }
 }
 
 const loadDestinations = async () => {
@@ -94,12 +124,15 @@ const search = async () => {
       spotName: currentDestination.name,
       sceneType: currentSceneType(),
     }
+    if (form.value.fromNodeId) params.fromNodeId = form.value.fromNodeId
     if (form.value.type) params.type = form.value.type
     if (form.value.keyword.trim()) params.keyword = form.value.keyword.trim()
     if (form.value.maxDistanceMeters) params.maxDistanceMeters = form.value.maxDistanceMeters
 
     const { data } = await searchNearbyFacilities(params)
-    results.value = Array.isArray(data) ? data : []
+    results.value = Array.isArray(data)
+      ? data.filter((row) => isPublicFacilityPlace(row.facility?.name, row.facility?.facilityType))
+      : []
     ElMessage.success(`已找到 ${results.value.length} 个附近场所`)
   } finally {
     loading.value = false
@@ -108,6 +141,7 @@ const search = async () => {
 
 onMounted(async () => {
   await loadDestinations()
+  await loadStartPlaces()
   await loadFacilityTypeOptions()
   if (form.value.fromDestinationId) {
     await search()
@@ -141,6 +175,18 @@ onMounted(async () => {
                   :key="destination.id"
                   :label="`${destination.name}（ID: ${destination.id}）`"
                   :value="destination.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :md="12" :xs="24">
+            <el-form-item label="当前位置">
+              <el-select v-model="form.fromNodeId" class="full-width" clearable placeholder="选择建筑或 POI">
+                <el-option
+                  v-for="place in startPlaces"
+                  :key="`${place.kind}-${place.nearestNodeId}-${place.name}`"
+                  :label="`${place.name}（${place.kind}）`"
+                  :value="place.nearestNodeId"
                 />
               </el-select>
             </el-form-item>
@@ -185,7 +231,7 @@ onMounted(async () => {
         </el-row>
 
         <div class="toolbar">
-          <el-tag type="info" effect="plain">当前起点：{{ selectedDestinationName }}</el-tag>
+          <el-tag type="info" effect="plain">当前起点：{{ selectedStartPlace?.name || selectedDestinationName }}</el-tag>
           <div class="toolbar-actions">
             <el-button @click="loadDestinations">
               <Refresh theme="outline" size="16" fill="currentColor" />

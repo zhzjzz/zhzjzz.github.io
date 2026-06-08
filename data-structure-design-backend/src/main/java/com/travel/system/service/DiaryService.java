@@ -109,6 +109,19 @@ public class DiaryService {
         return diaryRepository.findByTitleOrContentContainingIgnoreCase(keyword, 20);
     }
 
+    public List<Diary> byDestination(String keyword, int limit) {
+        String normalized = keyword == null ? "" : keyword.trim();
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+        return diaryRepository.findByDestinationKeyword(normalized, Math.max(1, Math.min(limit, 20)));
+    }
+
+    public Diary findExactTitle(String title) {
+        String normalized = title == null ? "" : title.trim();
+        return normalized.isEmpty() ? null : diaryRepository.findByExactTitle(normalized);
+    }
+
     public List<Diary> hot(int limit) {
         return diaryRepository.findHotPublic(Math.max(1, Math.min(limit, 20)));
     }
@@ -123,6 +136,22 @@ public class DiaryService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found: " + id);
         }
         return diary;
+    }
+
+    public Diary rate(Long id, Double score) {
+        Diary diary = detail(id);
+        double normalizedScore = Math.max(1.0, Math.min(score == null ? 5.0 : score, 5.0));
+        diary.setScore(normalizedScore);
+        diary.setHeatScore(heatService.compute(diary));
+        diaryRepository.updateScore(id, diary.getScore(), diary.getHeatScore());
+        return diaryRepository.findById(id);
+    }
+
+    public Diary generateAigcImage(Long id) {
+        Diary diary = detail(id);
+        aigcService.enrichAnimation(diary);
+        diaryRepository.save(diary);
+        return diaryRepository.findById(id);
     }
 
     public Diary interact(Long id, String type) {
