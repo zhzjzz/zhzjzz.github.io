@@ -48,10 +48,14 @@ const loading = ref(false)
 const submitting = ref(false)
 const searchKeyword = ref('')
 const searchMode = ref('fullText')
+const rankingMode = ref('recommend')
+const destinationSort = ref('recommend')
+const interestKeyword = ref('')
 const selectedDiaryId = ref(null)
 const selectedMediaName = ref('')
 const mediaPreview = ref('')
 const selectedDiaryImageUrl = ref('')
+const expandedCommentDiaryIds = ref({})
 const diaryImageUrlCache = new Map()
 const detailRequests = new Map()
 const commentForm = ref({ authorName: '游客', content: '' })
@@ -77,11 +81,69 @@ const form = ref({
   isPublic: true,
 })
 
+const rankingOptions = [
+  { label: '综合推荐', value: 'recommend' },
+  { label: '热度排序', value: 'heat' },
+  { label: '评分排序', value: 'score' },
+  { label: '兴趣推荐', value: 'interest' },
+]
+
+const destinationSortOptions = [
+  { label: '综合推荐', value: 'recommend' },
+  { label: '热度优先', value: 'heat' },
+  { label: '评分优先', value: 'score' },
+]
+
 const selectedDiary = computed(() => {
   if (!selectedDiaryId.value) return diaries.value[0] || null
   return diaryDetailCache.value.get(selectedDiaryId.value) || diaries.value.find((item) => item.id === selectedDiaryId.value) || diaries.value[0] || null
 })
 const canDeleteSelectedDiary = computed(() => Boolean(selectedDiary.value?.id && appStore.user.name))
+const searchPlaceholder = computed(() => {
+  if (searchMode.value === 'destination') return '输入旅游目的地，如故宫、颐和园'
+  if (searchMode.value === 'exactTitle') return '输入完整日记标题'
+  return '搜索标题或内容，留空查看推荐流'
+})
+const primaryActionLabel = computed(() => (searchKeyword.value.trim() ? '搜索' : '应用推荐'))
+const activeInterestKeyword = computed(() => interestKeyword.value.trim() || '美食')
+const feedSummaryLabel = computed(() => {
+  if (searchMode.value === 'destination' && searchKeyword.value.trim()) {
+    const currentSort = destinationSortOptions.find((item) => item.value === destinationSort.value)?.label || '综合推荐'
+    return `目的地“${searchKeyword.value.trim()}” · ${currentSort}`
+  }
+  const currentRanking = rankingOptions.find((item) => item.value === rankingMode.value)?.label || '综合推荐'
+  if (rankingMode.value === 'interest') {
+    return `${currentRanking} · ${activeInterestKeyword.value}`
+  }
+  return currentRanking
+})
+const isSearchResultsMode = computed(() => Boolean(searchKeyword.value.trim()))
+const searchRankingLabel = computed(() => {
+  if (searchMode.value === 'destination') {
+    return destinationSortOptions.find((item) => item.value === destinationSort.value)?.label || '综合推荐'
+  }
+  return rankingOptions.find((item) => item.value === rankingMode.value)?.label || '综合推荐'
+})
+const showInterestInput = computed(() => !searchKeyword.value.trim() && searchMode.value === 'fullText')
+const COMMENT_PREVIEW_LIMIT = 15
+const selectedDiaryComments = computed(() => {
+  const diaryId = selectedDiary.value?.id
+  if (!diaryId) return []
+  const items = comments.value[diaryId] || []
+  if (expandedCommentDiaryIds.value[diaryId]) {
+    return items
+  }
+  return items.slice(0, COMMENT_PREVIEW_LIMIT)
+})
+const hasMoreSelectedDiaryComments = computed(() => {
+  const diaryId = selectedDiary.value?.id
+  if (!diaryId) return false
+  return (comments.value[diaryId] || []).length > COMMENT_PREVIEW_LIMIT
+})
+const selectedDiaryCommentsExpanded = computed(() => {
+  const diaryId = selectedDiary.value?.id
+  return Boolean(diaryId && expandedCommentDiaryIds.value[diaryId])
+})
 
 const cacheDiary = (diary) => {
   if (!diary?.id) return null
@@ -130,7 +192,14 @@ const load = async () => {
   loading.value = true
   try {
     const previousId = selectedDiaryId.value
-    const [{ data: diaryData }, { data: hotData }] = await Promise.all([listDiaries(), listHotDiaries(6)])
+    const diaryParams = {
+      limit: 20,
+      sort: rankingMode.value,
+    }
+    if (rankingMode.value === 'interest' || interestKeyword.value.trim()) {
+      diaryParams.interest = activeInterestKeyword.value
+    }
+    const [{ data: diaryData }, { data: hotData }] = await Promise.all([listDiaries(diaryParams), listHotDiaries(6)])
     diaries.value = Array.isArray(diaryData) ? diaryData : []
     hotDiaries.value = Array.isArray(hotData) ? hotData : []
     seedDiaryCache(diaries.value)
@@ -271,13 +340,14 @@ const fullText = async () => {
     const keyword = searchKeyword.value.trim()
     let response
     if (searchMode.value === 'destination') {
-      response = await searchDiariesByDestination(keyword)
+      response = await searchDiariesByDestination(keyword, destinationSort.value, 20)
       diaries.value = Array.isArray(response.data) ? response.data : []
     } else if (searchMode.value === 'exactTitle') {
       response = await searchDiaryExactTitle(keyword)
       diaries.value = response.data ? [response.data] : []
     } else {
-      response = await searchDiaryFullText(keyword)
+      const searchInterest = rankingMode.value === 'interest' || interestKeyword.value.trim() ? activeInterestKeyword.value : ''
+      response = await searchDiaryFullText(keyword, rankingMode.value, searchInterest, 20)
       diaries.value = Array.isArray(response.data) ? response.data : []
     }
     seedDiaryCache(diaries.value)
@@ -300,8 +370,27 @@ const applyRouteKeyword = async () => {
     await load()
     return
   }
+  searchMode.value = 'fullText'
   searchKeyword.value = keyword
   await fullText()
+}
+
+const resetFilters = async () => {
+  searchKeyword.value = ''
+  searchMode.value = 'fullText'
+  destinationSort.value = 'recommend'
+  rankingMode.value = 'recommend'
+  interestKeyword.value = ''
+  await load()
+}
+
+const toggleSelectedDiaryComments = () => {
+  const diaryId = selectedDiary.value?.id
+  if (!diaryId) return
+  expandedCommentDiaryIds.value = {
+    ...expandedCommentDiaryIds.value,
+    [diaryId]: !expandedCommentDiaryIds.value[diaryId],
+  }
 }
 
 const selectDiary = async (diary) => {
@@ -331,6 +420,7 @@ const loadDiaryDetail = async (id) => {
 const removeCachedDiary = (id) => {
   diaryDetailCache.value.delete(id)
   commentCache.value.delete(id)
+  delete expandedCommentDiaryIds.value[id]
   delete comments.value[id]
   comments.value = { ...comments.value }
   const cachedImageUrl = diaryImageUrlCache.get(id)
@@ -437,6 +527,10 @@ const submitComment = async (diary) => {
   })
   commentForm.value = { authorName: '游客', content: '' }
   commentCache.value.delete(diary.id)
+  expandedCommentDiaryIds.value = {
+    ...expandedCommentDiaryIds.value,
+    [diary.id]: true,
+  }
   await loadComments(diary)
   await load()
 }
@@ -472,6 +566,16 @@ const compressionStatusText = (status) => {
   if (status === 'already_optimal') return '已是压缩格式'
   if (status === 'lossless_optimized') return '旧版模拟优化'
   return status || 'none'
+}
+
+const aigcLinkText = (diary) => {
+  const raw = diary?.aigcAnimationUrl || ''
+  if (!raw) return '等待生成'
+  if (/^https?:\/\//i.test(raw)) {
+    return '已生成旅行图链接'
+  }
+  const compact = raw.split('/').filter(Boolean).pop() || raw
+  return compact.length > 36 ? `${compact.slice(0, 36)}...` : compact
 }
 
 const shareLink = (diary) => {
@@ -721,7 +825,7 @@ onBeforeUnmount(() => {
           <div class="toolbar-copy">
             <p class="section-kicker">Discovery Feed</p>
             <h2>灵感流</h2>
-            <span>{{ diaries.length }} 篇日记</span>
+            <span>{{ diaries.length }} 篇日记 · {{ feedSummaryLabel }}</span>
           </div>
           <div class="toolbar-actions">
             <el-select v-model="searchMode" class="search-mode">
@@ -729,19 +833,65 @@ onBeforeUnmount(() => {
               <el-option label="目的地" value="destination" />
               <el-option label="精确标题" value="exactTitle" />
             </el-select>
-            <el-input v-model="searchKeyword" class="search-input" placeholder="搜索标题或内容" clearable @keyup.enter="fullText" />
+            <el-input v-model="searchKeyword" class="search-input" :placeholder="searchPlaceholder" clearable @keyup.enter="fullText" />
+            <el-select v-if="searchMode === 'destination'" v-model="destinationSort" class="sort-mode">
+              <el-option v-for="item in destinationSortOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-select v-else v-model="rankingMode" class="sort-mode">
+              <el-option v-for="item in rankingOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-input
+              v-if="showInterestInput"
+              v-model="interestKeyword"
+              class="interest-input"
+              placeholder="输入兴趣，如自然/历史/美食；留空默认美食"
+              clearable
+              @keyup.enter="fullText"
+            />
             <el-button type="primary" @click="fullText">
               <Search theme="outline" size="16" fill="currentColor" />
-              搜索
+              {{ primaryActionLabel }}
             </el-button>
-            <el-button @click="load">
+            <el-button @click="resetFilters">
               <Refresh theme="outline" size="16" fill="currentColor" />
               重置
             </el-button>
           </div>
         </section>
 
-        <section class="diary-flow reveal-in" v-loading="loading">
+        <section v-if="isSearchResultsMode" class="search-ranking-panel reveal-in" v-loading="loading">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Search Ranking</p>
+              <h2>搜索排行榜</h2>
+            </div>
+            <span>{{ searchRankingLabel }}</span>
+          </div>
+          <div class="search-ranking-list">
+            <button
+              v-for="(item, index) in diaries"
+              :key="item.id"
+              type="button"
+              class="hot-note-card search-ranking-card"
+              :class="{ active: selectedDiary?.id === item.id }"
+              @click="selectDiary(item)"
+            >
+              <span class="ranking-index">#{{ index + 1 }}</span>
+              <img :src="diaryPreviewCover(item)" :alt="item.title || '搜索结果封面'" loading="lazy" />
+              <div class="hot-note-card__body">
+                <strong>{{ item.title }}</strong>
+                <small>{{ diaryDestinationName(item) }} · 综合评分 {{ Number(item.score || 0).toFixed(1) }}</small>
+              </div>
+              <span class="heat-pill">
+                <Like theme="outline" size="14" fill="currentColor" />
+                {{ item.likeCount || 0 }}
+              </span>
+            </button>
+            <el-empty v-if="!diaries.length && !loading" description="暂无搜索结果" />
+          </div>
+        </section>
+
+        <section v-else class="diary-flow reveal-in" v-loading="loading">
           <button
             v-for="(item, index) in diaries"
             :key="item.id"
@@ -856,6 +1006,7 @@ onBeforeUnmount(() => {
           <div class="detail-rating-row">
             <span>读后评分</span>
             <el-rate v-model="detailRating" :max="5" :allow-half="true" @change="rateSelectedDiary" />
+            <strong>综合评分 {{ Number(selectedDiary.score || 0).toFixed(1) }}</strong>
           </div>
 
           <div class="stats-grid">
@@ -875,7 +1026,7 @@ onBeforeUnmount(() => {
               <span><MagicWand theme="outline" size="15" fill="currentColor" /> AIGC 动画</span>
               <img class="metadata-cover" :src="selectedDiaryAigcImageUrl || aigcDefaultImage" alt="AIGC 旅行图" loading="lazy" />
               <strong>{{ selectedDiary.aigcStatus || 'pending' }}</strong>
-              <small>{{ selectedDiary.aigcAnimationUrl || '等待生成' }}</small>
+              <small>{{ aigcLinkText(selectedDiary) }}</small>
               <el-button class="aigc-secondary-button" size="small" :loading="generatingAigcId === selectedDiary.id" @click="generateSelectedDiaryImage">
                 <MagicWand theme="outline" size="14" fill="currentColor" />
                 生成旅行图
@@ -938,10 +1089,19 @@ onBeforeUnmount(() => {
               </el-button>
             </div>
             <div class="comment-list">
-              <article v-for="comment in comments[selectedDiary.id] || []" :key="comment.id">
+              <article v-for="comment in selectedDiaryComments" :key="comment.id">
                 <strong>{{ comment.authorName }}</strong>
                 <span>{{ comment.content }}</span>
               </article>
+              <el-button
+                v-if="hasMoreSelectedDiaryComments"
+                class="comment-toggle-button"
+                text
+                type="primary"
+                @click="toggleSelectedDiaryComments"
+              >
+                {{ selectedDiaryCommentsExpanded ? '收起评论' : '查看更多' }}
+              </el-button>
               <el-empty v-if="!(comments[selectedDiary.id] || []).length" description="暂无评论" />
             </div>
           </div>
@@ -1255,11 +1415,14 @@ onBeforeUnmount(() => {
 }
 
 .feed-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
   gap: 14px;
   padding: 18px 20px;
+}
+
+.toolbar-copy {
+  display: grid;
+  gap: 4px;
 }
 
 .toolbar-copy h2 {
@@ -1279,6 +1442,7 @@ onBeforeUnmount(() => {
 
 .toolbar-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
@@ -1289,6 +1453,14 @@ onBeforeUnmount(() => {
 
 .search-mode {
   width: 128px;
+}
+
+.sort-mode {
+  width: 136px;
+}
+
+.interest-input {
+  width: min(240px, 100%);
 }
 
 .diary-flow {
@@ -1463,6 +1635,7 @@ onBeforeUnmount(() => {
 }
 
 .side-panel,
+.search-ranking-panel,
 .detail-panel {
   padding: 20px;
 }
@@ -1476,6 +1649,16 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 12px;
   margin-top: 14px;
+}
+
+.search-ranking-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.search-ranking-list {
+  display: grid;
+  gap: 12px;
 }
 
 .hot-note-card {
@@ -1514,6 +1697,22 @@ onBeforeUnmount(() => {
   margin-top: 4px;
   color: #a7b0bf;
   font-size: 12px;
+}
+
+.search-ranking-card {
+  grid-template-columns: auto 72px minmax(0, 1fr) auto;
+}
+
+.ranking-index {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 56, 92, 0.12);
+  color: #ff8ba0;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .heat-pill {
@@ -1734,6 +1933,12 @@ onBeforeUnmount(() => {
 .comment-list {
   display: grid;
   gap: 10px;
+}
+
+.comment-toggle-button {
+  justify-self: start;
+  padding-left: 0;
+  font-weight: 800;
 }
 
 .comment-list article {

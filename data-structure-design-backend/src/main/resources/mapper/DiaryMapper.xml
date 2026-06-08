@@ -240,6 +240,17 @@
         WHERE id = #{id}
     </update>
 
+    <insert id="insertRating">
+        INSERT INTO diary_rating(diary_id, score, created_at)
+        VALUES(#{diaryId}, #{score}, #{createdAt})
+    </insert>
+
+    <select id="findAverageRatingByDiaryId" resultType="double">
+        SELECT AVG(score)
+        FROM diary_rating
+        WHERE diary_id = #{diaryId}
+    </select>
+
     <delete id="deleteCommentsByDiaryId">
         DELETE FROM diary_comment WHERE diary_id = #{diaryId}
     </delete>

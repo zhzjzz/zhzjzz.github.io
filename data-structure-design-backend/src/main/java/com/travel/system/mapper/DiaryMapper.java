@@ -49,6 +49,10 @@ public interface DiaryMapper {
 
     void updateScore(@Param("id") Long id, @Param("score") Double score, @Param("heatScore") Double heatScore);
 
+    void insertRating(@Param("diaryId") Long diaryId, @Param("score") Double score, @Param("createdAt") java.time.LocalDateTime createdAt);
+
+    Double findAverageRatingByDiaryId(@Param("diaryId") Long diaryId);
+
     void deleteCommentsByDiaryId(@Param("diaryId") Long diaryId);
 
     void deleteById(@Param("id") Long id);

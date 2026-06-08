@@ -149,6 +149,7 @@
             heat = #{heat},
             average_price = #{averagePrice},
             latitude = #{latitude},
+
             longitude = #{longitude},
             source_type = #{sourceType},
             source_id = #{sourceId},

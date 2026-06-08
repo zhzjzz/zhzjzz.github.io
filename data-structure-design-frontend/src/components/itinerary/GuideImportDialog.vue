@@ -82,7 +82,7 @@ const loadDiaries = async () => {
   try {
     const request = diaryKeyword.value.trim()
       ? searchDiaryFullText(diaryKeyword.value.trim())
-      : listDiaries(20)
+      : listDiaries({ limit: 20 })
     const { data } = await request
     diaries.value = Array.isArray(data) ? data : []
   } catch (caught) {

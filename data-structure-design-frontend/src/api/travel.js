@@ -17,13 +17,14 @@ export const listFoodCuisines = () => http.get('/foods/cuisines')
 export const listFoodPlaceAnchors = () => http.get('/foods/place-anchors')
 
 // 日记管理与全文检索接口。
-export const listDiaries = (limit = 20) => http.get('/diaries', { params: { limit } })
+export const listDiaries = (params = {}) => http.get('/diaries', { params: { limit: 20, ...params } })
 export const getDiary = (id) => http.get(`/diaries/${id}`)
 export const createDiary = (payload) => http.post('/diaries', payload)
 export const deleteDiary = (id) => http.delete(`/diaries/${id}`)
-export const searchDiaryFullText = (keyword, limit = 20) => http.get('/diaries/search', { params: { keyword, limit } })
-export const searchDiariesByDestination = (keyword, limit = 20) =>
-  http.get('/diaries/by-destination', { params: { keyword, limit } })
+export const searchDiaryFullText = (keyword, sort = 'recommend', interest = '', limit = 20) =>
+  http.get('/diaries/search', { params: { keyword, sort, interest, limit } })
+export const searchDiariesByDestination = (keyword, sort = 'recommend', limit = 20) =>
+  http.get('/diaries/by-destination', { params: { keyword, sort, limit } })
 export const searchDiaryExactTitle = (title) => http.get('/diaries/exact-title', { params: { title } })
 export const rateDiary = (id, score) => http.post(`/diaries/${id}/rating`, null, { params: { score } })
 export const generateDiaryAigcImage = (id) => http.post(`/diaries/${id}/aigc-image`)

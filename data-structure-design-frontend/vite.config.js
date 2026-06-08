@@ -11,9 +11,11 @@ export default defineConfig(({ mode }) => {
       global: "globalThis",
     },
     optimizeDeps: {
-      esbuildOptions: {
-        define: {
-          global: "globalThis",
+      rolldownOptions: {
+        transform: {
+          define: {
+            global: "globalThis",
+          },
         },
       },
     },

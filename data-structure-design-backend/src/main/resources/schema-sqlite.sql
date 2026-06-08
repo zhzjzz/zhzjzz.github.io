@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS diary (
     destination_id INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS diary_rating (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    diary_id INTEGER NOT NULL,
+    score REAL NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS diary_comment (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     diary_id INTEGER NOT NULL,
