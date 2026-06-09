@@ -62,6 +62,7 @@ export const listNavPoisBySpot = (spotName) => http.get('/nav/pois/by-spot', { p
 export const planSingleRoute = (payload) => http.post('/nav/route/plan', payload)
 export const planCrossSpotRoute = (payload) => http.post('/nav/route/cross-spot', payload)
 export const planMultiSpotRoute = (payload) => http.post('/nav/route/multi-spot', payload)
+export const listIndoorBuildings = () => http.get('/nav/indoor/buildings')
 export const planIndoorRoute = (payload) => http.post('/nav/indoor/plan', payload)
 export const getNavNodes = (spotName) => http.get('/nav/route/nodes', { params: { spotName } })
 export const getNavEdges = (spotName) => http.get('/nav/route/edges', { params: { spotName } })

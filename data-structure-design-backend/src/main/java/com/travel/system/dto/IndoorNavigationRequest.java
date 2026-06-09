@@ -8,7 +8,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class IndoorNavigationRequest {
-    private String buildingName;
-    private String from;
-    private String to;
+    private String buildingId;
+    private String fromNodeId;
+    private String toNodeId;
+    private String strategy;
 }
