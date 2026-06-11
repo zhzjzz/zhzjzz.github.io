@@ -41,6 +41,7 @@ const nodeLoading = ref(false)
 const routeResult = ref(null)
 const indoorResult = ref(null)
 const indoorBuildings = ref([])
+const indoorExpanded = ref(true)
 const selectedIndoorFloor = ref(null)
 const strategy = ref('SHORTEST_TIME')
 const optimizeVisitOrder = ref(true)
@@ -667,6 +668,9 @@ onBeforeUnmount(() => {
             <p>模拟教学楼、景区博物馆和游客中心内部结构，覆盖大门到电梯、楼层间电梯、楼层内到房间。</p>
           </div>
           <div class="indoor-demo-buttons">
+            <el-button class="indoor-toggle-button" @click="indoorExpanded = !indoorExpanded">
+              {{ indoorExpanded ? '收起演示' : '展开演示' }}
+            </el-button>
             <el-button
               v-for="building in indoorBuildings"
               :key="building.id"
@@ -678,7 +682,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="indoor-form-grid">
+        <div v-show="indoorExpanded" class="indoor-form-grid">
           <label class="field-label indoor-field">
             演示建筑
             <el-select v-model="indoorForm.buildingId" class="full-width" @change="onIndoorBuildingChange">
@@ -718,7 +722,7 @@ onBeforeUnmount(() => {
           </el-button>
         </div>
 
-        <section v-if="selectedIndoorBuilding" class="indoor-map-board">
+        <section v-if="indoorExpanded && selectedIndoorBuilding" class="indoor-map-board">
           <div class="indoor-map-title">
             <strong>立体楼层导航图</strong>
             <span>左侧点击楼层切换视角；右侧放大显示该层地点、通道和 Dijkstra 最短路径。</span>
@@ -801,7 +805,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <div v-if="indoorResult" class="indoor-result">
+        <div v-if="indoorExpanded && indoorResult" class="indoor-result">
           <div class="indoor-result-title">
             <strong>{{ indoorResult.buildingName }}</strong>
             <span>{{ indoorResult.fromName }} → {{ indoorResult.toName }}</span>
@@ -1020,6 +1024,10 @@ onBeforeUnmount(() => {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.indoor-toggle-button {
+  min-width: 92px;
 }
 
 .indoor-form-grid {
