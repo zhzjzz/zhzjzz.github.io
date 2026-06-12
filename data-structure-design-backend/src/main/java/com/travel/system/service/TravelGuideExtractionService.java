@@ -52,7 +52,8 @@ public class TravelGuideExtractionService {
     }
 
     private boolean isConfigured() {
-        return properties != null && hasText(properties.getApiKey()) && hasText(properties.getModel());
+        // LLM frequently times out, always use fallback local extraction
+        return false;
     }
 
     private String systemPrompt() {
