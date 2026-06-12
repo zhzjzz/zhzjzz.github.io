@@ -65,6 +65,7 @@ public class FacilitySearchService {
                                                   String spotName,
                                                   String sceneType) {
         List<Facility> facilities = facilityMapper.findAll();
+        Map<Long, Double> walkingDistances = routeDistancesFrom(fromNodeId, spotName);
 
         return facilities.stream()
                 .filter(FacilitySearchService::isVisibleFacility)
@@ -72,7 +73,7 @@ public class FacilitySearchService {
                 .filter(facility -> matchesSceneType(facility, sceneType))
                 .filter(facility -> matchesFacilityType(facility, facilityType))
                 .filter(facility -> matchesKeyword(facility, keyword))
-                .map(facility -> toResult(facility, fromLat, fromLon, fromNodeId, spotName))
+                .map(facility -> toResult(facility, fromLat, fromLon, walkingDistances))
                 .filter(Objects::nonNull)
                 .filter(result -> maxDistanceMeters == null || result.getDistanceMeters() <= maxDistanceMeters)
                 .sorted(Comparator.comparingDouble(FacilityQueryResult::getDistanceMeters))
@@ -118,11 +119,14 @@ public class FacilitySearchService {
      * 将 Facility 实体转换为前端查询结果 DTO，并在传入用户位置时计算距离。
 
      */
-    private FacilityQueryResult toResult(Facility facility, Double fromLat, Double fromLon, Long fromNodeId, String spotName) {
+    private FacilityQueryResult toResult(Facility facility,
+                                         Double fromLat,
+                                         Double fromLon,
+                                         Map<Long, Double> walkingDistances) {
         if (fromLat == null || fromLon == null) {
             return null;
         }
-        Double routeDistance = routeDistanceMeters(facility, fromNodeId, spotName);
+        Double routeDistance = routeDistanceMeters(facility, walkingDistances);
         if (routeDistance != null && Double.isFinite(routeDistance)) {
             return new FacilityQueryResult(facility, routeDistance);
         }
@@ -134,17 +138,24 @@ public class FacilitySearchService {
         return new FacilityQueryResult(facility, distanceMeters);
     }
 
-    private Double routeDistanceMeters(Facility facility, Long fromNodeId, String spotName) {
-        if (fromNodeId == null || facility.getSourceNearestNodeId() == null || navigationDataService == null) {
-            return null;
+    private Map<Long, Double> routeDistancesFrom(Long fromNodeId, String spotName) {
+        if (fromNodeId == null || navigationDataService == null) {
+            return Map.of();
         }
         Map<Long, List<RoadEdge>> graph = navigationDataService.buildAdjacencyList(spotName);
-        return shortestRouteDistance(graph, fromNodeId, facility.getSourceNearestNodeId());
+        return shortestRouteDistances(graph, fromNodeId);
     }
 
-    private Double shortestRouteDistance(Map<Long, List<RoadEdge>> graph, Long startNodeId, Long targetNodeId) {
-        if (graph == null || startNodeId == null || targetNodeId == null) {
+    private Double routeDistanceMeters(Facility facility, Map<Long, Double> walkingDistances) {
+        if (facility.getSourceNearestNodeId() == null || walkingDistances.isEmpty()) {
             return null;
+        }
+        return walkingDistances.get(facility.getSourceNearestNodeId());
+    }
+
+    private Map<Long, Double> shortestRouteDistances(Map<Long, List<RoadEdge>> graph, Long startNodeId) {
+        if (graph == null || startNodeId == null) {
+            return Map.of();
         }
         Map<Long, Double> distances = new HashMap<>();
         PriorityQueue<NodeDistance> queue = new PriorityQueue<>(Comparator.comparingDouble(NodeDistance::distance));
@@ -155,21 +166,22 @@ public class FacilitySearchService {
             if (current.distance() > distances.getOrDefault(current.nodeId(), Double.POSITIVE_INFINITY)) {
                 continue;
             }
-            if (current.nodeId().equals(targetNodeId)) {
-                return current.distance();
-            }
             for (RoadEdge edge : graph.getOrDefault(current.nodeId(), List.of())) {
                 if (edge.getV() == null) {
                     continue;
                 }
-                double nextDistance = current.distance() + (edge.getLength() == null ? 0.0 : edge.getLength());
+                double edgeLength = edge.getLength() == null ? 0.0 : edge.getLength();
+                if (!Double.isFinite(edgeLength) || edgeLength < 0) {
+                    continue;
+                }
+                double nextDistance = current.distance() + edgeLength;
                 if (nextDistance < distances.getOrDefault(edge.getV(), Double.POSITIVE_INFINITY)) {
                     distances.put(edge.getV(), nextDistance);
                     queue.offer(new NodeDistance(edge.getV(), nextDistance));
                 }
             }
         }
-        return null;
+        return distances;
     }
 
     /**
