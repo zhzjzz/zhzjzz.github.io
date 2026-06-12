@@ -13,6 +13,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class FacilitySearchServiceTest {
@@ -65,6 +67,7 @@ class FacilitySearchServiceTest {
 
         assertThat(results).extracting(result -> result.getFacility().getName())
                 .containsExactly("Route Near Toilet", "Straight Near Shop");
+        verify(navigationDataService, times(1)).buildAdjacencyList("Campus");
     }
 
     @Test
