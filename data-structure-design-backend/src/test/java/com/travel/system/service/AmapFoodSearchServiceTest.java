@@ -5,6 +5,7 @@ import com.travel.system.mapper.FoodMapper;
 import com.travel.system.model.Food;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,5 +62,35 @@ class AmapFoodSearchServiceTest {
         assertThat(food.getSourceType()).isEqualTo("amap-live");
         assertThat(food.getSourceId()).isEqualTo("B000A8UIN8");
         assertThat(food.getDistanceMeters()).isEqualTo(120d);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void keepsAmapChineseRestaurantWhenFilteringByLocalBeijingCuisine() throws Exception {
+        Food liveFood = new Food();
+        liveFood.setName("AMap Chinese Restaurant");
+        liveFood.setCuisine("\u4e2d\u9910\u5385");
+        liveFood.setDistanceMeters(120d);
+
+        Method sortAndFilter = AmapFoodSearchService.class.getDeclaredMethod(
+                "sortAndFilter",
+                List.class,
+                String.class,
+                String.class,
+                Double.class,
+                Double.class
+        );
+        sortAndFilter.setAccessible(true);
+
+        List<Food> filtered = (List<Food>) sortAndFilter.invoke(
+                service,
+                List.of(liveFood),
+                "\u4eac\u83dc",
+                "distance",
+                null,
+                null
+        );
+
+        assertThat(filtered).containsExactly(liveFood);
     }
 }

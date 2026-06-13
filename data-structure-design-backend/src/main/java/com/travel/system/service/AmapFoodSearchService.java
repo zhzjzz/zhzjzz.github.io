@@ -21,9 +21,11 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class AmapFoodSearchService {
@@ -208,11 +210,11 @@ public class AmapFoodSearchService {
                                      String sort,
                                      Double minAveragePrice,
                                      Double maxAveragePrice) {
-        String cuisineKey = placeKey(cuisineLabel(cuisine));
+        Set<String> cuisineKeys = cuisineKeys(cuisine);
         Double min = minAveragePrice == null || minAveragePrice < 0 ? null : minAveragePrice;
         Double max = maxAveragePrice == null || maxAveragePrice < 0 ? null : maxAveragePrice;
         return foods.stream()
-                .filter(food -> cuisineKey == null || cuisineKey.equals(placeKey(cuisineLabel(food.getCuisine()))))
+                .filter(food -> cuisineKeys.isEmpty() || cuisineKeys(food.getCuisine()).stream().anyMatch(cuisineKeys::contains))
                 .filter(food -> food.getAveragePrice() == null
                         || (min == null || food.getAveragePrice() >= min)
                         && (max == null || food.getAveragePrice() <= max))
@@ -329,6 +331,71 @@ public class AmapFoodSearchService {
             case "muslim", "halal", "清真", "清真菜" -> "清真菜";
             default -> normalized;
         };
+    }
+
+    private Set<String> cuisineKeys(String value) {
+        Set<String> keys = new LinkedHashSet<>();
+        addCuisineKey(keys, cuisineLabel(value));
+        addCuisineKey(keys, value);
+
+        String compact = placeKey(value);
+        if (compact == null) {
+            return keys;
+        }
+
+        if (containsAny(compact, "beijing", "jingcuisine", "\u4eac\u83dc", "\u5317\u4eac\u83dc", "\u5317\u4eac\u5c0f\u5403", "\u5730\u65b9\u83dc")) {
+            addCuisineKeys(keys, "\u4eac\u83dc", "\u4e2d\u9910", "\u9910\u996e");
+        }
+        if (containsAny(compact, "chinese", "\u4e2d\u9910", "\u4e2d\u9910\u5385", "\u4e2d\u5f0f")) {
+            addCuisineKeys(keys, "\u4eac\u83dc", "\u4e2d\u9910", "\u9910\u996e");
+        }
+        if (containsAny(compact, "coffee", "cafe", "\u5496\u5561", "\u5496\u5561\u5385")) {
+            addCuisineKeys(keys, "\u5496\u5561", "\u996e\u54c1", "\u9910\u996e");
+        }
+        if (containsAny(compact, "fastfood", "burger", "hamburger", "\u5feb\u9910", "\u5c0f\u5403", "\u6c49\u5821")) {
+            addCuisineKeys(keys, "\u5feb\u9910", "\u5c0f\u5403", "\u9910\u996e");
+        }
+        if (containsAny(compact, "dessert", "icecream", "\u751c\u54c1", "\u51b7\u996e", "\u51b0\u6dc7\u6dcb")) {
+            addCuisineKeys(keys, "\u751c\u54c1", "\u996e\u54c1", "\u9910\u996e");
+        }
+        if (containsAny(compact, "hotpot", "\u706b\u9505")) {
+            addCuisineKeys(keys, "\u706b\u9505", "\u4e2d\u9910", "\u9910\u996e");
+        }
+        if (containsAny(compact, "noodle", "\u9762\u98df", "\u9762\u9986")) {
+            addCuisineKeys(keys, "\u9762\u98df", "\u4e2d\u9910", "\u9910\u996e");
+        }
+        if (containsAny(compact, "muslim", "halal", "\u6e05\u771f")) {
+            addCuisineKeys(keys, "\u6e05\u771f\u83dc", "\u4e2d\u9910", "\u9910\u996e");
+        }
+        if (containsAny(compact, "western", "foreign", "\u897f\u9910", "\u897f\u5f0f", "\u5916\u56fd")) {
+            addCuisineKeys(keys, "\u897f\u5f0f\u7b80\u9910", "\u9910\u996e");
+        }
+        if (containsAny(compact, "restaurant", "food", "\u9910\u996e", "\u9910\u5385", "\u9910\u9986")) {
+            addCuisineKey(keys, "\u9910\u996e");
+        }
+        return keys;
+    }
+
+    private void addCuisineKeys(Set<String> keys, String... values) {
+        for (String value : values) {
+            addCuisineKey(keys, value);
+        }
+    }
+
+    private void addCuisineKey(Set<String> keys, String value) {
+        String key = placeKey(value);
+        if (key != null) {
+            keys.add(key);
+        }
+    }
+
+    private boolean containsAny(String value, String... candidates) {
+        for (String candidate : candidates) {
+            if (value.contains(candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String text(JsonNode node) {
