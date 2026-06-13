@@ -23,7 +23,9 @@ import {
   createDiary,
   createDiaryComment,
   deleteDiary,
+  createDiaryVideo,
   getDiary,
+  getDiaryVideoStatus,
   interactDiary,
   listDiaries,
   listDiaryComments,
@@ -61,12 +63,16 @@ const detailRequests = new Map()
 const commentForm = ref({ authorName: '游客', content: '' })
 const DIARY_IMAGE_MAX_EDGE = 1600
 const DIARY_IMAGE_QUALITY = 0.86
+const VIDEO_POLL_INTERVAL_MS = 2500
+const VIDEO_ACTIVE_STATUSES = new Set(['queued', 'processing'])
 const appStore = useAppStore()
 const route = useRoute()
 const router = useRouter()
 const showComposer = ref(false)
 const replicatingDiaryId = ref(null)
 const generatingAigcId = ref(null)
+const generatingVideoId = ref(null)
+const diaryVideoPollTimer = ref(null)
 const detailRating = ref(0)
 const composerRef = ref(null)
 const detailRef = ref(null)
@@ -480,6 +486,66 @@ const generateSelectedDiaryImage = async () => {
   }
 }
 
+const stopDiaryVideoPolling = () => {
+  if (diaryVideoPollTimer.value) {
+    window.clearTimeout(diaryVideoPollTimer.value)
+    diaryVideoPollTimer.value = null
+  }
+}
+
+const scheduleDiaryVideoPolling = (diaryId) => {
+  if (!diaryId) return
+  stopDiaryVideoPolling()
+  generatingVideoId.value = diaryId
+  diaryVideoPollTimer.value = window.setTimeout(() => pollDiaryVideoStatus(diaryId), VIDEO_POLL_INTERVAL_MS)
+}
+
+const pollDiaryVideoStatus = async (diaryId) => {
+  if (!diaryId) return
+  try {
+    const { data } = await getDiaryVideoStatus(diaryId)
+    cacheDiary(data)
+    const status = String(data?.aigcStatus || '').toLowerCase()
+    if (status === 'completed' || status === 'failed') {
+      stopDiaryVideoPolling()
+      generatingVideoId.value = null
+      if (status === 'completed') {
+        ElMessage.success('旅行视频已生成')
+      } else {
+        ElMessage.error('旅行视频生成失败')
+      }
+      return
+    }
+    diaryVideoPollTimer.value = window.setTimeout(() => pollDiaryVideoStatus(diaryId), VIDEO_POLL_INTERVAL_MS)
+  } catch (error) {
+    console.error(error)
+    stopDiaryVideoPolling()
+    generatingVideoId.value = null
+    ElMessage.error('查询旅行视频状态失败')
+  }
+}
+
+const generateSelectedDiaryVideo = async () => {
+  if (!selectedDiary.value?.id) return
+  stopDiaryVideoPolling()
+  generatingVideoId.value = selectedDiary.value.id
+  try {
+    const { data } = await createDiaryVideo(selectedDiary.value.id)
+    cacheDiary(data)
+    const status = String(data?.aigcStatus || '').toLowerCase()
+    if (status === 'completed' || status === 'failed') {
+      generatingVideoId.value = null
+      return
+    }
+    ElMessage.success('旅行视频任务已创建')
+    scheduleDiaryVideoPolling(selectedDiary.value.id)
+  } catch (error) {
+    console.error(error)
+    generatingVideoId.value = null
+    ElMessage.error(error?.response?.data?.message || '创建旅行视频任务失败')
+  }
+}
+
 const replicateDiaryAsItinerary = async (diary) => {
   if (!diary?.id) return
   replicatingDiaryId.value = diary.id
@@ -570,6 +636,9 @@ const compressionStatusText = (status) => {
 const aigcLinkText = (diary) => {
   const raw = diary?.aigcAnimationUrl || ''
   if (!raw) return '等待生成'
+  if (/\.(mp4|webm|mov)(\?|$)/i.test(raw)) {
+    return '已生成旅行视频链接'
+  }
   if (/^https?:\/\//i.test(raw)) {
     return '已生成旅行图链接'
   }
@@ -601,6 +670,11 @@ const aigcImageUrl = (diary) => {
 }
 
 const selectedDiaryAigcImageUrl = computed(() => aigcImageUrl(selectedDiary.value))
+const selectedDiaryVideoUrl = computed(() => {
+  const url = selectedDiary.value?.aigcAnimationUrl || ''
+  if (!url || !/\.(mp4|webm|mov)(\?|$)/i.test(url)) return ''
+  return resolveApiAssetUrl(url)
+})
 
 const diaryPreviewCover = (diary) => {
   // 优先使用上传的图片，如果没有才使用AI图片
@@ -699,9 +773,28 @@ watch(
   },
 )
 
+watch(
+  () => [selectedDiary.value?.id, selectedDiary.value?.aigcVideoId, selectedDiary.value?.aigcStatus],
+  ([diaryId, videoId, status]) => {
+    const normalizedStatus = String(status || '').toLowerCase()
+    if (diaryId && videoId && VIDEO_ACTIVE_STATUSES.has(normalizedStatus)) {
+      if (generatingVideoId.value !== diaryId || !diaryVideoPollTimer.value) {
+        scheduleDiaryVideoPolling(diaryId)
+      }
+      return
+    }
+    if (generatingVideoId.value === diaryId) {
+      stopDiaryVideoPolling()
+      generatingVideoId.value = null
+    }
+  },
+  { immediate: true },
+)
+
 onMounted(applyRouteKeyword)
 watch(() => route.query.keyword, applyRouteKeyword)
 onBeforeUnmount(() => {
+  stopDiaryVideoPolling()
   diaryImageUrlCache.forEach((imageUrl) => {
     if (imageUrl?.startsWith('blob:')) URL.revokeObjectURL(imageUrl)
   })
@@ -993,6 +1086,16 @@ onBeforeUnmount(() => {
                 热度 {{ Math.round(selectedDiary.heatScore || 0) }}
               </span>
               <el-button
+                class="video-primary-button"
+                type="primary"
+                size="large"
+                :loading="generatingVideoId === selectedDiary.id"
+                @click="generateSelectedDiaryVideo"
+              >
+                <MagicWand theme="outline" size="18" fill="currentColor" />
+                生成旅行视频
+              </el-button>
+              <el-button
                 class="aigc-primary-button"
                 type="primary"
                 size="large"
@@ -1005,6 +1108,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
+          <video v-if="selectedDiaryVideoUrl" class="detail-video-player" :src="selectedDiaryVideoUrl" controls playsinline preload="metadata"></video>
           <div class="detail-cover">
             <img
               :src="selectedDiaryAigcImageUrl || selectedDiaryImageUrl || diaryCover(selectedDiary)"
@@ -1043,6 +1147,10 @@ onBeforeUnmount(() => {
               <img class="metadata-cover" :src="selectedDiaryAigcImageUrl || aigcDefaultImage" alt="AIGC 旅行图" loading="lazy" />
               <strong>{{ selectedDiary.aigcStatus || 'pending' }}</strong>
               <small>{{ aigcLinkText(selectedDiary) }}</small>
+              <el-button class="video-secondary-button" size="small" :loading="generatingVideoId === selectedDiary.id" @click="generateSelectedDiaryVideo">
+                <MagicWand theme="outline" size="14" fill="currentColor" />
+                生成旅行视频
+              </el-button>
               <el-button class="aigc-secondary-button" size="small" :loading="generatingAigcId === selectedDiary.id" @click="generateSelectedDiaryImage">
                 <MagicWand theme="outline" size="14" fill="currentColor" />
                 生成旅行图
@@ -1786,6 +1894,26 @@ onBeforeUnmount(() => {
   box-shadow: 0 16px 34px rgba(255, 56, 92, 0.28);
 }
 
+.video-primary-button {
+  min-height: 46px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.28);
+}
+
+.video-primary-button:hover,
+.video-primary-button:focus-visible {
+  background: linear-gradient(135deg, #1d4ed8 0%, #0e7490 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 20px 42px rgba(37, 99, 235, 0.36);
+}
+
 .aigc-primary-button:hover,
 .aigc-primary-button:focus-visible {
   background: linear-gradient(135deg, #e11d48 0%, #d97706 100%);
@@ -1796,6 +1924,18 @@ onBeforeUnmount(() => {
 
 .aigc-secondary-button {
   margin-top: 10px;
+}
+
+.video-secondary-button {
+  margin-top: 10px;
+}
+
+.detail-video-player {
+  width: 100%;
+  display: block;
+  border-radius: 20px;
+  background: #05070a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .detail-cover {
