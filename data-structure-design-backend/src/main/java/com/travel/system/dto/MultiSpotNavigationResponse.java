@@ -13,6 +13,13 @@ public class MultiSpotNavigationResponse {
     private List<RouteSegment> segments;
     private Double totalDistance;
     private Double totalTime;
+    private InnovationSummary innovationSummary;
+
+    public MultiSpotNavigationResponse(List<RouteSegment> segments, Double totalDistance, Double totalTime) {
+        this.segments = segments;
+        this.totalDistance = totalDistance;
+        this.totalTime = totalTime;
+    }
 
     @Data
     @NoArgsConstructor
@@ -30,5 +37,17 @@ public class MultiSpotNavigationResponse {
         private double[] cityTransitEnd;
         private Double distance;
         private Double time;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class InnovationSummary {
+        private String travelerProfile;
+        private Boolean optimizedVisitOrder;
+        private Double originalCost;
+        private Double optimizedCost;
+        private Double savedCost;
+        private List<String> explanations;
     }
 }

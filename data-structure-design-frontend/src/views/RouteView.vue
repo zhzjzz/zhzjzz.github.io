@@ -14,6 +14,7 @@ import {
 } from '../api/travel'
 import { wgs84ToGcj02, wgs84ToGcj02Batch } from '../utils/coordTransform'
 import { isPublicFacilityPlace } from '../utils/placeVisibility'
+import { buildRouteInnovationPayload, formatInnovationSummary } from '../utils/routeInnovation'
 import routeDefaultImage from '../assets/defaults/route-default.png'
 
 const amapSecret = (import.meta.env.VITE_AMAP_SECRET || '').trim()
@@ -46,6 +47,11 @@ const selectedIndoorFloor = ref(null)
 const strategy = ref('SHORTEST_TIME')
 const optimizeVisitOrder = ref(true)
 const returnToStart = ref(true)
+const travelerProfile = ref('STANDARD')
+const avoidNodeIds = ref([])
+const congestionFromNodeId = ref(null)
+const congestionToNodeId = ref(null)
+const congestionMultiplier = ref(2)
 const visits = ref([])
 const indoorForm = ref({
   buildingId: '',
@@ -69,6 +75,7 @@ visits.value = [newVisit(), newVisit()]
 
 const totalDistanceKm = computed(() => ((routeResult.value?.totalDistance || 0) / 1000).toFixed(2))
 const totalDurationMin = computed(() => ((routeResult.value?.totalTime || 0) / 60).toFixed(1))
+const innovationLines = computed(() => formatInnovationSummary(routeResult.value?.innovationSummary))
 const selectedIndoorBuilding = computed(() => (
   indoorBuildings.value.find((building) => building.id === indoorForm.value.buildingId) || null
 ))
@@ -203,6 +210,23 @@ const formatNode = (node) => {
 }
 
 const placeLabel = (place) => `${place.name || place.nearestNodeId} · ${place.type || '地点'}`
+
+const selectedInnovationNodeIds = computed(() => new Set(
+  visits.value.flatMap((visit) => visit.nodeIds || [])
+))
+
+const innovationNodeOptions = computed(() => visits.value.flatMap((visit, visitIndex) => (
+  (visit.nodeIds || []).map((nodeId, pointIndex) => {
+    const place = visit.places.find((item) => item.nearestNodeId === nodeId)
+    const node = visit.nodes.find((item) => item.osmid === nodeId)
+    const spotName = visit.spot?.name || visit.spotInput || `景区 ${visitIndex + 1}`
+    const placeName = place ? placeLabel(place) : `路网节点 ${node ? formatNode(node) : nodeId}`
+    return {
+      value: nodeId,
+      label: `${visitIndex + 1}-${pointIndex + 1} ${spotName} · ${placeName}`,
+    }
+  })
+)))
 
 const nodeOptions = (visit) => {
   const placeOptions = visit.places
@@ -347,6 +371,22 @@ const drawSelectedMarkers = () => {
   }
 }
 
+const pruneInnovationControls = () => {
+  const selected = selectedInnovationNodeIds.value
+  avoidNodeIds.value = avoidNodeIds.value.filter((nodeId) => selected.has(nodeId))
+  if (congestionFromNodeId.value != null && !selected.has(congestionFromNodeId.value)) {
+    congestionFromNodeId.value = null
+  }
+  if (congestionToNodeId.value != null && !selected.has(congestionToNodeId.value)) {
+    congestionToNodeId.value = null
+  }
+}
+
+const onVisitNodeChange = () => {
+  drawSelectedMarkers()
+  pruneInnovationControls()
+}
+
 const refreshMapView = () => {
   if (!mapInstance.value) return
   const overlays = [...polylineLayers.value, ...markerOverlays.value].filter(Boolean)
@@ -458,6 +498,7 @@ const applyDemoScenario = async () => {
     }
     strategy.value = 'SHORTEST_TIME'
     optimizeVisitOrder.value = true
+    travelerProfile.value = 'FAMILY'
     drawSelectedMarkers()
     refreshMapView()
     ElMessage.success('演示路线已填充 3 个景点，并开启景区与地点顺序优化')
@@ -480,6 +521,7 @@ const removeVisit = (index) => {
   }
   visits.value.splice(index, 1)
   drawSelectedMarkers()
+  pruneInnovationControls()
   refreshMapView()
 }
 
@@ -495,6 +537,13 @@ const buildPayload = () => ({
   optimizeVisitOrder: optimizeVisitOrder.value,
   startNodeId: visits.value.find((visit) => visit.nodeIds?.length)?.nodeIds?.[0] || null,
   returnToStart: returnToStart.value,
+  ...buildRouteInnovationPayload({
+    travelerProfile: travelerProfile.value,
+    avoidNodeInput: avoidNodeIds.value.join(','),
+    congestionFromNodeId: congestionFromNodeId.value,
+    congestionToNodeId: congestionToNodeId.value,
+    congestionMultiplier: congestionMultiplier.value,
+  }),
   visits: visits.value
     .filter((visit) => visit.spot?.name)
     .map((visit) => ({
@@ -639,6 +688,12 @@ onBeforeUnmount(() => {
           active-text="优化景区与地点顺序"
           inactive-text="按选择顺序访问"
         />
+        <el-select v-model="travelerProfile" class="profile-select" placeholder="人群模式">
+          <el-option label="普通" value="STANDARD" />
+          <el-option label="老人友好" value="ELDERLY" />
+          <el-option label="亲子友好" value="FAMILY" />
+          <el-option label="无障碍友好" value="ACCESSIBLE" />
+        </el-select>
         <div class="toolbar-actions">
           <el-switch
             v-model="returnToStart"
@@ -658,6 +713,83 @@ onBeforeUnmount(() => {
             规划路线
           </el-button>
         </div>
+      </div>
+
+      <div class="innovation-panel">
+        <div class="innovation-copy">
+          <strong>动态避障与拥挤感知</strong>
+          <span>先点“演示模式”或在下方选地点；这里会自动出现可避让和可设为拥挤的地点。</span>
+        </div>
+        <div class="innovation-controls">
+          <label class="innovation-field">
+            <span>避让地点</span>
+            <el-select
+              v-model="avoidNodeIds"
+              class="innovation-input"
+              multiple
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="选择临时封闭的地点"
+              empty-text="请先在下方选择景区内地点"
+            >
+              <el-option
+                v-for="item in innovationNodeOptions"
+                :key="`avoid-${item.value}`"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </label>
+          <label class="innovation-field">
+            <span>拥挤路段起点</span>
+            <el-select
+              v-model="congestionFromNodeId"
+              class="innovation-input"
+              clearable
+              placeholder="选择路段起点"
+              empty-text="请先在下方选择景区内地点"
+            >
+              <el-option
+                v-for="item in innovationNodeOptions"
+                :key="`from-${item.value}`"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </label>
+          <label class="innovation-field">
+            <span>拥挤路段终点</span>
+            <el-select
+              v-model="congestionToNodeId"
+              class="innovation-input"
+              clearable
+              placeholder="选择相邻终点"
+              empty-text="请先在下方选择景区内地点"
+            >
+              <el-option
+                v-for="item in innovationNodeOptions"
+                :key="`to-${item.value}`"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </label>
+          <label class="innovation-field">
+            <span>拥挤系数</span>
+            <el-input-number
+              v-model="congestionMultiplier"
+              :min="1"
+              :max="10"
+              :step="0.5"
+              class="innovation-number compact"
+              controls-position="right"
+            />
+          </label>
+        </div>
+        <p class="innovation-hint">
+          当前可选地点 {{ innovationNodeOptions.length }} 个；拥挤系数越高，系统越倾向绕开该路段。
+        </p>
       </div>
 
       <section class="indoor-demo-panel">
@@ -856,7 +988,7 @@ onBeforeUnmount(() => {
                   collapse-tags-tooltip
                   :loading="nodeLoading"
                   placeholder="选择地点、POI 或路网节点"
-                  @change="drawSelectedMarkers"
+                  @change="onVisitNodeChange"
                 >
                   <el-option
                     v-for="item in nodeOptions(visit)"
@@ -908,6 +1040,13 @@ onBeforeUnmount(() => {
           <span><Ranking theme="outline" size="15" fill="currentColor" /> 行程段数</span>
           <strong>{{ routeStageStats.length }}</strong>
         </article>
+      </section>
+
+      <section v-if="innovationLines.length" class="innovation-summary reveal-in">
+        <strong>创新路线决策说明</strong>
+        <ul>
+          <li v-for="line in innovationLines" :key="line">{{ line }}</li>
+        </ul>
       </section>
 
       <div v-if="routeResult" class="segment-list">
@@ -982,6 +1121,119 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.profile-select {
+  width: 150px;
+}
+
+.innovation-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.38fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 56, 92, 0.11), rgba(15, 118, 110, 0.08)),
+    rgba(17, 19, 23, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 18px 42px rgba(0, 0, 0, 0.16);
+}
+
+.innovation-copy {
+  color: #f8fafc;
+  font-weight: 900;
+}
+
+.innovation-copy span {
+  display: block;
+  margin-top: 4px;
+  color: #a7b0bf;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.innovation-controls {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.15fr) minmax(150px, 0.85fr) minmax(150px, 0.85fr) 112px;
+  gap: 12px;
+  align-items: end;
+}
+
+.innovation-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.innovation-field > span {
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.innovation-input,
+.innovation-number {
+  width: 100%;
+  min-width: 0;
+}
+
+.innovation-number.compact {
+  min-width: 104px;
+}
+
+.innovation-hint {
+  grid-column: 2;
+  margin: -4px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.innovation-panel :deep(.el-input__wrapper),
+.innovation-panel :deep(.el-input-number .el-input__wrapper) {
+  min-height: 38px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset;
+}
+
+.innovation-panel :deep(.el-input__inner) {
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.innovation-panel :deep(.el-input__inner::placeholder) {
+  color: #94a3b8;
+}
+
+.innovation-panel :deep(.el-input-number__increase),
+.innovation-panel :deep(.el-input-number__decrease) {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.innovation-summary {
+  display: block;
+  margin: 0 0 18px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.innovation-summary strong {
+  color: #111827;
+  font-weight: 900;
+}
+
+.innovation-summary ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: #475569;
 }
 
 .indoor-demo-panel {
@@ -1491,8 +1743,14 @@ onBeforeUnmount(() => {
   .indoor-form-grid,
   .indoor-floor-grid,
   .indoor-map-layout,
-  .indoor-steps li {
+  .indoor-steps li,
+  .innovation-panel,
+  .innovation-controls {
     grid-template-columns: 1fr;
+  }
+
+  .innovation-hint {
+    grid-column: 1;
   }
 
   .indoor-stack {
