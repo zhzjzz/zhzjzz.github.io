@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class MultiSpotRoutePlanner {
@@ -53,6 +55,9 @@ public class MultiSpotRoutePlanner {
 
         double totalDistance = 0.0;
         double totalTime = 0.0;
+        RouteContext context = routeContext(request);
+        double originalCost = 0.0;
+        double optimizedCost = 0.0;
 
         List<VisitPlan> visitPlans = new ArrayList<>();
         for (MultiSpotNavigationRequest.SpotVisit visit : visits) {
@@ -60,7 +65,8 @@ public class MultiSpotRoutePlanner {
             Map<Long, List<RoadEdge>> adj = navigationDataService.buildAdjacencyList(visit.getSpotName());
             visitPlans.add(new VisitPlan(visit, nodes, adj));
         }
-        visitPlans = optimizeSpotOrderIfRequested(visitPlans, request.getStrategy(), request.getOptimizeVisitOrder());
+        originalCost = routePlansCost(visitPlans, request.getStrategy(), context);
+        visitPlans = optimizeSpotOrderIfRequested(visitPlans, request.getStrategy(), request.getOptimizeVisitOrder(), context);
 
         List<List<Long>> orderedVisitNodes = new ArrayList<>();
         for (int i = 0; i < visitPlans.size(); i++) {
@@ -72,8 +78,19 @@ public class MultiSpotRoutePlanner {
                     request.getStrategy(),
                     normalizeMode(visitPlan.visit().getTransportMode()),
                     request.getOptimizeVisitOrder(),
-                    startNodeId
+                    startNodeId,
+                    context
             ));
+        }
+        for (int i = 0; i < visitPlans.size(); i++) {
+            VisitPlan visitPlan = visitPlans.get(i);
+            optimizedCost += routeOrderCost(
+                    orderedVisitNodes.get(i),
+                    visitPlan.adjacency(),
+                    request.getStrategy(),
+                    visitPlan.visit().getTransportMode(),
+                    context
+            );
         }
 
         for (int i = 0; i < visitPlans.size(); i++) {
@@ -90,7 +107,8 @@ public class MultiSpotRoutePlanner {
                             currentNodes.get(j),
                             currentNodes.get(j + 1),
                             request.getStrategy(),
-                            currentMode
+                            currentMode,
+                            context
                     );
                     MultiSpotNavigationResponse.RouteSegment segment = createInnerSegment(
                             currentSpot,
@@ -127,7 +145,8 @@ public class MultiSpotRoutePlanner {
                         fromNode,
                         fromGate.getOsmid(),
                         request.getStrategy(),
-                        currentMode
+                        currentMode,
+                        context
                 );
                 MultiSpotNavigationResponse.RouteSegment exitSegment = createInnerSegment(
                         currentSpot,
@@ -152,7 +171,8 @@ public class MultiSpotRoutePlanner {
                         toGate.getOsmid(),
                         toNode,
                         request.getStrategy(),
-                        nextMode
+                        nextMode,
+                        context
                 );
                 MultiSpotNavigationResponse.RouteSegment enterSegment = createInnerSegment(
                         nextSpot,
@@ -184,7 +204,8 @@ public class MultiSpotRoutePlanner {
                             lastNode,
                             request.getStartNodeId(),
                             request.getStrategy(),
-                            lastMode
+                            lastMode,
+                            context
                     );
                     MultiSpotNavigationResponse.RouteSegment backSegment = createInnerSegment(
                             lastSpot,
@@ -206,7 +227,8 @@ public class MultiSpotRoutePlanner {
                                 lastNode,
                                 lastGate.getOsmid(),
                                 request.getStrategy(),
-                                lastMode
+                                lastMode,
+                                context
                         );
                         MultiSpotNavigationResponse.RouteSegment exitSegment = createInnerSegment(
                                 lastSpot,
@@ -231,7 +253,8 @@ public class MultiSpotRoutePlanner {
                                 firstGate.getOsmid(),
                                 request.getStartNodeId(),
                                 request.getStrategy(),
-                                firstMode
+                                firstMode,
+                                context
                         );
                         MultiSpotNavigationResponse.RouteSegment enterSegment = createInnerSegment(
                                 firstSpot,
@@ -251,12 +274,14 @@ public class MultiSpotRoutePlanner {
 
         resp.setTotalDistance(totalDistance);
         resp.setTotalTime(totalTime);
+        resp.setInnovationSummary(innovationSummary(context, originalCost, optimizedCost));
         return resp;
     }
 
     private List<VisitPlan> optimizeSpotOrderIfRequested(List<VisitPlan> visitPlans,
                                                          String strategy,
-                                                         Boolean optimizeVisitOrder) {
+                                                         Boolean optimizeVisitOrder,
+                                                         RouteContext context) {
         if (!Boolean.TRUE.equals(optimizeVisitOrder) || visitPlans.size() <= 2) {
             return visitPlans;
         }
@@ -265,7 +290,7 @@ public class MultiSpotRoutePlanner {
         VisitPlan current = remaining.remove(0);
         ordered.add(current);
         while (!remaining.isEmpty()) {
-            VisitPlan next = nearestVisitPlan(current, remaining, strategy);
+            VisitPlan next = nearestVisitPlan(current, remaining, strategy, context);
             ordered.add(next);
             remaining.remove(next);
             current = next;
@@ -273,11 +298,11 @@ public class MultiSpotRoutePlanner {
         return ordered;
     }
 
-    private VisitPlan nearestVisitPlan(VisitPlan current, List<VisitPlan> remaining, String strategy) {
+    private VisitPlan nearestVisitPlan(VisitPlan current, List<VisitPlan> remaining, String strategy, RouteContext context) {
         VisitPlan nearest = remaining.get(0);
         double bestCost = Double.POSITIVE_INFINITY;
         for (VisitPlan candidate : remaining) {
-            double cost = transitionCost(current, candidate, strategy);
+            double cost = transitionCost(current, candidate, strategy, context);
             if (cost < bestCost) {
                 bestCost = cost;
                 nearest = candidate;
@@ -286,7 +311,7 @@ public class MultiSpotRoutePlanner {
         return nearest;
     }
 
-    private double transitionCost(VisitPlan current, VisitPlan candidate, String strategy) {
+    private double transitionCost(VisitPlan current, VisitPlan candidate, String strategy, RouteContext context) {
         if (sameSpot(current.spotName(), candidate.spotName())) {
             Long fromNode = current.lastNode();
             Long toNode = candidate.firstNode();
@@ -298,7 +323,8 @@ public class MultiSpotRoutePlanner {
                     fromNode,
                     toNode,
                     strategy,
-                    normalizeMode(current.visit().getTransportMode())
+                    normalizeMode(current.visit().getTransportMode()),
+                    context
             );
             if (route.getPath() == null || route.getPath().isEmpty()) {
                 return Double.POSITIVE_INFINITY;
@@ -322,6 +348,39 @@ public class MultiSpotRoutePlanner {
 
     private double strategyCost(Double distance, Double time, String strategy) {
         return isShortestTime(strategy) ? safe(time) : safe(distance);
+    }
+
+    private double routePlansCost(List<VisitPlan> visitPlans, String strategy, RouteContext context) {
+        double total = 0.0;
+        for (VisitPlan visitPlan : visitPlans) {
+            total += routeOrderCost(
+                    visitPlan.nodes(),
+                    visitPlan.adjacency(),
+                    strategy,
+                    visitPlan.visit().getTransportMode(),
+                    context
+            );
+        }
+        return total;
+    }
+
+    private double routeOrderCost(List<Long> nodes,
+                                  Map<Long, List<RoadEdge>> adj,
+                                  String strategy,
+                                  String transportMode,
+                                  RouteContext context) {
+        if (nodes == null || nodes.size() < 2) {
+            return 0.0;
+        }
+        double total = 0.0;
+        for (int i = 0; i < nodes.size() - 1; i++) {
+            NavigationResponse route = planByStrategy(adj, nodes.get(i), nodes.get(i + 1), strategy, transportMode, context);
+            if (route.getPath() == null || route.getPath().isEmpty()) {
+                return Double.POSITIVE_INFINITY;
+            }
+            total += strategyCost(route.getTotalDistance(), route.getTotalTime(), strategy);
+        }
+        return total;
     }
 
     private boolean isShortestTime(String strategy) {
@@ -365,11 +424,12 @@ public class MultiSpotRoutePlanner {
                                               Long start,
                                               Long end,
                                               String strategy,
-                                              String transportMode) {
+                                              String transportMode,
+                                              RouteContext context) {
         String normalizedStrategy = strategy == null ? "SHORTEST_DISTANCE" : strategy.trim().toUpperCase();
         return switch (normalizedStrategy) {
-            case "SHORTEST_TIME" -> shortestTimePath(adj, start, end, transportMode);
-            default -> shortestDistancePath(adj, start, end, transportMode);
+            case "SHORTEST_TIME" -> shortestTimePath(adj, start, end, transportMode, context);
+            default -> shortestDistancePath(adj, start, end, transportMode, context);
         };
     }
 
@@ -378,7 +438,8 @@ public class MultiSpotRoutePlanner {
                                                     String strategy,
                                                     String transportMode,
                                                     Boolean optimizeVisitOrder,
-                                                    Long startNodeId) {
+                                                    Long startNodeId,
+                                                    RouteContext context) {
         if (!Boolean.TRUE.equals(optimizeVisitOrder) || nodes.size() <= 1) {
             if (startNodeId != null && !nodes.contains(startNodeId)) {
                 List<Long> withStart = new ArrayList<>();
@@ -394,7 +455,7 @@ public class MultiSpotRoutePlanner {
         ordered.add(current);
         remaining.remove(current);
         while (!remaining.isEmpty()) {
-            Long next = nearestNode(current, remaining, adj, strategy, transportMode);
+            Long next = nearestNode(current, remaining, adj, strategy, transportMode, context);
             ordered.add(next);
             remaining.remove(next);
             current = next;
@@ -406,11 +467,12 @@ public class MultiSpotRoutePlanner {
                              List<Long> remaining,
                              Map<Long, List<RoadEdge>> adj,
                              String strategy,
-                             String transportMode) {
+                             String transportMode,
+                             RouteContext context) {
         Long nearest = remaining.get(0);
         double bestDistance = Double.POSITIVE_INFINITY;
         for (Long candidate : remaining) {
-            NavigationResponse route = planByStrategy(adj, current, candidate, strategy, transportMode);
+            NavigationResponse route = planByStrategy(adj, current, candidate, strategy, transportMode, context);
             double distance = route.getPath() == null || route.getPath().isEmpty()
                     ? Double.POSITIVE_INFINITY
                     : safe(route.getTotalDistance());
@@ -422,27 +484,27 @@ public class MultiSpotRoutePlanner {
         return nearest;
     }
 
-    private NavigationResponse shortestDistancePath(Map<Long, List<RoadEdge>> adj, Long start, Long end, String mode) {
+    private NavigationResponse shortestDistancePath(Map<Long, List<RoadEdge>> adj, Long start, Long end, String mode, RouteContext context) {
         String transportMode = normalizeMode(mode);
         return dijkstra(
                 adj,
                 start,
                 end,
                 edge -> transportModeService.isVehicleAllowed(edge, transportMode)
-                        ? edgeLength(edge)
+                        ? applyRouteContext(edge, edgeLength(edge), context)
                         : Double.POSITIVE_INFINITY,
                 edge -> transportMode
         );
     }
 
-    private NavigationResponse shortestTimePath(Map<Long, List<RoadEdge>> adj, Long start, Long end, String mode) {
+    private NavigationResponse shortestTimePath(Map<Long, List<RoadEdge>> adj, Long start, Long end, String mode, RouteContext context) {
         String transportMode = normalizeMode(mode);
         return dijkstra(
                 adj,
                 start,
                 end,
                 edge -> transportModeService.isVehicleAllowed(edge, transportMode)
-                        ? transportModeService.calculateTravelTime(edge, transportMode)
+                        ? applyRouteContext(edge, transportModeService.calculateTravelTime(edge, transportMode), context)
                         : Double.POSITIVE_INFINITY,
                 edge -> transportMode
         );
@@ -619,6 +681,109 @@ public class MultiSpotRoutePlanner {
         return spotName == null ? "" : spotName.trim().toLowerCase();
     }
 
+    private RouteContext routeContext(MultiSpotNavigationRequest request) {
+        if (request == null) {
+            return RouteContext.neutral();
+        }
+        Set<Long> avoidNodeIds = request.getAvoidNodeIds() == null
+                ? Set.of()
+                : request.getAvoidNodeIds().stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<String> avoidEdgeKeys = request.getAvoidEdgeIds() == null
+                ? Set.of()
+                : request.getAvoidEdgeIds().stream().filter(Objects::nonNull).map(String::valueOf).collect(Collectors.toSet());
+        Map<String, Double> congestion = new HashMap<>();
+        if (request.getCongestionOverrides() != null) {
+            for (MultiSpotNavigationRequest.CongestionOverride override : request.getCongestionOverrides()) {
+                if (override == null || override.getFromNodeId() == null || override.getToNodeId() == null) {
+                    continue;
+                }
+                Double multiplier = override.getCongestionMultiplier();
+                congestion.put(edgeKey(override.getFromNodeId(), override.getToNodeId()), multiplier == null || multiplier <= 0 ? 1.0 : multiplier);
+            }
+        }
+        return new RouteContext(
+                normalizeProfile(request.getTravelerProfile()),
+                Boolean.TRUE.equals(request.getOptimizeVisitOrder()),
+                avoidNodeIds,
+                avoidEdgeKeys,
+                congestion
+        );
+    }
+
+    private String normalizeProfile(String profile) {
+        if (profile == null || profile.isBlank()) {
+            return "STANDARD";
+        }
+        return switch (profile.trim().toUpperCase()) {
+            case "ELDERLY", "FAMILY", "ACCESSIBLE" -> profile.trim().toUpperCase();
+            default -> "STANDARD";
+        };
+    }
+
+    private double applyRouteContext(RoadEdge edge, double baseWeight, RouteContext context) {
+        if (edge == null || context == null) {
+            return baseWeight;
+        }
+        if (context.avoidNodeIds().contains(edge.getU()) || context.avoidNodeIds().contains(edge.getV())) {
+            return Double.POSITIVE_INFINITY;
+        }
+        if (context.avoidEdgeKeys().contains(edgeKey(edge))) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double weight = baseWeight * context.congestionMultipliers().getOrDefault(edgeKey(edge), 1.0);
+        double congestion = edge.getCongestionBase() == null ? 1.0 : edge.getCongestionBase();
+        if ("ELDERLY".equals(context.travelerProfile()) && (edgeLength(edge) > 80 || congestion < 0.75)) {
+            weight *= 1.18;
+        } else if ("FAMILY".equals(context.travelerProfile()) && edgeLength(edge) > 120) {
+            weight *= 1.12;
+        } else if ("ACCESSIBLE".equals(context.travelerProfile()) && !transportModeService.isVehicleAllowed(edge, "walk")) {
+            weight *= 1.35;
+        }
+        return weight;
+    }
+
+    private MultiSpotNavigationResponse.InnovationSummary innovationSummary(RouteContext context,
+                                                                            double originalCost,
+                                                                            double optimizedCost) {
+        List<String> explanations = new ArrayList<>();
+        if (context.optimizeVisitOrder()) {
+            explanations.add("已启用少走回头路优化，系统会比较多景点访问顺序并减少折返。");
+        }
+        if (!"STANDARD".equals(context.travelerProfile())) {
+            explanations.add(switch (context.travelerProfile()) {
+                case "ELDERLY" -> "老人友好模式：优先降低长距离连续步行和高拥挤路段。";
+                case "FAMILY" -> "亲子友好模式：优先降低过长路段，方便穿插休息、餐饮和厕所。";
+                case "ACCESSIBLE" -> "无障碍友好模式：优先选择步行友好的可通行道路。";
+                default -> "标准路线模式。";
+            });
+        }
+        if (!context.avoidNodeIds().isEmpty() || !context.avoidEdgeKeys().isEmpty()) {
+            explanations.add("动态避障：已绕开临时不可通行的节点或道路。");
+        }
+        if (!context.congestionMultipliers().isEmpty()) {
+            explanations.add("拥挤感知：已对拥挤路段提高权重，优先选择更顺畅的路线。");
+        }
+        double safeOriginal = Double.isFinite(originalCost) ? originalCost : 0.0;
+        double safeOptimized = Double.isFinite(optimizedCost) ? optimizedCost : 0.0;
+        double saved = Math.max(0.0, safeOriginal - safeOptimized);
+        return new MultiSpotNavigationResponse.InnovationSummary(
+                context.travelerProfile(),
+                context.optimizeVisitOrder(),
+                safeOriginal,
+                safeOptimized,
+                saved,
+                explanations
+        );
+    }
+
+    private String edgeKey(RoadEdge edge) {
+        return edgeKey(edge.getU(), edge.getV());
+    }
+
+    private String edgeKey(Long from, Long to) {
+        return from + "->" + to;
+    }
+
     private record VisitPlan(MultiSpotNavigationRequest.SpotVisit visit,
                              List<Long> nodes,
                              Map<Long, List<RoadEdge>> adjacency) {
@@ -646,5 +811,15 @@ public class MultiSpotRoutePlanner {
     }
 
     private record NodeState(Long nodeId, double distance) {
+    }
+
+    private record RouteContext(String travelerProfile,
+                                boolean optimizeVisitOrder,
+                                Set<Long> avoidNodeIds,
+                                Set<String> avoidEdgeKeys,
+                                Map<String, Double> congestionMultipliers) {
+        static RouteContext neutral() {
+            return new RouteContext("STANDARD", false, Set.of(), Set.of(), Map.of());
+        }
     }
 }
