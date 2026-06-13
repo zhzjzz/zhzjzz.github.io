@@ -21,7 +21,7 @@ const form = ref({
   radiusMeters: 3000,
   priceRange: 'all',
   dataSource: 'amap',
-  limit: 10,
+  limit: 100,
 })
 
 const quickPlaces = ['天安门', '前门', '南锣鼓巷', '北京邮电大学']
@@ -97,7 +97,7 @@ const searchParams = () => ({
   radiusMeters: form.value.radiusMeters,
   minAveragePrice: selectedPriceRange.value.min ?? undefined,
   maxAveragePrice: selectedPriceRange.value.max ?? undefined,
-  limit: form.value.sort === 'recommend' ? Math.min(Number(form.value.limit) || 10, 10) : form.value.limit,
+  limit: Number(form.value.limit) || 100,
 })
 
 const search = async () => {
@@ -128,7 +128,7 @@ const reset = async () => {
     radiusMeters: 3000,
     priceRange: 'all',
     dataSource: 'amap',
-    limit: 10,
+    limit: 100,
   }
   await search()
 }
