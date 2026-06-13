@@ -68,7 +68,6 @@ const logout = () => {
       <span class="brand-mark">T</span>
       <span class="brand-copy">
         <strong>拾迹成行</strong>
-        <small>拾迹成行</small>
       </span>
     </button>
 
@@ -155,8 +154,7 @@ const logout = () => {
   font-weight: 900;
 }
 
-.brand-copy strong,
-.brand-copy small {
+.brand-copy strong {
   display: block;
 }
 
@@ -165,13 +163,6 @@ const logout = () => {
   font-size: 18px;
   line-height: 1;
   font-weight: 900;
-}
-
-.brand-copy small {
-  margin-top: 4px;
-  color: #a7b0bf;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .search-pill {
@@ -338,7 +329,6 @@ button:focus-visible {
     padding-right: 16px;
   }
 
-  .brand-copy small,
   .route-link {
     display: none;
   }
