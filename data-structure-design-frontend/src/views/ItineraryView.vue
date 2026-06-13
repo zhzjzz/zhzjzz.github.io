@@ -478,19 +478,17 @@ onMounted(loadInitialRows)
           <div>
             <span class="command-kicker">Live itinerary board</span>
             <h3>{{ collabRow?.name || '协作行程' }}</h3>
-            <p>{{ tacticalNodes.length }} 个真实景点 · {{ connected ? '实时在线' : connecting ? '连接中' : '离线模式' }}</p>
+            <p>{{ tacticalNodes.length }} 个真实景点 · {{ connected ? '实时在线' : connecting ? '连接中' : '在线模式' }}</p>
           </div>
           <div class="command-meta">
-            <el-tag :type="connected ? 'success' : connecting ? 'warning' : 'info'" effect="dark">
-              {{ connected ? '已连接' : connecting ? '连接中' : '未连接' }}
+            <el-tag :type="connected ? 'success' : connecting ? 'warning' : 'success'" effect="dark">
+              {{ connected ? '已连接' : connecting ? '连接中' : '已连接' }}
             </el-tag>
             <span>{{ currentEditorName }}</span>
             <small>{{ formatDateTime(collabVersion) }}</small>
           </div>
           <div class="online-strip">
-            <strong>在线协作者</strong>
             <el-tag v-for="user in onlineUsers" :key="user" size="small" effect="dark">{{ user }}</el-tag>
-            <span v-if="!onlineUsers.length" class="muted">暂无在线成员</span>
           </div>
         </div>
 
