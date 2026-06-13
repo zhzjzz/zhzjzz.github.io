@@ -66,11 +66,16 @@ class AmapFoodSearchServiceTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void keepsAmapChineseRestaurantWhenFilteringByLocalBeijingCuisine() throws Exception {
-        Food liveFood = new Food();
-        liveFood.setName("AMap Chinese Restaurant");
-        liveFood.setCuisine("\u4e2d\u9910\u5385");
-        liveFood.setDistanceMeters(120d);
+    void excludesGenericChineseRestaurantWhenFilteringByBeijingCuisine() throws Exception {
+        Food genericChinese = new Food();
+        genericChinese.setName("AMap Chinese Restaurant");
+        genericChinese.setCuisine("\u4e2d\u9910\u5385");
+        genericChinese.setDistanceMeters(120d);
+
+        Food beijingCuisine = new Food();
+        beijingCuisine.setName("AMap Beijing Cuisine Restaurant");
+        beijingCuisine.setCuisine("\u5317\u4eac\u83dc");
+        beijingCuisine.setDistanceMeters(150d);
 
         Method sortAndFilter = AmapFoodSearchService.class.getDeclaredMethod(
                 "sortAndFilter",
@@ -84,13 +89,13 @@ class AmapFoodSearchServiceTest {
 
         List<Food> filtered = (List<Food>) sortAndFilter.invoke(
                 service,
-                List.of(liveFood),
+                List.of(genericChinese, beijingCuisine),
                 "\u4eac\u83dc",
                 "distance",
                 null,
                 null
         );
 
-        assertThat(filtered).containsExactly(liveFood);
+        assertThat(filtered).containsExactly(beijingCuisine);
     }
 }
