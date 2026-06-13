@@ -582,7 +582,17 @@ const shareLink = (diary) => {
   return `${window.location.origin}${window.location.pathname}#/diaries?share=${diary.shareToken}`
 }
 
-const diaryCover = (diary) => (diary?.mediaType === 'image' && diary?.mediaUrl ? resolveApiAssetUrl(diary.mediaUrl) : diaryDefaultImage)
+const diaryCover = (diary) => {
+  if (diary?.mediaType === 'image' && diary?.mediaUrl) {
+    // 如果有缓存的blob URL，优先使用
+    if (diaryImageUrlCache.has(diary.id)) {
+      return diaryImageUrlCache.get(diary.id)
+    }
+    // 否则返回API URL，会在watch中异步转换为blob URL
+    return resolveApiAssetUrl(diary.mediaUrl)
+  }
+  return diaryDefaultImage
+}
 
 const aigcImageUrl = (diary) => {
   const url = diary?.aigcAnimationUrl || ''
@@ -592,7 +602,14 @@ const aigcImageUrl = (diary) => {
 
 const selectedDiaryAigcImageUrl = computed(() => aigcImageUrl(selectedDiary.value))
 
-const diaryPreviewCover = (diary) => aigcImageUrl(diary) || diaryCover(diary)
+const diaryPreviewCover = (diary) => {
+  // 优先使用上传的图片，如果没有才使用AI图片
+  const uploadedCover = diaryCover(diary)
+  if (uploadedCover !== diaryDefaultImage) {
+    return uploadedCover
+  }
+  return aigcImageUrl(diary) || uploadedCover
+}
 
 const revokeSelectedDiaryImage = () => {
   selectedDiaryImageUrl.value = ''

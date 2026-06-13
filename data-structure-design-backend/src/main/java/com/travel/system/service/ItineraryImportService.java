@@ -74,9 +74,6 @@ public class ItineraryImportService {
 
     public ItineraryImportCreateResponse create(ItineraryImportRequest request) {
         ItineraryImportResponse importResult = preview(request);
-        if (importResult.getSpots().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "No matched destinations found");
-        }
 
         Itinerary itinerary = new Itinerary();
         itinerary.setName(hasText(importResult.getTitle()) ? importResult.getTitle() : fallbackTitle());

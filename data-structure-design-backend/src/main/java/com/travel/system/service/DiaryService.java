@@ -93,8 +93,10 @@ public class DiaryService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid diary image", exception);
             }
             diary.setCompressedMediaUrl(null);
+        } else {
+            // 只在没有上传图片时才生成AI图片
+            aigcService.enrichAnimation(diary);
         }
-        aigcService.enrichAnimation(diary);
         diary.setHeatScore(heatService.compute(diary));
         Diary saved = diaryRepository.save(diary);
         if (creating && saved.getId() != null && saved.getScore() != null) {
