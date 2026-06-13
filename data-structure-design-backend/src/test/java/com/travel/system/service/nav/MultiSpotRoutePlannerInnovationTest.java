@@ -55,6 +55,40 @@ class MultiSpotRoutePlannerInnovationTest {
         });
     }
 
+    @Test
+    void reportsReadableChineseExplanationsForRouteInnovationOptions() {
+        NavigationDataService navigationDataService = mock(NavigationDataService.class);
+        CityRouteService cityRouteService = mock(CityRouteService.class);
+        MultiSpotRoutePlanner planner = new MultiSpotRoutePlanner(
+                navigationDataService,
+                new TransportModeService(),
+                cityRouteService
+        );
+
+        when(navigationDataService.buildAdjacencyList("Campus")).thenReturn(Map.of(
+                1L, List.of(edge(1, 2, 10), edge(1, 3, 30)),
+                2L, List.of(edge(2, 3, 10)),
+                3L, List.of()
+        ));
+        when(navigationDataService.pathToCoordinates(anyList())).thenReturn(List.of());
+
+        MultiSpotNavigationRequest request = new MultiSpotNavigationRequest(
+                "SHORTEST_DISTANCE",
+                true,
+                List.of(new MultiSpotNavigationRequest.SpotVisit("Campus", List.of(1L, 2L, 3L), "walk"))
+        );
+        request.setTravelerProfile("ELDERLY");
+        request.setAvoidNodeIds(List.of(99L));
+        request.setCongestionOverrides(List.of(new MultiSpotNavigationRequest.CongestionOverride(1L, 2L, 1.8)));
+
+        MultiSpotNavigationResponse response = planner.plan(request);
+
+        assertThat(response.getInnovationSummary().getExplanations())
+                .anyMatch(text -> text.contains("老人友好"))
+                .anyMatch(text -> text.contains("动态避障"))
+                .anyMatch(text -> text.contains("拥挤感知"));
+    }
+
     private RoadEdge edge(long from, long to, double length) {
         return new RoadEdge(from, to, "测试景区", length, 1.0, "walk,bike", null);
     }

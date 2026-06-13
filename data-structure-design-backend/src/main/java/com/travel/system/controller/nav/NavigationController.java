@@ -16,6 +16,8 @@ import com.travel.system.service.nav.NavigationDataService;
 import com.travel.system.service.nav.TransportModeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -24,6 +26,8 @@ import java.util.*;
 @RequestMapping("/api/nav/route")
 @Tag(name = "导航路径规划", description = "路线规划与节点/边查询接口")
 public class NavigationController {
+
+    private static final Logger log = LoggerFactory.getLogger(NavigationController.class);
 
     private final NavigationDataService navigationDataService;
     private final TransportModeService transportModeService;
@@ -178,7 +182,15 @@ public class NavigationController {
     @Operation(summary = "多景区多地点路线规划")
     @PostMapping("/multi-spot")
     public MultiSpotNavigationResponse multiSpotRoute(@RequestBody MultiSpotNavigationRequest request) {
-        return multiSpotRoutePlanner.plan(request);
+        MultiSpotNavigationResponse response = multiSpotRoutePlanner.plan(request);
+        log.info(
+                "multi-spot route innovation profile={}, avoidNodeCount={}, congestionOverrideCount={}, summaryGenerated={}",
+                request == null ? null : request.getTravelerProfile(),
+                request == null || request.getAvoidNodeIds() == null ? 0 : request.getAvoidNodeIds().size(),
+                request == null || request.getCongestionOverrides() == null ? 0 : request.getCongestionOverrides().size(),
+                response != null && response.getInnovationSummary() != null
+        );
+        return response;
     }
     /**
      * 返回指定景区的全部路网节点，供前端地图标点、起终点选择和调试使用。

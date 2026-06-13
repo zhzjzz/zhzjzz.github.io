@@ -274,7 +274,7 @@ public class MultiSpotRoutePlanner {
 
         resp.setTotalDistance(totalDistance);
         resp.setTotalTime(totalTime);
-        resp.setInnovationSummary(innovationSummary(context, originalCost, optimizedCost));
+        resp.setInnovationSummary(readableInnovationSummary(context, originalCost, optimizedCost));
         return resp;
     }
 
@@ -740,6 +740,40 @@ public class MultiSpotRoutePlanner {
             weight *= 1.35;
         }
         return weight;
+    }
+
+    private MultiSpotNavigationResponse.InnovationSummary readableInnovationSummary(RouteContext context,
+                                                                                    double originalCost,
+                                                                                    double optimizedCost) {
+        List<String> explanations = new ArrayList<>();
+        if (context.optimizeVisitOrder()) {
+            explanations.add("已启用少走回头路优化，系统会比较多景点访问顺序并减少折返。");
+        }
+        if (!"STANDARD".equals(context.travelerProfile())) {
+            explanations.add(switch (context.travelerProfile()) {
+                case "ELDERLY" -> "老人友好模式：优先降低长距离连续步行和高拥挤路段。";
+                case "FAMILY" -> "亲子友好模式：优先降低过长路段，方便穿插休息、餐饮和厕所。";
+                case "ACCESSIBLE" -> "无障碍友好模式：优先选择步行友好的可通行道路。";
+                default -> "标准路线模式。";
+            });
+        }
+        if (!context.avoidNodeIds().isEmpty() || !context.avoidEdgeKeys().isEmpty()) {
+            explanations.add("动态避障：已绕开临时不可通行的节点或道路。");
+        }
+        if (!context.congestionMultipliers().isEmpty()) {
+            explanations.add("拥挤感知：已对拥挤路段提高权重，优先选择更顺畅的路线。");
+        }
+        double safeOriginal = Double.isFinite(originalCost) ? originalCost : 0.0;
+        double safeOptimized = Double.isFinite(optimizedCost) ? optimizedCost : 0.0;
+        double saved = Math.max(0.0, safeOriginal - safeOptimized);
+        return new MultiSpotNavigationResponse.InnovationSummary(
+                context.travelerProfile(),
+                context.optimizeVisitOrder(),
+                safeOriginal,
+                safeOptimized,
+                saved,
+                explanations
+        );
     }
 
     private MultiSpotNavigationResponse.InnovationSummary innovationSummary(RouteContext context,
