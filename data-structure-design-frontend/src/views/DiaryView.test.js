@@ -13,7 +13,9 @@ test('diary detail renders generated AIGC image directly', () => {
 })
 
 test('diary feed preview prefers generated AIGC image', () => {
-  assert.match(source, /const diaryPreviewCover = \(diary\) => aigcImageUrl\(diary\) \|\| diaryCover\(diary\)/)
+  assert.match(source, /const diaryPreviewCover = \(diary\) => \{/)
+  assert.match(source, /const uploadedCover = diaryCover\(diary\)/)
+  assert.match(source, /return aigcImageUrl\(diary\) \|\| uploadedCover/)
   assert.match(source, /<img :src="diaryPreviewCover\(item\)" :alt="item\.title \|\| '旅游日记封面'"/)
   assert.match(source, /<img :src="diaryPreviewCover\(item\)" :alt="item\.title \|\| '热门日记封面'"/)
 })
@@ -66,5 +68,31 @@ test('search results switch to a ranking-board layout while default feed stays m
 test('aigc metadata uses compact link text instead of full raw url', () => {
   assert.match(source, /const aigcLinkText = \(diary\) =>/)
   assert.match(source, /已生成旅行图链接/)
+  assert.match(source, /已生成旅行视频链接/)
   assert.match(source, /<small>\{\{ aigcLinkText\(selectedDiary\) \}\}<\/small>/)
+})
+
+test('diary detail supports video generation and polling', () => {
+  assert.match(source, /createDiaryVideo/)
+  assert.match(source, /getDiaryVideoStatus/)
+  assert.match(source, /const generateSelectedDiaryVideo = async \(\) =>/)
+  assert.match(source, /const pollDiaryVideoStatus = async \(diaryId\) =>/)
+  assert.match(source, /const stopDiaryVideoPolling = \(\) =>/)
+  assert.match(source, /const VIDEO_POLL_INTERVAL_MS = 2500/)
+  assert.match(source, /window\.setTimeout\(\(\) => pollDiaryVideoStatus\(diaryId\), VIDEO_POLL_INTERVAL_MS\)/)
+  assert.match(source, /onBeforeUnmount\(\(\) => \{/)
+})
+
+test('existing in-progress diary video tasks resume polling on selection', () => {
+  assert.match(source, /const VIDEO_ACTIVE_STATUSES = new Set\(\['queued', 'processing'\]\)/)
+  assert.match(source, /const scheduleDiaryVideoPolling = \(diaryId\) =>/)
+  assert.match(source, /\(\) => \[selectedDiary\.value\?\.id, selectedDiary\.value\?\.aigcVideoId, selectedDiary\.value\?\.aigcStatus\]/)
+  assert.match(source, /VIDEO_ACTIVE_STATUSES\.has\(normalizedStatus\)/)
+  assert.match(source, /\{ immediate: true \}/)
+})
+
+test('completed diary video renders in the detail area', () => {
+  assert.match(source, /const selectedDiaryVideoUrl = computed\(\(\) =>/)
+  assert.match(source, /<video v-if="selectedDiaryVideoUrl" class="detail-video-player" :src="selectedDiaryVideoUrl" controls playsinline preload="metadata"><\/video>/)
+  assert.match(source, /@click="generateSelectedDiaryVideo"/)
 })

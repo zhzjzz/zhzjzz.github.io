@@ -28,6 +28,8 @@ export const searchDiariesByDestination = (keyword, sort = 'recommend', limit = 
 export const searchDiaryExactTitle = (title) => http.get('/diaries/exact-title', { params: { title } })
 export const rateDiary = (id, score) => http.post(`/diaries/${id}/rating`, null, { params: { score } })
 export const generateDiaryAigcImage = (id) => http.post(`/diaries/${id}/aigc-image`)
+export const createDiaryVideo = (id) => http.post(`/diaries/${id}/video`, null, { timeout: 120000 })
+export const getDiaryVideoStatus = (id) => http.get(`/diaries/${id}/video`, { timeout: 60000 })
 export const listHotDiaries = (limit = 6) => http.get('/diaries/hot', { params: { limit } })
 export const getSharedDiary = (token) => http.get(`/diaries/share/${token}`)
 export const interactDiary = (id, type) => http.post(`/diaries/${id}/interactions/${type}`)
