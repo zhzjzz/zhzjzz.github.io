@@ -67,8 +67,8 @@ const logout = () => {
     <button class="brand" type="button" aria-label="返回首页" @click="go('/')">
       <span class="brand-mark">T</span>
       <span class="brand-copy">
-        <strong>Travel.AI</strong>
-        <small>智能旅行助手</small>
+        <strong>拾迹成行</strong>
+        <small>拾迹成行</small>
       </span>
     </button>
 
