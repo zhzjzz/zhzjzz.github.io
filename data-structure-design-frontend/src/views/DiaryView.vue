@@ -486,7 +486,6 @@ const replicateDiaryAsItinerary = async (diary) => {
   try {
     const { data } = await createItineraryFromImport({
       sourceType: 'DIARY',
-      text: null,
       diaryId: diary.id,
       owner: appStore.user.name || diaryAuthor(diary),
     })
