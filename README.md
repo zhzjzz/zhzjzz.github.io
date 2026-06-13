@@ -1,50 +1,145 @@
-# 个性化旅游系统
+# 拾迹成行
 
-这是一个前后端分离的旅游推荐与路线规划系统。
+> 一个面向真实旅游场景的智能出行规划系统：从景点推荐、路线规划、多人协同，到旅行日记路线记忆，把分散的旅行信息整理成一条真正可执行的行程。
 
-当前项目已切换为本地 SQLite/GeoPackage 数据库，不再依赖 MySQL、H2、Docker 或 Linux 服务器部署。前端可以部署到 GitHub Pages，后端可以本地运行后通过 ngrok 暴露公网地址。
+## 项目简介
 
-## 目录结构
+**拾迹成行** 是一个前后端分离的个性化旅游系统。项目围绕“出行前规划、出行中调整、出行后回忆”三个阶段展开，提供目的地推荐、美食与设施查询、景区路线规划、多景点顺序优化、多人协同行程、旅游日记路线记忆等能力。
+
+相比普通旅游展示类项目，本系统更强调数据结构与算法在真实场景中的落地：路线不只是静态展示，而是可以根据距离、时间、拥挤程度、人群偏好和多人投票动态生成；日记也不只是文本记录，而是可以反向识别地点并生成旅行记忆。
+
+## 核心亮点
+
+- **多景点路线规划**：支持单景区、多景区、多地点路线生成。
+- **少走回头路优化**：对多地点访问顺序进行优化，减少重复折返。
+- **动态避障与拥挤感知**：支持临时封闭节点、拥挤路段权重调整，并重新计算路线。
+- **人群友好路线**：提供老人、亲子、无障碍等路线模式。
+- **多人协同决策**：通过 `must / want / avoid` 投票聚合多人偏好，生成共识路线。
+- **旅游日记路线记忆**：从日记文本中识别景点、建筑、设施，反向生成走过的路线线索。
+- **真实地图能力**：前端接入高德地图，用于地点搜索、地图展示和城市段路线绘制。
+- **课程算法落地**：项目结合 Top-K、小顶堆、Dijkstra、状态压缩 DP、2-opt、文本匹配等算法。
+
+## 技术栈
+
+### 前端
+
+- Vue 3
+- Vite
+- Vue Router
+- Pinia
+- Element Plus
+- Axios
+- 高德地图 JS API
+- SockJS / STOMP WebSocket
+
+### 后端
+
+- Java 17
+- Spring Boot 3
+- Spring Web
+- Spring Validation
+- Spring WebSocket
+- Spring Actuator
+- MyBatis
+- JPA
+- SQLite / GeoPackage
+- Swagger OpenAPI
+
+## 系统功能
+
+### 目的地与美食推荐
+
+系统支持目的地 Top10、美食推荐、评分排序、热度排序和综合评分排序。
+推荐模块使用 Top-K 思路，只维护前 K 个候选结果，避免对全部数据做完整排序。
+
+### 路线规划
+
+系统将景区路网抽象为图结构：
+
+- 景点、建筑、路口、设施作为节点；
+- 步行道、电动车道、连接关系作为边；
+- 距离、耗时、拥挤度作为边权。
+
+后端基于 Dijkstra 算法计算最短距离或最短时间路线，并支持不同交通方式和路线策略。
+
+### 多地点顺序优化
+
+当用户选择多个地点时，系统会优化访问顺序：
+
+- 小规模地点使用状态压缩 DP；
+- 大规模地点使用最近邻 + 2-opt 近似优化；
+- 返回优化前后成本对比，便于解释路线为什么这样走。
+
+### 动态避障与人群友好路线
+
+系统可以将临时封闭点、拥挤路段和人群偏好统一转化为图上的边权变化：
+
+- 封闭节点：提高或屏蔽相关边权；
+- 拥挤路段：按拥挤倍率调整耗时；
+- 老人/亲子/无障碍模式：根据出行偏好调整路线成本。
+
+这样可以复用同一套路线路径算法，同时让路线结果更贴近真实出行体验。
+
+### 多人协同行程
+
+多人同行时，每个成员可以对候选地点投票：
+
+- `must`：必须去；
+- `want`：想去；
+- `avoid`：不想去或需要避让。
+
+系统根据投票结果计算共识分，生成共同路线候选，并展示冲突点和决策解释。
+
+### 旅游日记路线记忆
+
+用户发布旅游日记后，系统可以从标题和正文中识别已知地点、建筑和设施，生成“我走过的路线记忆”。
+这一功能让旅行记录从静态文本变成可复盘的空间轨迹。
+
+## 算法与数据结构
+
+| 模块 | 核心算法 / 数据结构 | 说明 |
+| --- | --- | --- |
+| 景点 / 美食推荐 | 小顶堆 Top-K | 从候选集中选出前 K 个推荐项 |
+| 单点路线规划 | 邻接表 + Dijkstra | 计算景区内最短距离或最短时间 |
+| 多地点顺序优化 | 状态压缩 DP / 最近邻 + 2-opt | 减少多点游览回头路 |
+| 动态避障 | 边权调整 | 将封闭、拥挤转化为路线成本变化 |
+| 人群友好路线 | 用户画像加权 | 根据老人、亲子、无障碍偏好调整路线 |
+| 多人协同 | 加权投票 + 排序 | 聚合多人偏好生成共识路线 |
+| 路线记忆 | 文本匹配 + 去重集合 | 从日记文本反向识别地点轨迹 |
+
+## 项目结构
 
 ```text
-data-structure-design-frontend/   Vue 3 + Vite 前端
-data-structure-design-backend/    Java 17 + Spring Boot 后端
-docs/                             文档资料
+.
+├── data-structure-design-frontend/   # Vue 3 + Vite 前端
+├── data-structure-design-backend/    # Java 17 + Spring Boot 后端
+├── docs/                             # 项目文档与周报
+├── 验收/                              # 验收材料、算法分析、产品说明
+└── README.md
 ```
 
-## 核心功能
+## 本地运行
 
-- 目的地推荐 Top10
-- 按评分、热度、综合得分推荐目的地
-- 场所查询，数据来自 SQLite 中的 `buildings` 和 `pois`
-- 景区内导航，支持最短距离和最优时间
-- 多景区多地点路线规划
-- 跨景区城市段使用高德实际道路导航绘制
-- 同一景区内支持步行和电动车，电动车内部按数据库 `bike` 规则计算
-- 旅游日记、行程、用户登录等基础功能
+### 后端启动
 
-## 后端启动
-
-### 环境要求
+环境要求：
 
 - JDK 17+
 - Maven 3.8+
-- 数据库文件：`data-structure-design-backend/data/tourism_system.gpkg`
-
-### 启动命令
+- SQLite / GeoPackage 数据库文件
 
 ```powershell
-cd D:\gitCode\zhzjzz\data-structure-design-backend
+cd data-structure-design-backend
 mvn spring-boot:run
 ```
 
-默认访问地址：
+后端默认地址：
 
 ```text
 http://localhost:8080
 ```
 
-Swagger：
+Swagger 文档：
 
 ```text
 http://localhost:8080/swagger-ui/index.html
@@ -56,66 +151,20 @@ http://localhost:8080/swagger-ui/index.html
 http://localhost:8080/actuator/health
 ```
 
-### 后端配置
+### 前端启动
 
-主要配置文件：
-
-```text
-data-structure-design-backend/src/main/resources/application.yml
-```
-
-默认数据库连接：
-
-```yaml
-spring:
-  datasource:
-    url: ${SQLITE_URL:jdbc:sqlite:data/tourism_system.gpkg}
-```
-
-如果从仓库根目录或其他目录启动，后端启动类会自动尝试查找：
-
-```text
-data/tourism_system.gpkg
-data-structure-design-backend/data/tourism_system.gpkg
-```
-
-也可以手动指定：
-
-```powershell
-$env:SQLITE_URL="jdbc:sqlite:D:/gitCode/zhzjzz/data-structure-design-backend/data/tourism_system.gpkg"
-mvn spring-boot:run
-```
-
-如果 8080 端口被占用：
-
-```powershell
-$env:SERVER_PORT="8081"
-mvn spring-boot:run
-```
-
-或关闭占用进程：
-
-```powershell
-netstat -ano | findstr :8080
-taskkill /PID <PID> /F
-```
-
-## 前端启动
-
-### 环境要求
+环境要求：
 
 - Node.js 18+
 - npm
 
-### 启动命令
-
 ```powershell
-cd D:\gitCode\zhzjzz\data-structure-design-frontend
+cd data-structure-design-frontend
 npm install
 npm run dev
 ```
 
-默认访问地址：
+前端默认地址：
 
 ```text
 http://localhost:5173
@@ -123,7 +172,7 @@ http://localhost:5173
 
 ### 前端环境变量
 
-复制模板：
+复制环境变量模板：
 
 ```powershell
 Copy-Item .env.example .env
@@ -132,195 +181,38 @@ Copy-Item .env.example .env
 `.env` 示例：
 
 ```env
-VITE_API_BASE_URL=https://your-ngrok-domain.ngrok-free.app/api
+VITE_API_BASE_URL=http://localhost:8080/api
 VITE_AMAP_KEY=your-amap-key
 VITE_AMAP_SECRET=your-amap-security-js-code
 ```
 
-说明：
+## 典型演示流程
 
-- `VITE_API_BASE_URL` 是后端 API 地址。
-- 本地开发可以用 `http://localhost:8080/api`。
-- GitHub Pages 部署时建议填 ngrok 的静态域名，例如 `https://xxx.ngrok-free.app/api`。
-- `VITE_AMAP_KEY` 和 `VITE_AMAP_SECRET` 用于高德地图。
+1. 打开首页，查看系统整体入口。
+2. 进入目的地推荐，查看 Top10 推荐结果。
+3. 进入路线规划，选择景区、起点、终点和交通方式。
+4. 开启多地点路线，展示少走回头路的顺序优化。
+5. 切换老人、亲子或无障碍模式，观察路线成本变化。
+6. 设置避让节点或拥挤路段，展示动态重算路线。
+7. 进入多人协同行程，使用 `must / want / avoid` 投票生成共识路线。
+8. 进入旅游日记，生成路线记忆，展示从文本到轨迹的转换。
 
-修改 `.env` 后必须重启前端开发服务器。
+## 项目价值
 
-## GitHub Pages 部署
+这个项目的重点不是简单完成旅游系统的增删改查，而是把数据结构课程中的图、堆、优先队列、动态规划、排序、文本匹配等知识放进一个完整的产品场景中。
 
-前端是静态站点，可以部署到 GitHub Pages。
+从工程角度看，项目具备完整的前后端分离结构、REST API、WebSocket 协同、地图服务接入、本地数据库与可运行演示流程。
+从算法角度看，项目将推荐、路径搜索、多点优化、动态权重和多人决策连接成一套可解释的智能出行方案。
 
-部署工作流文件：
+## 后续优化方向
 
-```text
-.github/workflows/deploy.yml
-```
+- 接入更大规模的真实景区和城市 POI 数据；
+- 引入实时客流、天气、道路管控等动态数据；
+- 完善用户画像与个性化推荐；
+- 增强无障碍路线数据和设施可达性判断；
+- 将日记路线记忆扩展为可复用的行程模板；
+- 增加更完整的自动化测试和性能评测报告。
 
-前端构建命令：
+## 项目关键词
 
-```powershell
-cd data-structure-design-frontend
-npm run build
-```
-
-构建产物：
-
-```text
-data-structure-design-frontend/dist
-```
-
-如果后端地址变化，需要重新构建前端，因为 Vite 的环境变量是在构建时写入的。
-
-## ngrok 后端公网访问
-
-本地启动后端后运行：
-
-```powershell
-ngrok http 8080
-```
-
-然后把 ngrok 地址写入前端 `.env`：
-
-```env
-VITE_API_BASE_URL=https://your-ngrok-domain.ngrok-free.app/api
-```
-
-不要把个人 `.env` 提交到 GitHub。提交 `.env.example` 即可。
-
-## 数据库文件
-
-默认数据库位置：
-
-```text
-data-structure-design-backend/data/tourism_system.gpkg
-```
-
-数据库中主要表：
-
-- `spots`
-- `nodes`
-- `edges`
-- `buildings`
-- `pois`
-- `city_routes`
-- `destination`
-- `diary`
-- `facility`
-- `food`
-- `itinerary`
-- `user_account`
-
-如果导航没有节点或路线，优先检查：
-
-```sql
-SELECT DISTINCT spot_name FROM nodes;
-SELECT DISTINCT spot_name FROM edges;
-SELECT * FROM buildings LIMIT 5;
-SELECT * FROM pois LIMIT 5;
-```
-
-## 导航说明
-
-### 景区内导航
-
-接口：
-
-```text
-POST /api/nav/route/plan
-```
-
-支持：
-
-- 最短距离：`SHORTEST_DISTANCE`
-- 最优时间：`SHORTEST_TIME`
-- 步行：`walk`
-- 电动车：前端显示“电动车”，后端内部使用数据库中的 `bike`
-
-### 多景区多地点导航
-
-接口：
-
-```text
-POST /api/nav/route/multi-spot
-```
-
-前端支持：
-
-- 添加多个景区
-- 每个景区选择多个地点
-- 每个景区单独选择步行或电动车
-- 景区内路线由后端 SQLite 路网规划
-- 跨景区城市段由高德 Driving 绘制实际道路路线
-
-路线顺序：
-
-- 默认按用户选择顺序访问。
-- 开启“优化景区内地点顺序”后，同一景区内会优化多个地点的访问顺序。
-- 10 个点以内使用精确动态规划。
-- 超过 10 个点使用近邻 + 2-opt 近似优化，避免耗时过长。
-
-## 常见问题
-
-### 1. 后端提示 SQLite 路径不存在
-
-确认数据库文件存在：
-
-```text
-data-structure-design-backend/data/tourism_system.gpkg
-```
-
-或者显式设置：
-
-```powershell
-$env:SQLITE_URL="jdbc:sqlite:D:/gitCode/zhzjzz/data-structure-design-backend/data/tourism_system.gpkg"
-```
-
-### 2. 端口 8080 被占用
-
-```powershell
-netstat -ano | findstr :8080
-taskkill /PID <PID> /F
-```
-
-### 3. 前端仍然请求旧 ngrok 地址
-
-修改 `.env` 后重启开发服务器：
-
-```powershell
-npm run dev
-```
-
-GitHub Pages 上则需要重新构建并部署。
-
-### 4. IDEA 反复生成旧目录 `data-structrue-design-backend`
-
-这是 IntelliJ 旧构建缓存导致的。处理方式：
-
-```text
-File -> Invalidate Caches / Restart
-```
-
-并确保 Maven 导入的是：
-
-```text
-data-structure-design-backend/pom.xml
-```
-
-### 5. 电动车没有路线
-
-数据库中电动车道路使用 `bike` 标记，例如：
-
-```text
-allowed_vehicles = walk,bike
-```
-
-前端仍显示“电动车”，后端内部会按 `bike` 进行路径规划。
-
-## 不要提交的内容
-
-- `.env`
-- 本地 IDE 缓存
-- 旧拼写目录 `data-structrue-*`
-- 临时日志文件
-
-根目录 `.gitignore` 和后端 `.gitignore` 已包含相关规则。
+`Vue3` `Spring Boot` `SQLite` `GeoPackage` `高德地图` `Dijkstra` `Top-K` `动态规划` `2-opt` `WebSocket` `智能旅游` `路线规划`
